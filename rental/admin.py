@@ -55,9 +55,27 @@ class RentalAdmin(SimpleHistoryAdmin):
     inlines = [RentalBatteryAssignmentInline, PaymentInline]
 
     readonly_fields = ("group_charges_now", "group_paid_total", "group_deposit_total", "group_balance_now", "created_by", "updated_by")
+    def batteries_count_now(self, obj):
+        tz = timezone.get_current_timezone()
+        now = timezone.now()
+        count = 0
+        for a in obj.assignments.all():
+            a_start = timezone.localtime(a.start_at, tz)
+            a_end = timezone.localtime(a.end_at, tz) if a.end_at else None
+            if a_start <= now and (a_end is None or a_end > now):
+                count += 1
+        return count
+
 
     action_form = NewVersionActionForm
     actions = ["make_new_version", "close_with_deposit"]
+    
+    def get_list_display(self, request):
+        base = list(super().get_list_display(request)) if hasattr(super(), 'get_list_display') else list(self.list_display)
+        # вставим количество батарей рядом с агрегатами
+        if "batteries_count_now" not in base:
+            base = list(self.list_display)
+        return tuple(base)
 
     def fmt_pln(self, value):
         try:
@@ -78,7 +96,10 @@ class RentalAdmin(SimpleHistoryAdmin):
     group_deposit_total.short_description = "Депозит (чистый)"
 
     def group_balance_now(self, obj):
-        return self.fmt_pln(obj.group_balance(until=timezone.now()))
+        now = timezone.now()
+        charges = obj.group_charges_until(until=now)
+        paid = obj.group_paid_total()
+        return self.fmt_pln(charges - paid)
     group_balance_now.short_description = "Баланс (сейчас)"
 
     def save_model(self, request, obj, form, change):

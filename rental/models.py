@@ -55,6 +55,8 @@ class Rental(TimeStampedModel):
     deposit_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.ACTIVE)
     battery_type = models.CharField(max_length=64, blank=True)
+    battery_count = models.PositiveIntegerField(default=0, help_text="Количество арендованных батарей")
+    battery_numbers = models.TextField(blank=True, help_text="Номера арендованных батарей")
 
     # Versioning fields (Variant B)
     parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="children")
@@ -115,28 +117,34 @@ class Rental(TimeStampedModel):
         return max(days, 0)
 
     def charges_until(self, until: timezone.datetime | None = None) -> Decimal:
-        """Charges for this version only, without rate changes inside version."""
-        from datetime import timedelta
+        """Charges for this version only, multiplied by number of assigned batteries per day.
+        Day is billable if 14:00 anchor of that day lies within [start, end).
+        """
+        from datetime import datetime, time, timedelta
         tz = timezone.get_current_timezone()
         start = timezone.localtime(self.start_at, tz)
         end = timezone.localtime(until or self.end_at or timezone.now(), tz)
         if end <= start:
             return Decimal(0)
+        # Preload assignments for this version
+        assignments = list(self.assignments.all())
         total = Decimal(0)
-        current_date = start.date()
-        while current_date < end.date() or (
-            current_date == end.date() and not (end.hour < 14 or (end.hour == 14 and end.minute == 0 and end.second == 0))
-        ):
-            is_first_day = current_date == start.date()
-            is_last_day = current_date == end.date()
-            count_day = True
-            if is_first_day and not (start.hour < 14 or (start.hour == 14 and start.minute == 0 and start.second == 0)):
-                count_day = False
-            if is_last_day and (end.hour < 14 or (end.hour == 14 and end.minute == 0 and end.second == 0)):
-                count_day = False
-            if count_day:
-                total += (self.weekly_rate or Decimal(0)) / Decimal(7)
-            current_date += timedelta(days=1)
+        d = start.date()
+        end_date = end.date()
+        while d <= end_date:
+            anchor = timezone.make_aware(datetime.combine(d, time(14, 0)), tz)
+            # Count day only if rental covers the 14:00 anchor
+            if start <= anchor and (self.end_at is None or timezone.localtime(self.end_at, tz) > anchor) and anchor <= end:
+                # number of batteries assigned at this anchor
+                cnt = 0
+                for a in assignments:
+                    a_start = timezone.localtime(a.start_at, tz)
+                    a_end = timezone.localtime(a.end_at, tz) if a.end_at else None
+                    if a_start <= anchor and (a_end is None or a_end > anchor):
+                        cnt += 1
+                if cnt:
+                    total += ((self.weekly_rate or Decimal(0)) / Decimal(7)) * Decimal(cnt)
+            d += timedelta(days=1)
         return total
 
     def group_versions(self):
