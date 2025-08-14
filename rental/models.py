@@ -209,6 +209,12 @@ class Payment(TimeStampedModel):
     note = models.TextField(blank=True)
     history = HistoricalRecords()
 
+    def save(self, *args, **kwargs):
+        # Всегда привязываем платеж к root-договору для консистентности групповых расчетов
+        if self.rental and self.rental.root_id and self.rental_id != self.rental.root_id:
+            self.rental = self.rental.root
+        super().save(*args, **kwargs)
+
 
 class ExpenseCategory(TimeStampedModel):
     name = models.CharField(max_length=64, unique=True)
