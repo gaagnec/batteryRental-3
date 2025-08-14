@@ -1,6 +1,9 @@
 from django import forms
 from django.contrib import admin, messages
 from django.contrib.admin.helpers import ActionForm
+from django.core.exceptions import ValidationError
+from django.urls import reverse
+from django.utils.html import format_html
 from django.utils import timezone
 from decimal import Decimal
 from simple_history.admin import SimpleHistoryAdmin
@@ -22,8 +25,20 @@ class BatteryAdmin(SimpleHistoryAdmin):
     search_fields = ("short_code", "serial_number")
 
 
+
+class RentalBatteryAssignmentForm(forms.ModelForm):
+    class Meta:
+        model = RentalBatteryAssignment
+        fields = "__all__"
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # при создании договора дата старта может быть пустой — заполним автоматически датой начала договора
+        if 'start_at' in self.fields:
+            self.fields['start_at'].required = False
+
 class RentalBatteryAssignmentInline(admin.TabularInline):
     model = RentalBatteryAssignment
+    form = RentalBatteryAssignmentForm
     extra = 0
     readonly_fields = ("created_by", "updated_by")
 
@@ -48,7 +63,7 @@ class NewVersionActionForm(ActionForm):
 class RentalAdmin(SimpleHistoryAdmin):
     list_display = (
         "id", "contract_code", "version", "client", "start_at", "end_at",
-        "weekly_rate", "status", "group_charges_now", "group_paid_total", "group_deposit_total", "group_balance_now"
+        "weekly_rate", "status", "assigned_batteries_short", "group_charges_now", "group_paid_total", "group_deposit_total", "group_balance_now"
     )
     list_filter = ("status",)
     search_fields = ("client__name", "contract_code")
@@ -83,6 +98,18 @@ class RentalAdmin(SimpleHistoryAdmin):
         except Exception:
             return value
 
+    def assigned_batteries_short(self, obj):
+        tz = timezone.get_current_timezone()
+        now = timezone.now()
+        codes = []
+        for a in obj.assignments.select_related('battery').all():
+            a_start = timezone.localtime(a.start_at, tz)
+            a_end = timezone.localtime(a.end_at, tz) if a.end_at else None
+            if a_start <= now and (a_end is None or a_end > now):
+                codes.append(a.battery.short_code)
+        return ", ".join(sorted(set(codes))) or "—"
+    assigned_batteries_short.short_description = "Батареи (сейчас)"
+
     def group_charges_now(self, obj):
         return self.fmt_pln(obj.group_charges_until(until=timezone.now()))
     group_charges_now.short_description = "Начислено (сейчас)"
@@ -100,6 +127,16 @@ class RentalAdmin(SimpleHistoryAdmin):
         charges = obj.group_charges_until(until=now)
         paid = obj.group_paid_total()
         return self.fmt_pln(paid - charges)
+
+        # Если в назначениях не указали start_at — задаем его как start_at договора
+        for inline_form in form.forms if hasattr(form, 'forms') else []:
+            try:
+                inst = inline_form.instance
+                if isinstance(inst, RentalBatteryAssignment) and not inst.start_at:
+                    inst.start_at = obj.start_at
+            except Exception:
+                pass
+
     group_balance_now.short_description = "Баланс (сейчас)"
 
     def save_model(self, request, obj, form, change):
@@ -139,11 +176,12 @@ class RentalAdmin(SimpleHistoryAdmin):
         for rental in queryset:
             root = rental.root or rental
             now = timezone.now()
+            # Закрываем старую версию
             if not rental.end_at or rental.end_at > now:
                 rental.end_at = now
             rental.status = Rental.Status.MODIFIED
             rental.save()
-            # Номер новой версии = количество версий в группе + 1
+            # Создаем новую версию
             try:
                 new_version_num = root.group_versions().count() + 1
             except Exception:
@@ -163,9 +201,29 @@ class RentalAdmin(SimpleHistoryAdmin):
             new_rental.created_by = request.user
             new_rental.updated_by = request.user
             new_rental.save()
+            # Переносим активные назначения батарей на новую версию, закрыв их в старой
+            tz = timezone.get_current_timezone()
+            for a in rental.assignments.all():
+                a_start = timezone.localtime(a.start_at, tz)
+                a_end = timezone.localtime(a.end_at, tz) if a.end_at else None
+                if a_end is None or a_end > now:
+                    # закрываем в старой версии
+                    if a_end is None or a_end > now:
+                        a.end_at = now
+                        a.updated_by = request.user
+                        a.save(update_fields=["end_at", "updated_by"])
+                    # создаем продолжение в новой версии, начиная сейчас
+                    RentalBatteryAssignment.objects.create(
+                        rental=new_rental,
+                        battery=a.battery,
+                        start_at=now,
+                        end_at=None,
+                        created_by=request.user,
+                        updated_by=request.user,
+                    )
             count += 1
-        self.message_user(request, f"Создано новых версий: {count}")
-    make_new_version.short_description = "Создать новую версию (начало сейчас)"
+        self.message_user(request, f"Создано новых версий: {count}; активные батареи перенесены")
+    make_new_version.short_description = "Создать новую версию (начало сейчас, с переносом батарей)"
 
     def close_with_deposit(self, request, queryset):
         closed = 0
