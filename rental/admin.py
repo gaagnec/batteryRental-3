@@ -99,7 +99,7 @@ class RentalAdmin(SimpleHistoryAdmin):
         now = timezone.now()
         charges = obj.group_charges_until(until=now)
         paid = obj.group_paid_total()
-        return self.fmt_pln(charges - paid)
+        return self.fmt_pln(paid - charges)
     group_balance_now.short_description = "Баланс (сейчас)"
 
     def save_model(self, request, obj, form, change):
