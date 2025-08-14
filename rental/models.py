@@ -71,7 +71,7 @@ class Rental(TimeStampedModel):
             if not self.root:
                 self.root = self
                 if not self.contract_code:
-                    self.contract_code = f"R-{self.pk}"
+                    self.contract_code = f"BR-{self.pk}"
             return super().save(update_fields=["root", "contract_code"])  # type: ignore
         return super().save(*args, **kwargs)
 
