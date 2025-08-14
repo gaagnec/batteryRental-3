@@ -106,6 +106,11 @@ class RentalAdmin(SimpleHistoryAdmin):
         if not change and not getattr(obj, 'created_by_id', None):
             obj.created_by = request.user
         obj.updated_by = request.user
+        # проставляем имена для Supabase
+        if hasattr(obj, 'created_by_name') and obj.created_by and not obj.created_by_name:
+            obj.created_by_name = request.user.get_full_name() or request.user.username or request.user.email
+        if hasattr(obj, 'updated_by_name'):
+            obj.updated_by_name = request.user.get_full_name() or request.user.username or request.user.email
         super().save_model(request, obj, form, change)
         
         # Отобразить человеку сразу обновленные агрегаты

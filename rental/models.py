@@ -57,6 +57,9 @@ class Rental(TimeStampedModel):
     battery_type = models.CharField(max_length=64, blank=True)
     battery_count = models.PositiveIntegerField(default=0, help_text="Количество арендованных батарей")
     battery_numbers = models.TextField(blank=True, help_text="Номера арендованных батарей")
+    # denormalized author names for Supabase UI
+    created_by_name = models.CharField(max_length=150, blank=True)
+    updated_by_name = models.CharField(max_length=150, blank=True)
 
     # Versioning fields (Variant B)
     parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="children")
@@ -86,6 +89,11 @@ class Rental(TimeStampedModel):
                 if not self.contract_code:
                     self.contract_code = f"BR-{self.pk}"
             return super().save(update_fields=["root", "contract_code"])  # type: ignore
+        # denormalize user names for Supabase: store names alongside FKs
+        if self.created_by_id and not self.created_by_name and getattr(self, 'created_by', None):
+            self.created_by_name = getattr(self.created_by, 'get_full_name', lambda: '')() or getattr(self.created_by, 'username', '') or getattr(self.created_by, 'email', '')
+        if getattr(self, 'updated_by', None):
+            self.updated_by_name = getattr(self.updated_by, 'get_full_name', lambda: '')() or getattr(self.updated_by, 'username', '') or getattr(self.updated_by, 'email', '')
         return super().save(*args, **kwargs)
 
     @property
