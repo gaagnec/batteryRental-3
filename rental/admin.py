@@ -36,6 +36,11 @@ class NewVersionActionForm(ActionForm):
     new_weekly_rate = forms.DecimalField(
         required=False, max_digits=12, decimal_places=2, label="Новая недельная ставка (PLN)"
     )
+    payment_amount = forms.DecimalField(required=False, max_digits=12, decimal_places=2, label="Сумма оплаты")
+    payment_method = forms.ChoiceField(required=False, choices=[('cash','Наличные'),('blik','BLIK'),('revolut','Revolut'),('other','Другое')], label="Метод оплаты")
+    payment_note = forms.CharField(required=False, label="Примечание к оплате")
+    deposit_return_amount = forms.DecimalField(required=False, max_digits=12, decimal_places=2, label="Сумма возврата депозита")
+    deposit_return_note = forms.CharField(required=False, label="Примечание к возврату депозита")
 
 
 @admin.register(Rental)
@@ -53,20 +58,26 @@ class RentalAdmin(SimpleHistoryAdmin):
     action_form = NewVersionActionForm
     actions = ["make_new_version", "close_with_deposit"]
 
+    def fmt_pln(self, value):
+        try:
+            return f"{value:.2f} PLN"
+        except Exception:
+            return value
+
     def group_charges_now(self, obj):
-        return obj.group_charges_until(until=timezone.now())
+        return self.fmt_pln(obj.group_charges_until(until=timezone.now()))
     group_charges_now.short_description = "Начислено (сейчас)"
 
     def group_paid_total(self, obj):
-        return obj.group_paid_total()
+        return self.fmt_pln(obj.group_paid_total())
     group_paid_total.short_description = "Оплачено (аренда)"
 
     def group_deposit_total(self, obj):
-        return obj.group_deposit_total()
+        return self.fmt_pln(obj.group_deposit_total())
     group_deposit_total.short_description = "Депозит (чистый)"
 
     def group_balance_now(self, obj):
-        return obj.group_balance(until=timezone.now())
+        return self.fmt_pln(obj.group_balance(until=timezone.now()))
     group_balance_now.short_description = "Баланс (сейчас)"
 
     def save_model(self, request, obj, form, change):
@@ -74,6 +85,9 @@ class RentalAdmin(SimpleHistoryAdmin):
             obj.created_by = request.user
         obj.updated_by = request.user
         super().save_model(request, obj, form, change)
+        
+        # Отобразить человеку сразу обновленные агрегаты
+        self.message_user(request, f"Баланс: {self.group_balance_now(obj)}; Начислено: {self.group_charges_now(obj)}; Оплачено: {self.group_paid_total(obj)}; Депозит: {self.group_deposit_total(obj)}")
 
     def save_formset(self, request, form, formset, change):
         instances = formset.save(commit=False)
@@ -104,7 +118,7 @@ class RentalAdmin(SimpleHistoryAdmin):
             rental.save()
             # Номер новой версии = количество версий в группе + 1
             try:
-                new_version_num = root.group.all().count() + 1
+                new_version_num = root.group_versions().count() + 1
             except Exception:
                 new_version_num = rental.version + 1
             new_rental = Rental(
@@ -164,6 +178,28 @@ class RentalAdmin(SimpleHistoryAdmin):
                     created_by=request.user,
                     updated_by=request.user,
                 )
+
+        # Опционально: принять оплату (аренда) сразу из формы действия
+        amt = request.POST.get("payment_amount")
+        mth = request.POST.get("payment_method")
+        note = request.POST.get("payment_note")
+        if amt:
+            try:
+                amt_dec = Decimal(amt)
+                if amt_dec != 0:
+                    Payment.objects.create(
+                        rental=root,
+                        amount=amt_dec,
+                        date=timezone.localdate(),
+                        type=Payment.PaymentType.RENT,
+                        method=mth or Payment.Method.OTHER,
+                        note=note or "",
+                        created_by=request.user,
+                        updated_by=request.user,
+                    )
+            except Exception:
+                pass
+
             closed += 1
         self.message_user(request, f"Закрыто договоров: {closed}")
     close_with_deposit.short_description = "Закрыть договор (с зачётом депозита)"
