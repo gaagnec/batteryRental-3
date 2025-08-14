@@ -63,6 +63,16 @@ class Rental(TimeStampedModel):
 
     history = HistoricalRecords()
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["root", "version"], name="uq_rental_root_version"),
+        ]
+        indexes = [
+            models.Index(fields=["root", "status"], name="idx_rental_root_status"),
+            models.Index(fields=["root"], name="idx_rental_root"),
+            models.Index(fields=["status"], name="idx_rental_status"),
+        ]
+
     def save(self, *args, **kwargs):
         # Ensure root is set to self for the first version
         if self.pk is None and not self.root:
@@ -173,6 +183,9 @@ class RentalBatteryAssignment(TimeStampedModel):
 
     class Meta:
         ordering = ["start_at", "id"]
+        indexes = [
+            models.Index(fields=["battery", "start_at"], name="idx_assign_batt_start"),
+        ]
 
 
 class Payment(TimeStampedModel):
