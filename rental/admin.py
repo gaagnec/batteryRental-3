@@ -1,4 +1,6 @@
+from django import forms
 from django.contrib import admin, messages
+from django.contrib.admin.helpers import ActionForm
 from django.utils import timezone
 from decimal import Decimal
 from simple_history.admin import SimpleHistoryAdmin
@@ -30,18 +32,45 @@ class PaymentInline(admin.TabularInline):
     extra = 0
 
 
+class NewVersionActionForm(ActionForm):
+    new_weekly_rate = forms.DecimalField(
+        required=False, max_digits=12, decimal_places=2, label="Новая недельная ставка (PLN)"
+    )
+
+
 @admin.register(Rental)
 class RentalAdmin(SimpleHistoryAdmin):
-    list_display = ("id", "contract_code", "version", "client", "start_at", "end_at", "weekly_rate", "status")
+    list_display = (
+        "id", "contract_code", "version", "client", "start_at", "end_at",
+        "weekly_rate", "status", "group_charges_now", "group_paid_total", "group_deposit_total", "group_balance_now"
+    )
     list_filter = ("status",)
     search_fields = ("client__name", "contract_code")
     inlines = [RentalBatteryAssignmentInline, PaymentInline]
 
+    readonly_fields = ("group_charges_now", "group_paid_total", "group_deposit_total", "group_balance_now")
+
+    action_form = NewVersionActionForm
     actions = ["make_new_version", "close_with_deposit"]
+
+    def group_charges_now(self, obj):
+        return obj.group_charges_until(until=timezone.now())
+    group_charges_now.short_description = "Начислено (сейчас)"
+
+    def group_paid_total(self, obj):
+        return obj.group_paid_total()
+    group_paid_total.short_description = "Оплачено (аренда)"
+
+    def group_deposit_total(self, obj):
+        return obj.group_deposit_total()
+    group_deposit_total.short_description = "Депозит (чистый)"
+
+    def group_balance_now(self, obj):
+        return obj.group_balance(until=timezone.now())
+    group_balance_now.short_description = "Баланс (сейчас)"
 
     def save_model(self, request, obj, form, change):
         if not change and not obj.root_id:
-            # First version: ensure exact start time as provided; set creator
             obj.created_by = request.user
         obj.updated_by = request.user
         super().save_model(request, obj, form, change)
@@ -58,20 +87,30 @@ class RentalAdmin(SimpleHistoryAdmin):
 
     def make_new_version(self, request, queryset):
         count = 0
+        # Получаем ставку из формы действий
+        rate_str = request.POST.get("new_weekly_rate")
+        new_rate = None
+        if rate_str:
+            try:
+                new_rate = Decimal(rate_str)
+            except Exception:
+                new_rate = None
         for rental in queryset:
             root = rental.root or rental
-            # Close current active version at exact now
             now = timezone.now()
             if not rental.end_at or rental.end_at > now:
                 rental.end_at = now
             rental.status = Rental.Status.MODIFIED
             rental.save()
-            # Create new version starting now with same fields by default
-            new_version_num = (root.group().count() + 1) if hasattr(root, "group") else (rental.version + 1)
+            # Номер новой версии = количество версий в группе + 1
+            try:
+                new_version_num = root.group.all().count() + 1
+            except Exception:
+                new_version_num = rental.version + 1
             new_rental = Rental(
                 client=rental.client,
                 start_at=now,
-                weekly_rate=rental.weekly_rate,
+                weekly_rate=new_rate if new_rate is not None else rental.weekly_rate,
                 deposit_amount=rental.deposit_amount,
                 status=Rental.Status.ACTIVE,
                 battery_type=rental.battery_type,
@@ -91,23 +130,20 @@ class RentalAdmin(SimpleHistoryAdmin):
         closed = 0
         for rental in queryset:
             root = rental.root or rental
-            # Close all active versions
             now = timezone.now()
             for v in Rental.objects.filter(root=root, status=Rental.Status.ACTIVE):
                 if not v.end_at or v.end_at > now:
                     v.end_at = now
                 v.status = Rental.Status.CLOSED
                 v.save()
-            # Balance and deposit
             balance = root.group_balance(until=now)
             deposit_left = root.group_deposit_total()
-            # If долг > 0 и есть депозит — зачесть частично/полностью
             applied = Decimal(0)
             if balance > 0 and deposit_left > 0:
                 applied = min(balance, deposit_left)
                 Payment.objects.create(
                     rental=root,
-                    amount=-applied,  # применение депозита как уменьшение долга
+                    amount=-applied,
                     date=timezone.localdate(),
                     type=Payment.PaymentType.ADJUSTMENT,
                     method=Payment.Method.OTHER,
@@ -117,7 +153,6 @@ class RentalAdmin(SimpleHistoryAdmin):
                 )
                 balance -= applied
                 deposit_left -= applied
-            # Возврат остатка депозита
             if deposit_left > 0:
                 Payment.objects.create(
                     rental=root,
