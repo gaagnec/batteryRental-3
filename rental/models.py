@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.db.models import Sum
 from decimal import Decimal
 from simple_history.models import HistoricalRecords
 
@@ -53,53 +54,68 @@ class Rental(TimeStampedModel):
     deposit_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.ACTIVE)
     battery_type = models.CharField(max_length=64, blank=True)
+
+    # Versioning fields (Variant B)
+    parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="children")
+    root = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="group")
+    version = models.PositiveIntegerField(default=1)
+    contract_code = models.CharField(max_length=64, blank=True, help_text="Общий номер договора для всей группы (root)")
+
     history = HistoricalRecords()
 
+    def save(self, *args, **kwargs):
+        # Ensure root is set to self for the first version
+        if self.pk is None and not self.root:
+            # Temporarily save to get pk
+            super().save(*args, **kwargs)
+            if not self.root:
+                self.root = self
+                if not self.contract_code:
+                    self.contract_code = f"R-{self.pk}"
+            return super().save(update_fields=["root", "contract_code"])  # type: ignore
+        return super().save(*args, **kwargs)
+
+    @property
+    def is_root(self) -> bool:
+        return self.root_id == self.pk
+
     def __str__(self):
-        return f"Rental #{self.pk} - {self.client}"
+        base = self.contract_code or (self.root.contract_code if self.root else f"Rental-{self.pk}")
+        return f"{base} v{self.version} - {self.client}"
 
     @property
     def daily_rate(self) -> Decimal:
         return (self.weekly_rate or Decimal(0)) / Decimal(7)
 
     def billable_days(self, until: timezone.datetime | None = None) -> int:
-        """Calculate billable days with 14:00 cutoff.
-        - If pickup before 14:00 local time -> counts that calendar day.
-        - If return before 14:00 -> that day not counted.
-        """
+        """Calculate billable days with 14:00 cutoff for this version interval only."""
         tz = timezone.get_current_timezone()
         start = timezone.localtime(self.start_at, tz)
         end = timezone.localtime(until or self.end_at or timezone.now(), tz)
         if end <= start:
             return 0
-        # Normalize to dates
         start_date = start.date()
         end_date = end.date()
         days = (end_date - start_date).days
-        # Adjust for start cutoff
         if start.hour < 14 or (start.hour == 14 and start.minute == 0 and start.second == 0):
             days += 1
-        # Adjust for end cutoff: if returned before 14:00, do not count that day
         if end.hour < 14 or (end.hour == 14 and end.minute == 0 and end.second == 0):
             days -= 1
         return max(days, 0)
 
     def charges_until(self, until: timezone.datetime | None = None) -> Decimal:
-        # Without RateChange support per-day; if RateChange exists for this rental, we sum per-day segments
+        """Charges for this version only, without rate changes inside version."""
         from datetime import timedelta
         tz = timezone.get_current_timezone()
         start = timezone.localtime(self.start_at, tz)
         end = timezone.localtime(until or self.end_at or timezone.now(), tz)
         if end <= start:
             return Decimal(0)
-        # Build a map of daily rate changes (optional)
-        changes = list(self.rate_changes.order_by("effective_date"))
         total = Decimal(0)
         current_date = start.date()
         while current_date < end.date() or (
             current_date == end.date() and not (end.hour < 14 or (end.hour == 14 and end.minute == 0 and end.second == 0))
         ):
-            # Determine if this day is counted and which rate applies
             is_first_day = current_date == start.date()
             is_last_day = current_date == end.date()
             count_day = True
@@ -108,24 +124,44 @@ class Rental(TimeStampedModel):
             if is_last_day and (end.hour < 14 or (end.hour == 14 and end.minute == 0 and end.second == 0)):
                 count_day = False
             if count_day:
-                # rate for that date
-                rate_week = self.weekly_rate
-                for c in changes:
-                    if c.effective_date <= current_date:
-                        rate_week = c.weekly_rate
-                total += (rate_week or Decimal(0)) / Decimal(7)
+                total += (self.weekly_rate or Decimal(0)) / Decimal(7)
             current_date += timedelta(days=1)
         return total
 
+    def group_versions(self):
+        root = self.root or self
+        return Rental.objects.filter(root=root).order_by("start_at", "id")
 
-class RateChange(TimeStampedModel):
-    rental = models.ForeignKey(Rental, on_delete=models.CASCADE, related_name="rate_changes")
-    effective_date = models.DateField(help_text="Дата, с которой применяется новая ставка")
-    weekly_rate = models.DecimalField(max_digits=12, decimal_places=2)
-    history = HistoricalRecords()
+    def group_charges_until(self, until: timezone.datetime | None = None) -> Decimal:
+        """Sum of charges across all versions in the group (root)."""
+        total = Decimal(0)
+        for v in self.group_versions():
+            # Limit 'until' within each version interval
+            v_until = until
+            if v_until and v.end_at and v.end_at < v_until:
+                v_until = v.end_at
+            total += v.charges_until(until=v_until)
+        return total
+    def group_payments(self):
+        root = self.root or self
+        return Payment.objects.filter(rental__root=root)
 
-    class Meta:
-        ordering = ["effective_date", "id"]
+    def group_paid_total(self) -> Decimal:
+        total = self.group_payments().filter(type=Payment.PaymentType.RENT).aggregate(s=Sum("amount"))['s'] or Decimal(0)
+        return total
+
+    def group_deposit_total(self) -> Decimal:
+        paid = self.group_payments().filter(type=Payment.PaymentType.DEPOSIT).aggregate(s=Sum("amount"))['s'] or Decimal(0)
+        returned = self.group_payments().filter(type=Payment.PaymentType.RETURN_DEPOSIT).aggregate(s=Sum("amount"))['s'] or Decimal(0)
+        return paid - returned
+
+    def group_balance(self, until: timezone.datetime | None = None) -> Decimal:
+        charges = self.group_charges_until(until=until)
+        paid = self.group_paid_total()
+        return charges - paid
+
+
+
 
 
 class RentalBatteryAssignment(TimeStampedModel):

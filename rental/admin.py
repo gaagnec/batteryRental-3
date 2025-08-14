@@ -2,7 +2,7 @@ from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 from .models import (
     Client, Battery, Rental, RentalBatteryAssignment,
-    Payment, ExpenseCategory, Expense, Repair, BatteryStatusLog, RateChange
+    Payment, ExpenseCategory, Expense, Repair, BatteryStatusLog
 )
 
 
@@ -30,15 +30,10 @@ class PaymentInline(admin.TabularInline):
 
 @admin.register(Rental)
 class RentalAdmin(SimpleHistoryAdmin):
-    list_display = ("id", "client", "start_at", "end_at", "weekly_rate", "deposit_amount", "status")
+    list_display = ("id", "contract_code", "version", "client", "start_at", "end_at", "weekly_rate", "status")
     list_filter = ("status",)
-    search_fields = ("client__name",)
+    search_fields = ("client__name", "contract_code")
     inlines = [RentalBatteryAssignmentInline, PaymentInline]
-
-
-@admin.register(RateChange)
-class RateChangeAdmin(SimpleHistoryAdmin):
-    list_display = ("id", "rental", "effective_date", "weekly_rate")
 
 
 @admin.register(Payment)
