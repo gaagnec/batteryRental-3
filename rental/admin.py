@@ -25,6 +25,7 @@ class BatteryAdmin(SimpleHistoryAdmin):
 class RentalBatteryAssignmentInline(admin.TabularInline):
     model = RentalBatteryAssignment
     extra = 0
+    readonly_fields = ("created_by", "updated_by")
 
 
 class PaymentInline(admin.TabularInline):
@@ -53,7 +54,7 @@ class RentalAdmin(SimpleHistoryAdmin):
     search_fields = ("client__name", "contract_code")
     inlines = [RentalBatteryAssignmentInline, PaymentInline]
 
-    readonly_fields = ("group_charges_now", "group_paid_total", "group_deposit_total", "group_balance_now")
+    readonly_fields = ("group_charges_now", "group_paid_total", "group_deposit_total", "group_balance_now", "created_by", "updated_by")
 
     action_form = NewVersionActionForm
     actions = ["make_new_version", "close_with_deposit"]
@@ -81,7 +82,7 @@ class RentalAdmin(SimpleHistoryAdmin):
     group_balance_now.short_description = "Баланс (сейчас)"
 
     def save_model(self, request, obj, form, change):
-        if not change and not obj.root_id:
+        if not change and not getattr(obj, 'created_by_id', None):
             obj.created_by = request.user
         obj.updated_by = request.user
         super().save_model(request, obj, form, change)
@@ -210,6 +211,13 @@ class PaymentAdmin(SimpleHistoryAdmin):
     list_display = ("id", "rental", "date", "amount", "type", "method")
     list_filter = ("type", "method")
     search_fields = ("rental__id", "note")
+    readonly_fields = ("created_by", "updated_by")
+
+    def save_model(self, request, obj, form, change):
+        if not change and not getattr(obj, 'created_by_id', None):
+            obj.created_by = request.user
+        obj.updated_by = request.user
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(ExpenseCategory)
