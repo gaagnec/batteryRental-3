@@ -1,0 +1,28 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% block content %}
+<h1>{{ title }}</h1>
+<form method="post" novalidate>
+  {% csrf_token %}
+  {{ formset.management_form }}
+  <table class="adminlist">
+    <thead>
+      <tr><th>Батарея</th><th>Начало</th><th>Окончание</th><th>Удалить</th></tr>
+    </thead>
+    <tbody>
+      {% for form in formset %}
+        <tr>
+          <td>{{ form.battery }}</td>
+          <td>{{ form.start_at }}</td>
+          <td>{{ form.end_at }}</td>
+          <td>{{ form.DELETE }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div>
+    <input type="submit" value="Сохранить" class="button button-primary" />
+    <a href="{{ request.META.HTTP_REFERER|default:(/admin/rental/rental/) }}" class="button">Назад</a>
+  </div>
+</form>
+{% endblock %}

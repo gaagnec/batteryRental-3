@@ -2,9 +2,11 @@ from django import forms
 from django.contrib import admin, messages
 from django.contrib.admin.helpers import ActionForm
 from django.core.exceptions import ValidationError
-from django.urls import reverse
+from django.urls import reverse, path
 from django.utils.html import format_html
 from django.utils import timezone
+from django.template.response import TemplateResponse
+from django.forms import inlineformset_factory, BaseInlineFormSet
 from decimal import Decimal
 from simple_history.admin import SimpleHistoryAdmin
 from .models import (
@@ -32,9 +34,18 @@ class RentalBatteryAssignmentForm(forms.ModelForm):
         fields = "__all__"
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # при создании договора дата старта может быть пустой — заполним автоматически датой начала договора
+        # поле видно, но не обязательно; если оставить пустым при создании — подставим старт договора
         if 'start_at' in self.fields:
             self.fields['start_at'].required = False
+    def clean(self):
+        cd = super().clean()
+        start = cd.get('start_at')
+        if not start:
+            rental = getattr(self.instance, 'rental', None)
+            if rental and getattr(rental, 'start_at', None):
+                cd['start_at'] = rental.start_at
+                self.cleaned_data['start_at'] = rental.start_at
+        return cd
 
 class RentalBatteryAssignmentInline(admin.TabularInline):
     model = RentalBatteryAssignment
@@ -63,9 +74,14 @@ class NewVersionActionForm(ActionForm):
 class RentalAdmin(SimpleHistoryAdmin):
     list_display = (
         "id", "contract_code", "version", "client", "start_at", "end_at",
-        "weekly_rate", "status", "assigned_batteries_short", "group_charges_now", "group_paid_total", "group_deposit_total", "group_balance_now"
+        "weekly_rate", "status", "assigned_batteries_short", "change_batteries_link", "group_charges_now", "group_paid_total", "group_deposit_total", "group_balance_now"
     )
     list_filter = ("status",)
+    def change_batteries_link(self, obj):
+        url = reverse('admin:rental_rental_change_batteries', args=[obj.pk])
+        return format_html('<a class="button" href="{}">Изменить батареи</a>', url)
+    change_batteries_link.short_description = "Изменить"
+
     search_fields = ("client__name", "contract_code")
     inlines = [RentalBatteryAssignmentInline, PaymentInline]
 
@@ -127,15 +143,6 @@ class RentalAdmin(SimpleHistoryAdmin):
         charges = obj.group_charges_until(until=now)
         paid = obj.group_paid_total()
         return self.fmt_pln(paid - charges)
-
-        # Если в назначениях не указали start_at — задаем его как start_at договора
-        for inline_form in form.forms if hasattr(form, 'forms') else []:
-            try:
-                inst = inline_form.instance
-                if isinstance(inst, RentalBatteryAssignment) and not inst.start_at:
-                    inst.start_at = obj.start_at
-            except Exception:
-                pass
 
     group_balance_now.short_description = "Баланс (сейчас)"
 
@@ -229,6 +236,67 @@ class RentalAdmin(SimpleHistoryAdmin):
         closed = 0
         for rental in queryset:
             root = rental.root or rental
+    # Пользовательский admin-view для изменения состава батарей
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path(
+                '<int:pk>/change-batteries/',
+                self.admin_site.admin_view(self.change_batteries_view),
+                name='rental_rental_change_batteries',
+            )
+        ]
+        return custom + urls
+
+    def change_batteries_view(self, request, pk):
+        rental = Rental.objects.get(pk=pk)
+        AssignmentFormSet = inlineformset_factory(
+            Rental,
+            RentalBatteryAssignment,
+            form=RentalBatteryAssignmentForm,
+            extra=0,
+            can_delete=True,
+            fields=('battery', 'start_at', 'end_at'),
+        )
+        if request.method == 'POST':
+            formset = AssignmentFormSet(request.POST, instance=rental)
+            if formset.is_valid():
+                instances = formset.save(commit=False)
+                # Валидация: после сохранения должно остаться >=1 активное назначение сейчас или в будущем
+                for inst in instances:
+                    if not getattr(inst, 'created_by_id', None):
+                        inst.created_by = request.user
+                    inst.updated_by = request.user
+                    inst.save()
+                for obj in formset.deleted_objects:
+                    obj.delete()
+                # Проверка минимума одной батареи ("на сейчас")
+                tz = timezone.get_current_timezone()
+                now = timezone.now()
+                active = 0
+                for a in rental.assignments.select_related('battery').all():
+                    a_start = timezone.localtime(a.start_at, tz)
+                    a_end = timezone.localtime(a.end_at, tz) if a.end_at else None
+                    if a_start <= now and (a_end is None or a_end > now):
+                        active += 1
+                if active <= 0:
+                    messages.error(request, "Должна быть назначена минимум одна батарея на текущий момент")
+                else:
+                    messages.success(request, "Состав батарей обновлён")
+                    return TemplateResponse(request, 'admin/rental/change_batteries_done.html', {'rental': rental})
+            else:
+                messages.error(request, "Исправьте ошибки в форме")
+        else:
+            formset = AssignmentFormSet(instance=rental)
+        context = dict(
+            self.admin_site.each_context(request),
+            opts=self.model._meta,
+            rental=rental,
+            title=f"Изменение батарей: договор {rental.contract_code} v{rental.version}",
+            formset=formset,
+        )
+        return TemplateResponse(request, 'admin/rental/change_batteries.html', context)
+
             now = timezone.now()
             for v in Rental.objects.filter(root=root, status=Rental.Status.ACTIVE):
                 if not v.end_at or v.end_at > now:
