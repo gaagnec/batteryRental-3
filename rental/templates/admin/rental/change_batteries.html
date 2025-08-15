@@ -22,7 +22,8 @@
   </table>
   <div>
     <input type="submit" value="Сохранить" class="button button-primary" />
-    <a href="{{ request.META.HTTP_REFERER|default:(/admin/rental/rental/) }}" class="button">Назад</a>
+    {% url 'admin:rental_rental_changelist' as rental_list_url %}
+    <a href="{% firstof request.META.HTTP_REFERER rental_list_url %}" class="button">Назад</a>
   </div>
 </form>
 {% endblock %}
