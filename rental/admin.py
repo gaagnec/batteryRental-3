@@ -163,6 +163,11 @@ class RentalAdmin(SimpleHistoryAdmin):
     def save_formset(self, request, form, formset, change):
         instances = formset.save(commit=False)
         for inst in instances:
+            # Default start_at to rental.start_at if not provided in inline
+            if hasattr(inst, "start_at") and not inst.start_at:
+                parent_start = getattr(form.instance, "start_at", None)
+                if parent_start:
+                    inst.start_at = parent_start
             if hasattr(inst, "created_by") and not inst.pk:
                 inst.created_by = request.user
             if hasattr(inst, "updated_by"):
