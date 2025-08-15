@@ -232,10 +232,6 @@ class RentalAdmin(SimpleHistoryAdmin):
         self.message_user(request, f"Создано новых версий: {count}; активные батареи перенесены")
     make_new_version.short_description = "Создать новую версию (начало сейчас, с переносом батарей)"
 
-    def close_with_deposit(self, request, queryset):
-        closed = 0
-        for rental in queryset:
-            root = rental.root or rental
     # Пользовательский admin-view для изменения состава батарей
     def get_urls(self):
         urls = super().get_urls()
@@ -297,6 +293,14 @@ class RentalAdmin(SimpleHistoryAdmin):
         )
         return TemplateResponse(request, 'admin/rental/change_batteries.html', context)
 
+    def close_with_deposit(self, request, queryset):
+        closed = 0
+        # Опционально: принять оплату (аренда) сразу из формы действия
+        amt = request.POST.get("payment_amount")
+        mth = request.POST.get("payment_method")
+        note = request.POST.get("payment_note")
+        for rental in queryset:
+            root = rental.root or rental
             now = timezone.now()
             for v in Rental.objects.filter(root=root, status=Rental.Status.ACTIVE):
                 if not v.end_at or v.end_at > now:
@@ -331,28 +335,22 @@ class RentalAdmin(SimpleHistoryAdmin):
                     created_by=request.user,
                     updated_by=request.user,
                 )
-
-        # Опционально: принять оплату (аренда) сразу из формы действия
-        amt = request.POST.get("payment_amount")
-        mth = request.POST.get("payment_method")
-        note = request.POST.get("payment_note")
-        if amt:
-            try:
-                amt_dec = Decimal(amt)
-                if amt_dec != 0:
-                    Payment.objects.create(
-                        rental=root,
-                        amount=amt_dec,
-                        date=timezone.localdate(),
-                        type=Payment.PaymentType.RENT,
-                        method=mth or Payment.Method.OTHER,
-                        note=note or "",
-                        created_by=request.user,
-                        updated_by=request.user,
-                    )
-            except Exception:
-                pass
-
+            if amt:
+                try:
+                    amt_dec = Decimal(amt)
+                    if amt_dec != 0:
+                        Payment.objects.create(
+                            rental=root,
+                            amount=amt_dec,
+                            date=timezone.localdate(),
+                            type=Payment.PaymentType.RENT,
+                            method=mth or Payment.Method.OTHER,
+                            note=note or "",
+                            created_by=request.user,
+                            updated_by=request.user,
+                        )
+                except Exception:
+                    pass
             closed += 1
         self.message_user(request, f"Закрыто договоров: {closed}")
     close_with_deposit.short_description = "Закрыть договор (с зачётом депозита)"
