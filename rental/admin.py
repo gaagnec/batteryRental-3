@@ -48,6 +48,7 @@ class ActiveRentalFilter(admin.SimpleListFilter):
 class ClientAdmin(SimpleHistoryAdmin):
     list_display = ("id", "name", "phone", "pesel", "created_at", "has_active")
     list_filter = (ActiveRentalFilter,)
+    search_fields = ("name", "phone", "pesel")
 
     def has_active(self, obj):
         return getattr(obj, "has_active", False)
