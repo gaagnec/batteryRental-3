@@ -76,6 +76,15 @@ class ClientAdmin(SimpleHistoryAdmin):
             paid = root.group_paid_total()
             balance = charges - paid
             deposit = root.group_deposit_total()
+            # Определяем цветовую метку баланса
+            if (charges or 0) == 0 and (paid or 0) == 0:
+                color = 'gray'
+            elif balance <= 0:
+                color = 'green'
+            elif deposit and balance <= deposit:
+                color = 'yellow'
+            else:
+                color = 'red'
             rental_data.append({
                 "contract_code": root.contract_code,
                 "version_range": f"v1–v{versions.count()}",
@@ -87,6 +96,7 @@ class ClientAdmin(SimpleHistoryAdmin):
                 "paid": paid,
                 "balance": balance,
                 "deposit": deposit,
+                "color": color,
                 "url": reverse("admin:rental_rental_change", args=[root.pk]),
             })
 
@@ -106,7 +116,7 @@ class ClientAdmin(SimpleHistoryAdmin):
         js = ["https://unpkg.com/htmx.org@1.9.2"]
 
     def changelist_view(self, request, extra_context=None):
-        if request.htmx:
+        if getattr(request, "htmx", False):
             self.list_display = ("id", "name", "phone", "pesel", "created_at", "has_active")
             self.list_filter = (ActiveRentalFilter,)
             response = super().changelist_view(request, extra_context)

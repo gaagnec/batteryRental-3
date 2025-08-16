@@ -1,5 +1,6 @@
 {% extends "admin/change_form.html" %}
 {% load static %}
+{% load custom_filters %}
 
 {% block content %}
 <style>
@@ -18,19 +19,18 @@
 
 <div class="rental-info">
   {% for rental in rental_data %}
-  {% load custom_filters %}
 
   <div class="rental-row">
     <strong>Договор {{ rental.contract_code }} ({{ rental.version_range }})</strong>, с {{ rental.start|date:"d.m.Y" }} по {{ rental.end|default:"сейчас"|date:"d.m.Y" }}, дней всего: {{ rental.days_total }}, активных дней: {{ rental.billable_days }}
     <a href="{{ rental.url }}">[ссылка]</a>
   </div>
   <div class="rental-row">
-    {% with balance=rental.balance deposit=rental.deposit %}
-      {% if balance > -1 %}
+    {% with balance=rental.balance deposit=rental.deposit color=rental.color %}
+      {% if color == 'green' %}
         <span class="balance-green">Баланс: {{ balance }}</span>
-      {% elif balance >= deposit|mul:-1 and balance < -1 %}
+      {% elif color == 'yellow' %}
         <span class="balance-yellow">Баланс: {{ balance }}</span>
-      {% elif balance == -1 %}
+      {% elif color == 'gray' %}
         <span class="balance-gray">Баланс: {{ balance }}</span>
       {% else %}
         <span class="balance-red">Баланс: {{ balance }}</span>
