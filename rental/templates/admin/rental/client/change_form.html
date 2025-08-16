@@ -27,15 +27,15 @@
   <div class="rental-row">
     {% with balance=rental.balance deposit=rental.deposit color=rental.color %}
       {% if color == 'green' %}
-        <span class="balance-green">Баланс: {{ balance }}</span>
+        <span class="balance-green">Баланс: {{ balance|floatformat:2 }}</span>
       {% elif color == 'yellow' %}
-        <span class="balance-yellow">Баланс: {{ balance }}</span>
+        <span class="balance-yellow">Баланс: {{ balance|floatformat:2 }}</span>
       {% elif color == 'gray' %}
-        <span class="balance-gray">Баланс: {{ balance }}</span>
+        <span class="balance-gray">Баланс: {{ balance|floatformat:2 }}</span>
       {% else %}
-        <span class="balance-red">Баланс: {{ balance }}</span>
+        <span class="balance-red">Баланс: {{ balance|floatformat:2 }}</span>
       {% endif %}
-      <span>Должен: {{ rental.charges }}</span>, <span>Оплатил: {{ rental.paid }}</span>, <span>Депозит: {{ deposit }}</span>
+      <span>Должен: {{ rental.charges|floatformat:2 }}</span>, <span>Оплатил: {{ rental.paid|floatformat:2 }}</span>, <span>Депозит: {{ deposit|floatformat:2 }}</span>
     {% endwith %}
   </div>
   {% endfor %}
@@ -50,10 +50,10 @@
     {% for payment in payments %}
     <tr>
       <td>{{ payment.date|date:"d.m.Y" }}</td>
-      <td>{{ payment.amount }}</td>
+      <td>{{ payment.amount|floatformat:2 }}</td>
       <td>{{ payment.method }}</td>
-      <td>{{ payment.comment }}</td>
-      <td>{{ payment.created_by_name }}</td>
+      <td>{{ payment.note }}</td>
+      <td>{% if payment.created_by %}{{ payment.created_by.get_full_name|default:payment.created_by.username|default:payment.created_by.email }}{% else %}-{% endif %}</td>
     </tr>
     {% empty %}
     <tr><td colspan="5">Платежей нет</td></tr>

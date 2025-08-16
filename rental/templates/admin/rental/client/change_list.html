@@ -1,6 +1,13 @@
 {% extends "admin/change_list.html" %}
 {% load static %}
 
+{% block extrahead %}
+  {{ block.super }}
+  <style>
+    .badge-balance { font-size: 0.9rem; }
+  </style>
+{% endblock %}
+
 {% block object-tools-items %}
   <li>
     <button type="button" class="button"
@@ -37,7 +44,7 @@
     .htmx-indicator { display: none; }
     .htmx-request .htmx-indicator { display: inline-block; }
   </style>
-  <div id="client-results">
+  <div id="client-results" hx-ext="morphdom-swap">
     <div id="client-results-loading" class="htmx-indicator">Загрузка…</div>
     {{ block.super }}
   </div>

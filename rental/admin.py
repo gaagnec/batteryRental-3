@@ -75,14 +75,14 @@ class ClientAdmin(SimpleHistoryAdmin):
             billable_days = sum(v.billable_days() for v in versions)
             charges = root.group_charges_until(now)
             paid = root.group_paid_total()
-            balance = charges - paid
+            balance = (paid or Decimal(0)) - (charges or Decimal(0))
             deposit = root.group_deposit_total()
-            # Определяем цветовую метку баланса
+            # Определяем цветовую метку баланса (зелёный, если не должен)
             if (charges or 0) == 0 and (paid or 0) == 0:
                 color = 'gray'
-            elif balance <= 0:
+            elif balance >= 0:
                 color = 'green'
-            elif deposit and balance <= deposit:
+            elif deposit and (balance + deposit) >= 0:
                 color = 'yellow'
             else:
                 color = 'red'
@@ -116,20 +116,48 @@ class ClientAdmin(SimpleHistoryAdmin):
     class Media:
         js = [
             "https://unpkg.com/htmx.org@1.9.2",
-            # optional: morph plugin for smoother partial updates (does not break if 404)
-            # "https://unpkg.com/htmx.org@1.9.2/dist/ext/morphdom-swap.umd.js",
+            "https://unpkg.com/htmx.org@1.9.2/dist/ext/morphdom-swap.umd.js",
         ]
+
+    def balance_badge(self, obj):
+        # Суммарный баланс по всем root-догорам клиента: Оплатил - Должен
+        roots = obj.rentals.filter(parent__isnull=True)
+        from decimal import Decimal
+        charges = Decimal(0)
+        paid = Decimal(0)
+        deposit = Decimal(0)
+        now = timezone.now()
+        for r in roots:
+            charges += r.group_charges_until(now)
+            paid += r.group_paid_total()
+            deposit += r.group_deposit_total()
+        balance = paid - charges
+        color = "secondary"
+        if charges == 0 and paid == 0:
+            color = "secondary"
+        elif balance >= 0:
+            color = "success"
+        elif (balance + deposit) >= 0:
+            color = "warning"
+        else:
+            color = "danger"
+        return format_html('<span class="badge badge-balance bg-{}">{:.2f}</span>', color, balance)
+    balance_badge.short_description = "Баланс"
 
     def changelist_view(self, request, extra_context=None):
         self.list_filter = (ActiveRentalFilter,)
         if getattr(request, "htmx", False):
-            # Для HTMX возвращаем только таблицу результатов, чтобы обновить контейнер
-            self.list_display = ("id", "name", "phone", "pesel", "created_at", "has_active")
+            # Для HTMX отдаём только таблицу результатов
+            self.list_display = ("id", "name", "phone", "pesel", "created_at", "has_active", "balance_badge")
             response = super().changelist_view(request, extra_context)
-            # Django admin включает таблицу в block result_list — HTMX обновит #client-results
+            # Заменяем шаблон на частичный список результатов, чтобы не дублировать шапку
+            try:
+                response.template_name = 'admin/change_list_results.html'
+            except Exception:
+                pass
             return response
         # Не-HTMX: обычная страница
-        self.list_display = ("id", "name", "phone", "pesel", "created_at")
+        self.list_display = ("id", "name", "phone", "pesel", "created_at", "balance_badge")
         return super().changelist_view(request, extra_context)
 
     def get_queryset(self, request):
