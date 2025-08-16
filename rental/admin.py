@@ -114,18 +114,23 @@ class ClientAdmin(SimpleHistoryAdmin):
     list_filter = (ActiveRentalFilter,)
 
     class Media:
-        js = ["https://unpkg.com/htmx.org@1.9.2"]
+        js = [
+            "https://unpkg.com/htmx.org@1.9.2",
+            # optional: morph plugin for smoother partial updates (does not break if 404)
+            # "https://unpkg.com/htmx.org@1.9.2/dist/ext/morphdom-swap.umd.js",
+        ]
 
     def changelist_view(self, request, extra_context=None):
+        self.list_filter = (ActiveRentalFilter,)
         if getattr(request, "htmx", False):
+            # Для HTMX возвращаем только таблицу результатов, чтобы обновить контейнер
             self.list_display = ("id", "name", "phone", "pesel", "created_at", "has_active")
-            self.list_filter = (ActiveRentalFilter,)
             response = super().changelist_view(request, extra_context)
+            # Django admin включает таблицу в block result_list — HTMX обновит #client-results
             return response
-        else:
-            self.list_display = ("id", "name", "phone", "pesel", "created_at")
-            self.list_filter = (ActiveRentalFilter,)
-            return super().changelist_view(request, extra_context)
+        # Не-HTMX: обычная страница
+        self.list_display = ("id", "name", "phone", "pesel", "created_at")
+        return super().changelist_view(request, extra_context)
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)

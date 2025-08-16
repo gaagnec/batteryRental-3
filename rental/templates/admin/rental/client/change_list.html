@@ -1,0 +1,44 @@
+{% extends "admin/change_list.html" %}
+{% load static %}
+
+{% block object-tools-items %}
+  <li>
+    <button type="button" class="button"
+            hx-get="?active=1"
+            hx-target="#client-results"
+            hx-push-url="true"
+            hx-indicator="#client-results-loading">
+      С активным
+    </button>
+  </li>
+  <li>
+    <button type="button" class="button"
+            hx-get="?active=0"
+            hx-target="#client-results"
+            hx-push-url="true"
+            hx-indicator="#client-results-loading">
+      Без активного
+    </button>
+  </li>
+  <li>
+    <button type="button" class="button"
+            hx-get="."
+            hx-target="#client-results"
+            hx-push-url="true"
+            hx-indicator="#client-results-loading">
+      Все
+    </button>
+  </li>
+  {{ block.super }}
+{% endblock %}
+
+{% block result_list %}
+  <style>
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator { display: inline-block; }
+  </style>
+  <div id="client-results">
+    <div id="client-results-loading" class="htmx-indicator">Загрузка…</div>
+    {{ block.super }}
+  </div>
+{% endblock %}
