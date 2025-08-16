@@ -138,32 +138,6 @@ class ClientAdmin(SimpleHistoryAdmin):
         return qs
 
 
-class ActiveRentalFilter(admin.SimpleListFilter):
-    title = "Активный договор"
-    parameter_name = "active"
-
-    def lookups(self, request, model_admin):
-        return (
-            ("1", "С активным"),
-            ("0", "Без активного"),
-        )
-
-    def queryset(self, request, queryset):
-        from django.db.models import Exists, OuterRef, Q
-        now = timezone.now()
-        active_qs = Rental.objects.filter(client=OuterRef("pk")).filter(
-            status=Rental.Status.ACTIVE
-        ).filter(Q(end_at__isnull=True) | Q(end_at__gt=now))
-        queryset = queryset.annotate(has_active=Exists(active_qs))
-        if self.value() == "1":
-            return queryset.filter(has_active=True)
-        if self.value() == "0":
-            return queryset.filter(has_active=False)
-        return queryset
-
-    search_fields = ("name", "phone", "pesel")
-
-
 @admin.register(Battery)
 class BatteryAdmin(SimpleHistoryAdmin):
     list_display = ("id", "short_code", "serial_number", "cost_price", "created_at")
