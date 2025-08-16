@@ -141,7 +141,8 @@ class ClientAdmin(SimpleHistoryAdmin):
             color = "warning"
         else:
             color = "danger"
-        return format_html('<span class="badge badge-balance bg-{}">{:.2f}</span>', color, balance)
+        formatted = f"{balance:.2f}"
+        return format_html('<span class="badge badge-balance bg-{}">{}</span>', color, formatted)
     balance_badge.short_description = "Баланс"
 
     def changelist_view(self, request, extra_context=None):
@@ -173,8 +174,92 @@ class ClientAdmin(SimpleHistoryAdmin):
 
 @admin.register(Battery)
 class BatteryAdmin(SimpleHistoryAdmin):
-    list_display = ("id", "short_code", "serial_number", "cost_price", "created_at")
+    list_display = ("id", "short_code", "usage_now", "serial_number", "cost_price", "roi_progress", "created_at")
     search_fields = ("short_code", "serial_number")
+
+    def usage_now(self, obj):
+        # Активные договоры сейчас, где батарея назначена
+        tz = timezone.get_current_timezone()
+        now = timezone.localtime(timezone.now(), tz)
+        assignments = obj.assignments.select_related('rental__client').all()
+        active_roots = []
+        for a in assignments:
+            start = timezone.localtime(a.start_at, tz)
+            end = timezone.localtime(a.end_at, tz) if a.end_at else None
+            if start <= now and (end is None or end > now):
+                root = a.rental.root if hasattr(a.rental, 'root') and a.rental.root_id else a.rental
+                active_roots.append(root)
+        # Уникальные root договоры
+        uniq = []
+        seen = set()
+        for r in active_roots:
+            if r.pk not in seen:
+                uniq.append(r)
+                seen.add(r.pk)
+        parts = []
+        for r in uniq:
+            client_link = format_html('<a href="{}">{}</a>', reverse('admin:rental_client_change', args=[r.client_id]), r.client.name)
+            rental_link = format_html('<a href="{}">{}</a>', reverse('admin:rental_rental_change', args=[r.pk]), r.contract_code)
+            parts.append(format_html('[{}, {}]', client_link, rental_link))
+        count = len(uniq)
+        bg = 'secondary'
+        if count == 1:
+            bg = 'success'
+        elif count > 1:
+            bg = 'warning'
+        content = format_html(', '.join(['{}'] * len(parts)), *parts) if parts else '-'
+        return format_html('<span class="badge bg-{}">{}</span>', bg, content)
+    usage_now.short_description = "В аренде"
+
+    def roi_progress(self, obj):
+        # Оценка окупаемости: сумма начислений по дням, когда батарея была в аренде
+        from decimal import Decimal
+        revenue = Decimal(0)
+        tz = timezone.get_current_timezone()
+        now = timezone.localtime(timezone.now(), tz)
+        for a in obj.assignments.select_related('rental').all():
+            r = a.rental.root if hasattr(a.rental, 'root') and a.rental.root_id else a.rental
+            r_start = timezone.localtime(r.start_at, tz)
+            r_end = timezone.localtime(r.end_at, tz) if r.end_at else now
+            a_start = timezone.localtime(a.start_at, tz)
+            a_end = timezone.localtime(a.end_at, tz) if a.end_at else now
+            start = max(r_start, a_start)
+            end = min(r_end, a_end)
+            if start >= end:
+                continue
+            # daily rate
+            try:
+                daily_rate = (r.weekly_rate or 0) / 7
+            except Exception:
+                daily_rate = 0
+            anchor = start.replace(hour=0, minute=0, second=0, microsecond=0)
+            while anchor < end:
+                # начисляем за день, если в этот день аренда активна
+                revenue += daily_rate
+                anchor += timezone.timedelta(days=1)
+        cost = obj.cost_price or 0
+        try:
+            pct = int(round((revenue / cost) * 100)) if cost else 0
+        except Exception:
+            pct = 0
+        # Цвета: <25 red, 25-75 yellow, 75-100 orange, >100 green
+        bar_class = 'bg-danger'
+        bar_style = ''
+        if pct >= 100:
+            bar_class = 'bg-success'
+        elif pct >= 75:
+            bar_class = ''
+            bar_style = 'background-color: orange;'
+        elif pct >= 25:
+            bar_class = 'bg-warning'
+        width = min(max(pct, 0), 130)
+        return format_html(
+            '<div class="progress" style="width:140px; height: 1rem;">'
+            '<div class="progress-bar {}" role="progressbar" style="width: {}%; {};" aria-valuenow="{}" aria-valuemin="0" aria-valuemax="130">{}%</div>'
+            '</div>',
+            bar_class, width, bar_style, pct, pct
+        )
+    roi_progress.short_description = "Окупаемость"
 
 
 

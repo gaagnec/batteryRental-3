@@ -9,8 +9,10 @@
 {% endblock %}
 
 {% block object-tools-items %}
+  {% with cur=request.GET.active %}
   <li>
-    <button type="button" class="button"
+    <button type="button"
+            class="button btn btn-sm {% if cur == '1' %}btn-primary{% else %}btn-outline-primary{% endif %}"
             hx-get="?active=1"
             hx-target="#client-results"
             hx-push-url="true"
@@ -19,7 +21,8 @@
     </button>
   </li>
   <li>
-    <button type="button" class="button"
+    <button type="button"
+            class="button btn btn-sm {% if cur == '0' %}btn-primary{% else %}btn-outline-primary{% endif %}"
             hx-get="?active=0"
             hx-target="#client-results"
             hx-push-url="true"
@@ -28,7 +31,8 @@
     </button>
   </li>
   <li>
-    <button type="button" class="button"
+    <button type="button"
+            class="button btn btn-sm {% if cur != '0' and cur != '1' %}btn-secondary{% else %}btn-outline-secondary{% endif %}"
             hx-get="."
             hx-target="#client-results"
             hx-push-url="true"
@@ -36,6 +40,7 @@
       Все
     </button>
   </li>
+  {% endwith %}
   {{ block.super }}
 {% endblock %}
 
