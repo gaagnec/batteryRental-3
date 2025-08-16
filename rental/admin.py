@@ -9,6 +9,7 @@ from django.template.response import TemplateResponse
 from django.forms import inlineformset_factory, BaseInlineFormSet
 from decimal import Decimal
 from django.utils.safestring import mark_safe
+from datetime import datetime, time, timedelta
 
 # Register custom template filters
 import rental.templatetags.custom_filters
@@ -212,37 +213,65 @@ class BatteryAdmin(SimpleHistoryAdmin):
     usage_now.short_description = "В аренде"
 
     def roi_progress(self, obj):
-        # Оценка окупаемости: сумма начислений по дням, когда батарея была в аренде
-        from decimal import Decimal
-        revenue = Decimal(0)
+        # Окупаемость по фактическим оплатам: распределяем оплаты по доле "нагрузки" батареи
+        from decimal import Decimal, InvalidOperation
         tz = timezone.get_current_timezone()
         now = timezone.localtime(timezone.now(), tz)
+        # Группируем по root-договорам, где батарея была назначена
+        by_root_share = {}
+        days_total = 0
+        # Сначала соберём версии по root для быстрого доступа
+        roots = {}
         for a in obj.assignments.select_related('rental').all():
-            r = a.rental.root if hasattr(a.rental, 'root') and a.rental.root_id else a.rental
-            r_start = timezone.localtime(r.start_at, tz)
-            r_end = timezone.localtime(r.end_at, tz) if r.end_at else now
-            a_start = timezone.localtime(a.start_at, tz)
-            a_end = timezone.localtime(a.end_at, tz) if a.end_at else now
-            start = max(r_start, a_start)
-            end = min(r_end, a_end)
-            if start >= end:
-                continue
-            # daily rate
+            root = a.rental.root if getattr(a.rental, 'root_id', None) else a.rental
+            roots.setdefault(root.pk, root)
+        # Для каждого root считаем долю батареи (battery_share) и дни аренды
+        for root in roots.values():
+            versions = list(root.group_versions())
+            # Precompute version windows with daily_rate
+            v_windows = []
+            for v in versions:
+                v_start = timezone.localtime(v.start_at, tz)
+                v_end = timezone.localtime(v.end_at, tz) if v.end_at else now
+                v_windows.append((v_start, v_end, (v.weekly_rate or Decimal(0)) / Decimal(7)))
+            battery_share = Decimal(0)
+            # Соберём интервалы назначений этой батареи внутри данного root
+            for a in obj.assignments.filter(rental__root=root).all():
+                a_start = timezone.localtime(a.start_at, tz)
+                a_end = timezone.localtime(a.end_at, tz) if a.end_at else now
+                # Идём по дням, считаем только те дни, когда есть активная версия
+                d = a_start.date()
+                end_date = a_end.date()
+                while d <= end_date:
+                    anchor = timezone.make_aware(datetime.combine(d, time(14, 0)), tz)
+                    # Найти активную версию на этот anchor
+                    rate = None
+                    for v_start, v_end, v_rate in v_windows:
+                        if v_start <= anchor and anchor < v_end and anchor <= now:
+                            rate = v_rate
+                            break
+                    if rate is not None:
+                        battery_share += rate
+                        days_total += 1
+                    d += timedelta(days=1)
+            # Общая сумма начислений по группе
+            group_charges = root.group_charges_until(until=now) or Decimal(0)
+            group_paid = root.group_paid_total() or Decimal(0)
+            if group_charges > 0 and battery_share > 0:
+                by_root_share[root.pk] = (battery_share, group_charges, group_paid)
+        # Распределяем оплаты пропорционально
+        allocated = Decimal(0)
+        for battery_share, group_charges, group_paid in by_root_share.values():
             try:
-                daily_rate = (r.weekly_rate or 0) / 7
-            except Exception:
-                daily_rate = 0
-            anchor = start.replace(hour=0, minute=0, second=0, microsecond=0)
-            while anchor < end:
-                # начисляем за день, если в этот день аренда активна
-                revenue += daily_rate
-                anchor += timezone.timedelta(days=1)
-        cost = obj.cost_price or 0
+                allocated += (battery_share / group_charges) * group_paid
+            except (InvalidOperation, ZeroDivisionError):
+                continue
+        cost = obj.cost_price or Decimal(0)
         try:
-            pct = int(round((revenue / cost) * 100)) if cost else 0
+            pct = int(round((allocated / cost) * 100)) if cost else 0
         except Exception:
             pct = 0
-        # Цвета: <25 red, 25-75 yellow, 75-100 orange, >100 green
+        # Цвета прогресса
         bar_class = 'bg-danger'
         bar_style = ''
         if pct >= 100:
@@ -252,12 +281,16 @@ class BatteryAdmin(SimpleHistoryAdmin):
             bar_style = 'background-color: orange;'
         elif pct >= 25:
             bar_class = 'bg-warning'
-        width = min(max(pct, 0), 130)
+        width = min(max(pct, 0), 150)
+        # Внутри бара показываем значение процента
         return format_html(
-            '<div class="progress" style="width:140px; height: 1rem;">'
-            '<div class="progress-bar {}" role="progressbar" style="width: {}%; {};" aria-valuenow="{}" aria-valuemin="0" aria-valuemax="130">{}%</div>'
+            '<div>'
+            '<div class="progress" style="width:160px; height: 1rem;">'
+            '<div class="progress-bar {}" role="progressbar" style="width: {}%; {};" aria-valuenow="{}" aria-valuemin="0" aria-valuemax="150">{}%</div>'
+            '</div>'
+            '<div style="font-size: 0.8rem; color: #666;">Дней в аренде: {}</div>'
             '</div>',
-            bar_class, width, bar_style, pct, pct
+            bar_class, width, bar_style, pct, pct, days_total
         )
     roi_progress.short_description = "Окупаемость"
 
