@@ -1,0 +1,65 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+  .balance-green { background-color: #d4edda; }
+  .balance-yellow { background-color: #fff3cd; }
+  .balance-red { background-color: #f8d7da; }
+  .balance-gray { background-color: #e2e3e5; }
+  .rental-info { margin-bottom: 1em; padding: 0.5em; border: 1px solid #ccc; border-radius: 4px; }
+  .rental-row { margin-bottom: 0.5em; }
+  .payments-table { width: 100%; border-collapse: collapse; margin-top: 1em; }
+  .payments-table th, .payments-table td { border: 1px solid #ddd; padding: 8px; }
+  .payments-table th { background-color: #f2f2f2; }
+</style>
+
+<h1>{{ original.name }}</h1>
+
+<div class="rental-info">
+  {% for rental in rental_data %}
+  {% load custom_filters %}
+
+  <div class="rental-row">
+    <strong>Договор {{ rental.contract_code }} ({{ rental.version_range }})</strong>, с {{ rental.start|date:"d.m.Y" }} по {{ rental.end|default:"сейчас"|date:"d.m.Y" }}, дней всего: {{ rental.days_total }}, активных дней: {{ rental.billable_days }}
+    <a href="{{ rental.url }}">[ссылка]</a>
+  </div>
+  <div class="rental-row">
+    {% with balance=rental.balance deposit=rental.deposit %}
+      {% if balance > -1 %}
+        <span class="balance-green">Баланс: {{ balance }}</span>
+      {% elif balance >= deposit|mul:-1 and balance < -1 %}
+        <span class="balance-yellow">Баланс: {{ balance }}</span>
+      {% elif balance == -1 %}
+        <span class="balance-gray">Баланс: {{ balance }}</span>
+      {% else %}
+        <span class="balance-red">Баланс: {{ balance }}</span>
+      {% endif %}
+      <span>Должен: {{ rental.charges }}</span>, <span>Оплатил: {{ rental.paid }}</span>, <span>Депозит: {{ deposit }}</span>
+    {% endwith %}
+  </div>
+  {% endfor %}
+</div>
+
+<h2>Платежи</h2>
+<table class="payments-table">
+  <thead>
+    <tr><th>Дата</th><th>Сумма</th><th>Метод</th><th>Комментарий</th><th>Ввел</th></tr>
+  </thead>
+  <tbody>
+    {% for payment in payments %}
+    <tr>
+      <td>{{ payment.date|date:"d.m.Y" }}</td>
+      <td>{{ payment.amount }}</td>
+      <td>{{ payment.method }}</td>
+      <td>{{ payment.comment }}</td>
+      <td>{{ payment.created_by_name }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="5">Платежей нет</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{{ block.super }}
+{% endblock %}

@@ -8,6 +8,11 @@ from django.utils import timezone
 from django.template.response import TemplateResponse
 from django.forms import inlineformset_factory, BaseInlineFormSet
 from decimal import Decimal
+from django.utils.safestring import mark_safe
+
+# Register custom template filters
+import rental.templatetags.custom_filters
+
 from simple_history.admin import SimpleHistoryAdmin
 from .models import (
     Client, Battery, Rental, RentalBatteryAssignment,
@@ -18,6 +23,111 @@ from .models import (
 @admin.register(Client)
 class ClientAdmin(SimpleHistoryAdmin):
     list_display = ("id", "name", "phone", "pesel", "created_at")
+    list_filter = ("active",)
+    list_display = ("id", "name", "phone", "pesel", "created_at", "has_active")
+    list_filter = (ActiveRentalFilter,)
+
+    def has_active(self, obj):
+        return getattr(obj, "has_active", False)
+    has_active.boolean = True
+    has_active.short_description = "Активный договор"
+
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        client = self.get_object(request, object_id)
+        if not client:
+            return super().change_view(request, object_id, form_url, extra_context)
+
+        # Получаем все root-группы договоров клиента
+        root_rentals = client.rentals.filter(parent__isnull=True).order_by("contract_code")
+
+        # Собираем данные для шаблона
+        rental_data = []
+        now = timezone.now()
+        for root in root_rentals:
+            versions = root.group_versions()
+            start = versions.first().start_at if versions.exists() else None
+            end = versions.last().end_at if versions.exists() else None
+            days_total = (end or now) - (start or now)
+            days_total = days_total.days if days_total else 0
+            billable_days = sum(v.billable_days() for v in versions)
+            charges = root.group_charges_until(now)
+            paid = root.group_paid_total()
+            balance = charges - paid
+            deposit = root.group_deposit_total()
+            rental_data.append({
+                "contract_code": root.contract_code,
+                "version_range": f"v10v{versions.count()}",
+                "start": start,
+                "end": end,
+                "days_total": days_total,
+                "billable_days": billable_days,
+                "charges": charges,
+                "paid": paid,
+                "balance": balance,
+                "deposit": deposit,
+                "url": reverse("admin:rental_rental_change", args=[root.pk]),
+            })
+
+        # Платежи по всем договорам клиента
+        payments = Payment.objects.filter(rental__root__in=root_rentals).order_by("date")
+
+        if extra_context is None:
+            extra_context = {}
+        extra_context["rental_data"] = rental_data
+        extra_context["payments"] = payments
+
+        return super().change_view(request, object_id, form_url, extra_context)
+
+    list_filter = (ActiveRentalFilter,)
+
+    class Media:
+        js = ["https://unpkg.com/htmx.org@1.9.2"]
+
+    def changelist_view(self, request, extra_context=None):
+        if request.htmx:
+            self.list_display = ("id", "name", "phone", "pesel", "created_at", "has_active")
+            self.list_filter = (ActiveRentalFilter,)
+            response = super().changelist_view(request, extra_context)
+            return response
+        else:
+            self.list_display = ("id", "name", "phone", "pesel", "created_at")
+            self.list_filter = (ActiveRentalFilter,)
+            return super().changelist_view(request, extra_context)
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        from django.db.models import Exists, OuterRef, Q
+        now = timezone.now()
+        active_qs = Rental.objects.filter(client=OuterRef("pk")).filter(
+            status=Rental.Status.ACTIVE
+        ).filter(Q(end_at__isnull=True) | Q(end_at__gt=now))
+        qs = qs.annotate(has_active=Exists(active_qs))
+        return qs
+
+
+class ActiveRentalFilter(admin.SimpleListFilter):
+    title = "Активный договор"
+    parameter_name = "active"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("1", "С активным"),
+            ("0", "Без активного"),
+        )
+
+    def queryset(self, request, queryset):
+        from django.db.models import Exists, OuterRef, Q
+        now = timezone.now()
+        active_qs = Rental.objects.filter(client=OuterRef("pk")).filter(
+            status=Rental.Status.ACTIVE
+        ).filter(Q(end_at__isnull=True) | Q(end_at__gt=now))
+        queryset = queryset.annotate(has_active=Exists(active_qs))
+        if self.value() == "1":
+            return queryset.filter(has_active=True)
+        if self.value() == "0":
+            return queryset.filter(has_active=False)
+        return queryset
+
     search_fields = ("name", "phone", "pesel")
 
 
