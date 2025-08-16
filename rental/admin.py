@@ -78,7 +78,7 @@ class ClientAdmin(SimpleHistoryAdmin):
             deposit = root.group_deposit_total()
             rental_data.append({
                 "contract_code": root.contract_code,
-                "version_range": f"v10v{versions.count()}",
+                "version_range": f"v1–v{versions.count()}",
                 "start": start,
                 "end": end,
                 "days_total": days_total,
