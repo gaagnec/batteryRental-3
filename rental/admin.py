@@ -199,8 +199,8 @@ class BatteryAdmin(SimpleHistoryAdmin):
                 seen.add(r.pk)
         parts = []
         for r in uniq:
-            client_link = format_html('<a href="{}">{}</a>', reverse('admin:rental_client_change', args=[r.client_id]), r.client.name)
-            rental_link = format_html('<a href="{}">{}</a>', reverse('admin:rental_rental_change', args=[r.pk]), r.contract_code)
+            client_link = format_html('<a href="{}" style="color:#000; text-decoration:none;">{}</a>', reverse('admin:rental_client_change', args=[r.client_id]), r.client.name)
+            rental_link = format_html('<a href="{}" style="color:#000; text-decoration:none;">{}</a>', reverse('admin:rental_rental_change', args=[r.pk]), r.contract_code)
             parts.append(format_html('[{}, {}]', client_link, rental_link))
         count = len(uniq)
         # Цвет + инлайн-стиль как fallback, если Bootstrap не подгрузился
@@ -256,16 +256,16 @@ class BatteryAdmin(SimpleHistoryAdmin):
                             break
                     if rate is not None:
                         battery_share += rate
-                    # Считаем дни аренды без привязки к активной версии
-                    days_total = 0
-                    for a in obj.assignments.all():
-                        a_start = timezone.localtime(a.start_at, tz)
-                        a_end = timezone.localtime(a.end_at, tz) if a.end_at else now
-                        d = a_start.date()
-                        end_date = a_end.date()
-                        while d <= end_date:
-                            days_total += 1
-                            d += timedelta(days=1)
+                    d += timedelta(days=1)
+            # Считаем дни аренды без привязки к активной версии
+            days_total = 0
+            for a in obj.assignments.all():
+                a_start = timezone.localtime(a.start_at, tz)
+                a_end = timezone.localtime(a.end_at, tz) if a.end_at else now
+                d = a_start.date()
+                end_date = a_end.date()
+                while d <= end_date:
+                    days_total += 1
                     d += timedelta(days=1)
             # Общая сумма начислений по группе
             group_charges = root.group_charges_until(until=now) or Decimal(0)
@@ -344,7 +344,7 @@ class NewVersionActionForm(ActionForm):
     new_weekly_rate = forms.DecimalField(
         required=False, max_digits=12, decimal_places=2, label="Новая недельная ставка (PLN)"
     )
-    new_start_at = forms.CharField(required=False, label="Начало новой версии (ISO: YYYY-MM-DD HH:MM)")
+    new_start_at = forms.DateTimeField(required=False, label="Начало новой версии", widget=forms.DateTimeInput(attrs={"type": "datetime-local"}))
     free_days = forms.IntegerField(required=False, min_value=0, label="Бесплатные дни")
     payment_amount = forms.DecimalField(required=False, max_digits=12, decimal_places=2, label="Сумма оплаты")
     payment_method = forms.ChoiceField(required=False, choices=[('cash','Наличные'),('blik','BLIK'),('revolut','Revolut'),('other','Другое')], label="Метод оплаты")
@@ -464,11 +464,11 @@ class RentalAdmin(SimpleHistoryAdmin):
         rate_str = request.POST.get("new_weekly_rate")
         new_rate = None
         # Получаем дату и время из формы (новое поле)
-        new_start_str = request.POST.get("new_start_at")
         new_start = None
-        if new_start_str:
+        if request.POST.get("new_start_at"):
             try:
-                new_start = timezone.datetime.fromisoformat(new_start_str)
+                # получаем datetime-local => 'YYYY-MM-DDTHH:MM'
+                new_start = timezone.datetime.fromisoformat(request.POST.get("new_start_at").replace('T', ' '))
                 if timezone.is_naive(new_start):
                     new_start = timezone.make_aware(new_start, timezone.get_current_timezone())
             except Exception:
