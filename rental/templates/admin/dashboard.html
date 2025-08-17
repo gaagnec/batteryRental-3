@@ -1,0 +1,244 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Dashboard | {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <h1 class="h3 mb-4">Dashboard</h1>
+
+  <div class="row g-3">
+    <div class="col-md-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="text-muted">Активных клиентов</div>
+              <div class="h4 mb-0">{{ active_clients_count }}</div>
+            </div>
+            <div class="text-primary"><i class="bi bi-people" style="font-size: 1.8rem;"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="text-muted">Батарей всего</div>
+          <div class="h4 mb-0">{{ battery_stats.total }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="text-muted">В аренде</div>
+          <div class="h4 mb-0">{{ battery_stats.rented }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="text-muted">На сервисе</div>
+          <div class="h4 mb-0">{{ battery_stats.in_service }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mt-1">
+    <div class="col-md-12">
+      <div class="card shadow-sm">
+        <div class="card-header">Доступные: {{ battery_stats.available }}</div>
+        <div class="card-body">
+          <div id="batteryStatusChart"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mt-1">
+    <div class="col-lg-7">
+      <div class="card shadow-sm">
+        <div class="card-header">Активные клиенты: батареи и баланс</div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead>
+                <tr>
+                  <th>Клиент</th>
+                  <th>Батареи</th>
+                  <th class="text-end">Баланс</th>
+                </tr>
+              </thead>
+              <tbody>
+              {% for row in clients_data %}
+                <tr>
+                  <td>{{ row.client.name }}</td>
+                  <td>
+                    {% if row.batteries %}
+                      {% for b in row.batteries %}
+                        <span class="badge text-bg-secondary me-1">{{ b.short_code }}</span>
+                      {% endfor %}
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-end">
+                    {% if row.balance > 0 %}
+                      <span class="text-danger">{{ row.balance }}</span>
+                    {% elif row.balance < 0 %}
+                      <span class="text-success">{{ row.balance }}</span>
+                    {% else %}
+                      {{ row.balance }}
+                    {% endif %}
+                  </td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="3" class="text-center text-muted py-3">Нет активных клиентов</td></tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="card shadow-sm h-100">
+        <div class="card-header">Последние 5 платежей</div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm mb-0">
+              <thead>
+                <tr>
+                  <th>Клиент</th>
+                  <th>Дата</th>
+                  <th class="text-end">Сумма</th>
+                  <th>Кем</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for p in latest_payments %}
+                <tr>
+                  <td>{{ p.rental.client.name }}</td>
+                  <td>{{ p.date }}</td>
+                  <td class="text-end">{{ p.amount }}</td>
+                  <td>{{ p.created_by.get_full_name|default:p.created_by.username|default:p.created_by.email|default:"—" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-center text-muted py-3">Платежей нет</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mt-1">
+    <div class="col-lg-7">
+      <div class="card shadow-sm">
+        <div class="card-header">Начислено vs Оплачено (14 дней)</div>
+        <div class="card-body">
+          <div id="paymentsChart"></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="card shadow-sm h-100">
+        <div class="card-header">Топ должников</div>
+        <div class="card-body">
+          <div id="topDebtorsChart"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+{% endblock %}
+
+{% block footer %}
+{{ block.super }}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Half-donut (semi) for battery statuses
+    const pieEl = document.getElementById('batteryStatusChart');
+    if (pieEl) {
+      pieEl.style.height = '220px';
+      const pie = echarts.init(pieEl);
+      const rented = {{ battery_stats.rented|default:0 }};
+      const inService = {{ battery_stats.in_service|default:0 }};
+      const available = {{ battery_stats.available|default:0 }};
+      const sum = rented + inService + available;
+      const optionPie = {
+        tooltip: { trigger: 'item' },
+        legend: { bottom: 0 },
+        series: [{
+          type: 'pie',
+          startAngle: 180,
+          radius: ['50%','80%'],
+          center: ['50%','70%'],
+          avoidLabelOverlap: false,
+          itemStyle: { borderWidth: 0 },
+          label: { show: true, formatter: '{b}: {c}' },
+          data: [
+            { value: rented, name: 'В аренде', itemStyle: { color: '#0d6efd' } },
+            { value: inService, name: 'На сервисе', itemStyle: { color: '#ffc107' } },
+            { value: available, name: 'Доступные', itemStyle: { color: '#198754' } },
+            { value: sum, itemStyle: { color: 'none' }, label: { show: false }, tooltip: { show: false } }
+          ]
+        }]
+      };
+      pie.setOption(optionPie);
+      window.addEventListener('resize', () => pie.resize());
+    }
+
+    // Stacked bar: Начислено vs Оплачено (за 14 дней)
+    const barEl = document.getElementById('paymentsChart');
+    if (barEl) {
+      barEl.style.height = '260px';
+      const bar = echarts.init(barEl);
+      const labels = {{ payments_series.labels|safe }};
+      const paid = {{ payments_series.values|safe }};
+      const charged = {{ charges_series.values|safe }};
+      const optionBar = {
+        tooltip: { trigger: 'axis' },
+        legend: { bottom: 0, data: ['Начислено','Оплачено'] },
+        grid: { left: 40, right: 20, top: 20, bottom: 40 },
+        xAxis: { type: 'category', data: labels },
+        yAxis: { type: 'value', min: 0 },
+        series: [
+          { name: 'Начислено', type: 'bar', stack: 'total', data: charged, itemStyle: { color: '#6c757d' } },
+          { name: 'Оплачено', type: 'bar', stack: 'total', data: paid, itemStyle: { color: '#0d6efd' } }
+        ]
+      };
+      bar.setOption(optionBar);
+      window.addEventListener('resize', () => bar.resize());
+    }
+
+    // Top debtors: horizontal bar
+    const debtEl = document.getElementById('topDebtorsChart');
+    if (debtEl) {
+      debtEl.style.height = '260px';
+      const debt = echarts.init(debtEl);
+      const names = {{ top_debtors.names|safe }};
+      const values = {{ top_debtors.values|safe }};
+      const optionDebt = {
+        tooltip: { trigger: 'axis' },
+        grid: { left: 120, right: 20, top: 10, bottom: 30 },
+        xAxis: { type: 'value' },
+        yAxis: { type: 'category', data: names, axisLabel: { interval: 0 } },
+        series: [{ type: 'bar', data: values, itemStyle: { color: '#dc3545' } }]
+      };
+      debt.setOption(optionDebt);
+      window.addEventListener('resize', () => debt.resize());
+    }
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <style>
+    /* Hide default right sidebar filter */
+    #changelist-filter { display: none !important; }
+    /* Make content area full width */
+    #content { max-width: 100%; }
+    .table-responsive { overflow-x: auto; }
+    .top-scroll { overflow-x: auto; height: 16px; margin-bottom: .25rem; }
+    .top-scroll .spacer { height: 1px; }
+    /* Make headers wrap to allow two-line labels */
+    #result_list thead th { white-space: normal; word-break: break-word; vertical-align: middle; }
+    #result_list thead th .two-lines { display: inline-block; line-height: 1.1; }
+  </style>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Apply Bootstrap-like classes to Django admin result table
+      const tbl = document.getElementById('result_list');
+      if (tbl) {
+        tbl.classList.add('table','table-sm','table-hover','table-striped');
+      }
+      // Create top scroll that mirrors bottom
+      const chg = document.getElementById('changelist');
+      if (!chg) return;
+      let top = document.getElementById('top-scroll');
+      if (!top) {
+        top = document.createElement('div');
+        top.id = 'top-scroll';
+        top.className = 'top-scroll';
+        const spacer = document.createElement('div');
+        spacer.className = 'spacer';
+        top.appendChild(spacer);
+        chg.insertBefore(top, chg.firstChild);
+      }
+      const container = document.querySelector('.results') || (tbl && tbl.parentElement);
+      const updateWidth = () => {
+        const target = tbl;
+        if (top && target) {
+          top.firstChild.style.width = target.scrollWidth + 'px';
+        }
+      };
+      const sync = (src, dst) => { dst.scrollLeft = src.scrollLeft; };
+      if (container && top) {
+        updateWidth();
+        top.addEventListener('scroll', () => sync(top, container));
+        container.addEventListener('scroll', () => sync(container, top));
+        window.addEventListener('resize', updateWidth);
+        setTimeout(updateWidth, 200);
+      }
+    });
+  </script>
+{% endblock %}
+
+{% block object-tools-items %}
+  {# Centered filter controls replacing sidebar filters #}
+  <li class="d-flex w-100 justify-content-center" style="list-style:none;">
+    <div class="btn-group btn-group-sm" role="group" aria-label="Filters">
+      {% with cur=request.GET.status__exact %}
+        <a class="btn {% if not cur %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href=".">{% trans "All" %}</a>
+        <a class="btn {% if cur == 'active' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?status__exact=active">Активен</a>
+        <a class="btn {% if cur == 'modified' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?status__exact=modified">Модифицирован</a>
+        <a class="btn {% if cur == 'closed' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?status__exact=closed">Закрыт</a>
+      {% endwith %}
+    </div>
+  </li>
+  {{ block.super }}
+{% endblock %}
+
+{% block result_list %}
+  <div class="table-responsive">
+    {{ block.super }}
+  </div>
+{% endblock %}
