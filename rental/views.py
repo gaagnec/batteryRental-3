@@ -3,6 +3,8 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.utils import timezone
 from django.db.models import Count, Sum
 from datetime import timedelta
+from django.db import models
+
 from decimal import Decimal
 
 from .models import Client, Rental, Battery, Payment, Repair, RentalBatteryAssignment
