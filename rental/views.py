@@ -3,6 +3,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.utils import timezone
 from django.db.models import Count, Sum
 from datetime import timedelta
+from decimal import Decimal
 
 from .models import Client, Rental, Battery, Payment, Repair, RentalBatteryAssignment
 
@@ -56,22 +57,58 @@ def dashboard(request):
     # Последние 5 платежей
     latest_payments = Payment.objects.select_related('rental__client', 'created_by').order_by('-date', '-id')[:5]
 
-    # Серия платежей за 14 дней
+    # Серия платежей и начислений за 14 дней
     start_date = timezone.localdate() - timedelta(days=13)
-    qs = (
+    pay_qs = (
         Payment.objects.filter(date__gte=start_date)
         .values('date')
         .annotate(total=Sum('amount'))
         .order_by('date')
     )
     labels = []
-    values = []
-    totals = {row['date']: row['total'] for row in qs}
+    paid_values = []
+    totals_pay = {row['date']: row['total'] for row in pay_qs}
+
+    # Начисления в день считаем как сумму дневной ставки по активным назначениям
+    # Перебор по дням и подсчет активных assignments на 14:00 каждого дня
+    charges_values = []
+    tz = timezone.get_current_timezone()
     for i in range(14):
         d = start_date + timedelta(days=i)
         labels.append(d.isoformat())
-        values.append(float(totals.get(d, 0) or 0))
-    payments_series = {'labels': labels, 'values': values}
+        paid_values.append(float(totals_pay.get(d, 0) or 0))
+        # 14:00 якорь
+        anchor = timezone.make_aware(timezone.datetime.combine(d, timezone.datetime.min.time().replace(hour=14)), tz)
+        # активные ренты, покрывающие якорь
+        day_total = Decimal(0)
+        day_assigns = RentalBatteryAssignment.objects.filter(
+            start_at__lte=anchor,
+        ).filter(models.Q(end_at__isnull=True) | models.Q(end_at__gt=anchor))
+        # для каждой привязки берём недельную ставку её рентала
+        for a in day_assigns.select_related('rental'):
+            r = a.rental
+            # учитывать только если статус активен и интервал рентала покрывает якорь
+            r_start = timezone.localtime(r.start_at, tz)
+            r_end = timezone.localtime(r.end_at, tz) if r.end_at else None
+            if r.status == Rental.Status.ACTIVE and r_start <= anchor and (r_end is None or r_end > anchor):
+                day_total += (r.weekly_rate or Decimal(0)) / Decimal(7)
+        charges_values.append(float(day_total))
+
+    payments_series = {'labels': labels, 'values': paid_values}
+    charges_series = {'labels': labels, 'values': charges_values}
+
+    # Топ должников: по текущему балансу, берём 5
+    debtors = []
+    for r in latest_by_client:
+        bal = r.group_balance()
+        if bal > 0:
+            debtors.append((str(r.client), float(bal)))
+    debtors.sort(key=lambda x: x[1], reverse=True)
+    debtors = debtors[:5]
+    top_debtors = {
+        'names': [name for name, _ in debtors],
+        'values': [val for _, val in debtors]
+    }
 
     context = {
         'active_clients_count': active_clients_count,
@@ -79,5 +116,7 @@ def dashboard(request):
         'battery_stats': battery_stats,
         'latest_payments': latest_payments,
         'payments_series': payments_series,
+        'charges_series': charges_series,
+        'top_debtors': top_debtors,
     }
     return render(request, 'admin/dashboard.html', context)

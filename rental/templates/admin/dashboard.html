@@ -52,7 +52,7 @@
       <div class="card shadow-sm">
         <div class="card-header">Доступные: {{ battery_stats.available }}</div>
         <div class="card-body">
-          <canvas id="batteryStatusChart" height="80"></canvas>
+          <div id="batteryStatusChart"></div>
         </div>
       </div>
     </div>
@@ -138,11 +138,19 @@
   </div>
 
   <div class="row g-3 mt-1">
-    <div class="col-md-12">
+    <div class="col-lg-7">
       <div class="card shadow-sm">
-        <div class="card-header">Платежи за последние 14 дней</div>
+        <div class="card-header">Начислено vs Оплачено (14 дней)</div>
         <div class="card-body">
-          <canvas id="paymentsChart" height="80"></canvas>
+          <div id="paymentsChart"></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="card shadow-sm h-100">
+        <div class="card-header">Топ должников</div>
+        <div class="card-body">
+          <div id="topDebtorsChart"></div>
         </div>
       </div>
     </div>
@@ -152,51 +160,84 @@
 
 {% block extrahead %}
   {{ block.super }}
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
 {% endblock %}
 
 {% block footer %}
 {{ block.super }}
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    const batteryCtx = document.getElementById('batteryStatusChart');
-    if (batteryCtx) {
-      new Chart(batteryCtx, {
-        type: 'doughnut',
-        data: {
-          labels: ['В аренде', 'На сервисе', 'Доступные'],
-          datasets: [{
-            data: [{{ battery_stats.rented|default:0 }}, {{ battery_stats.in_service|default:0 }}, {{ battery_stats.available|default:0 }}],
-            backgroundColor: ['#0d6efd','#ffc107','#198754']
-          }]
-        },
-        options: { plugins: { legend: { position: 'bottom' } } }
-      });
+    // Half-donut (semi) for battery statuses
+    const pieEl = document.getElementById('batteryStatusChart');
+    if (pieEl) {
+      pieEl.style.height = '220px';
+      const pie = echarts.init(pieEl);
+      const rented = {{ battery_stats.rented|default:0 }};
+      const inService = {{ battery_stats.in_service|default:0 }};
+      const available = {{ battery_stats.available|default:0 }};
+      const sum = rented + inService + available;
+      const optionPie = {
+        tooltip: { trigger: 'item' },
+        legend: { bottom: 0 },
+        series: [{
+          type: 'pie',
+          startAngle: 180,
+          radius: ['50%','80%'],
+          center: ['50%','70%'],
+          avoidLabelOverlap: false,
+          itemStyle: { borderWidth: 0 },
+          label: { show: true, formatter: '{b}: {c}' },
+          data: [
+            { value: rented, name: 'В аренде', itemStyle: { color: '#0d6efd' } },
+            { value: inService, name: 'На сервисе', itemStyle: { color: '#ffc107' } },
+            { value: available, name: 'Доступные', itemStyle: { color: '#198754' } },
+            { value: sum, itemStyle: { color: 'none' }, label: { show: false }, tooltip: { show: false } }
+          ]
+        }]
+      };
+      pie.setOption(optionPie);
+      window.addEventListener('resize', () => pie.resize());
     }
 
-    const paymentsCtx = document.getElementById('paymentsChart');
-    if (paymentsCtx) {
+    // Stacked bar: Начислено vs Оплачено (за 14 дней)
+    const barEl = document.getElementById('paymentsChart');
+    if (barEl) {
+      barEl.style.height = '260px';
+      const bar = echarts.init(barEl);
       const labels = {{ payments_series.labels|safe }};
-      const data = {{ payments_series.values|safe }};
-      new Chart(paymentsCtx, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: 'Сумма платежей',
-            data: data,
-            borderColor: '#0d6efd',
-            backgroundColor: 'rgba(13,110,253,0.15)',
-            tension: 0.3,
-            fill: true,
-            pointRadius: 2
-          }]
-        },
-        options: {
-          scales: { y: { beginAtZero: true } },
-          plugins: { legend: { display: false } }
-        }
-      });
+      const paid = {{ payments_series.values|safe }};
+      const charged = {{ charges_series.values|safe }};
+      const optionBar = {
+        tooltip: { trigger: 'axis' },
+        legend: { bottom: 0, data: ['Начислено','Оплачено'] },
+        grid: { left: 40, right: 20, top: 20, bottom: 40 },
+        xAxis: { type: 'category', data: labels },
+        yAxis: { type: 'value', min: 0 },
+        series: [
+          { name: 'Начислено', type: 'bar', stack: 'total', data: charged, itemStyle: { color: '#6c757d' } },
+          { name: 'Оплачено', type: 'bar', stack: 'total', data: paid, itemStyle: { color: '#0d6efd' } }
+        ]
+      };
+      bar.setOption(optionBar);
+      window.addEventListener('resize', () => bar.resize());
+    }
+
+    // Top debtors: horizontal bar
+    const debtEl = document.getElementById('topDebtorsChart');
+    if (debtEl) {
+      debtEl.style.height = '260px';
+      const debt = echarts.init(debtEl);
+      const names = {{ top_debtors.names|safe }};
+      const values = {{ top_debtors.values|safe }};
+      const optionDebt = {
+        tooltip: { trigger: 'axis' },
+        grid: { left: 120, right: 20, top: 10, bottom: 30 },
+        xAxis: { type: 'value' },
+        yAxis: { type: 'category', data: names, axisLabel: { interval: 0 } },
+        series: [{ type: 'bar', data: values, itemStyle: { color: '#dc3545' } }]
+      };
+      debt.setOption(optionDebt);
+      window.addEventListener('resize', () => debt.resize());
     }
   });
 </script>
