@@ -8,6 +8,10 @@
     #changelist-filter { display: none !important; }
     /* Make content area full width */
     #content { max-width: 100%; }
+    /* Remove reserved space for sidebar when filters exist */
+    #changelist.filtered .results,
+    #changelist.filtered .paginator,
+    #changelist.filtered .actions { margin-right: 0 !important; }
     .table-responsive { overflow-x: auto; }
     .top-scroll { overflow-x: auto; height: 16px; margin-bottom: .25rem; }
     .top-scroll .spacer { height: 1px; }
@@ -21,6 +25,11 @@
       const tbl = document.getElementById('result_list');
       if (tbl) {
         tbl.classList.add('table','table-sm','table-hover','table-striped');
+        // Tweak headers: make two-line for Weekly rate and Contract code
+        const hdrWeekly = tbl.querySelector('th.column-weekly_rate');
+        if (hdrWeekly) hdrWeekly.innerHTML = 'Weekly <br><span class="two-lines">rate</span>';
+        const hdrCode = tbl.querySelector('th.column-contract_code');
+        if (hdrCode) hdrCode.innerHTML = 'Contract <br><span class="two-lines">code</span>';
       }
       // Create top scroll that mirrors bottom
       const chg = document.getElementById('changelist');
