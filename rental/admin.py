@@ -203,13 +203,17 @@ class BatteryAdmin(SimpleHistoryAdmin):
             rental_link = format_html('<a href="{}">{}</a>', reverse('admin:rental_rental_change', args=[r.pk]), r.contract_code)
             parts.append(format_html('[{}, {}]', client_link, rental_link))
         count = len(uniq)
+        # Цвет + инлайн-стиль как fallback, если Bootstrap не подгрузился
         bg = 'secondary'
+        bg_color = '#6c757d'
         if count == 1:
             bg = 'success'
+            bg_color = '#198754'
         elif count > 1:
             bg = 'warning'
+            bg_color = '#ffc107'
         content = format_html(', '.join(['{}'] * len(parts)), *parts) if parts else '-'
-        return format_html('<span class="badge bg-{}">{}</span>', bg, content)
+        return format_html('<span class="badge bg-{}" style="background-color:{}; color:#000;">{}</span>', bg, bg_color, content)
     usage_now.short_description = "В аренде"
 
     def roi_progress(self, obj):
@@ -252,7 +256,16 @@ class BatteryAdmin(SimpleHistoryAdmin):
                             break
                     if rate is not None:
                         battery_share += rate
-                        days_total += 1
+                    # Считаем дни аренды без привязки к активной версии
+                    days_total = 0
+                    for a in obj.assignments.all():
+                        a_start = timezone.localtime(a.start_at, tz)
+                        a_end = timezone.localtime(a.end_at, tz) if a.end_at else now
+                        d = a_start.date()
+                        end_date = a_end.date()
+                        while d <= end_date:
+                            days_total += 1
+                            d += timedelta(days=1)
                     d += timedelta(days=1)
             # Общая сумма начислений по группе
             group_charges = root.group_charges_until(until=now) or Decimal(0)
@@ -440,6 +453,8 @@ class RentalAdmin(SimpleHistoryAdmin):
                 inst.created_by = request.user
             if hasattr(inst, "updated_by"):
                 inst.updated_by = request.user
+    free_days = forms.IntegerField(required=False, min_value=0, label="Бесплатные дни")
+
             inst.save()
         formset.save_m2m()
 
@@ -448,6 +463,24 @@ class RentalAdmin(SimpleHistoryAdmin):
         # Получаем ставку из формы действий
         rate_str = request.POST.get("new_weekly_rate")
         new_rate = None
+        # Получаем дату и время из формы (новое поле)
+        new_start_str = request.POST.get("new_start_at")
+        new_start = None
+        if new_start_str:
+            try:
+                new_start = timezone.datetime.fromisoformat(new_start_str)
+                if timezone.is_naive(new_start):
+                    new_start = timezone.make_aware(new_start, timezone.get_current_timezone())
+            except Exception:
+                new_start = None
+        # Получаем бесплатные дни
+        free_days_str = request.POST.get("free_days")
+        free_days = 0
+        if free_days_str:
+            try:
+                free_days = int(free_days_str)
+            except Exception:
+                free_days = 0
         if rate_str:
             try:
                 new_rate = Decimal(rate_str)
@@ -455,55 +488,122 @@ class RentalAdmin(SimpleHistoryAdmin):
                 new_rate = None
         for rental in queryset:
             root = rental.root or rental
-            now = timezone.now()
+            now = new_start or timezone.now()
             # Закрываем старую версию
             if not rental.end_at or rental.end_at > now:
                 rental.end_at = now
             rental.status = Rental.Status.MODIFIED
             rental.save()
-            # Создаем новую версию
-            try:
-                new_version_num = root.group_versions().count() + 1
-            except Exception:
-                new_version_num = rental.version + 1
-            new_rental = Rental(
-                client=rental.client,
-                start_at=now,
-                weekly_rate=new_rate if new_rate is not None else rental.weekly_rate,
-                deposit_amount=rental.deposit_amount,
-                status=Rental.Status.ACTIVE,
-                battery_type=rental.battery_type,
-                parent=rental,
-                root=root,
-                version=new_version_num,
-                contract_code=root.contract_code or rental.contract_code,
-            )
-            new_rental.created_by = request.user
-            new_rental.updated_by = request.user
-            new_rental.save()
-            # Переносим активные назначения батарей на новую версию, закрыв их в старой
-            tz = timezone.get_current_timezone()
-            for a in rental.assignments.all():
-                a_start = timezone.localtime(a.start_at, tz)
-                a_end = timezone.localtime(a.end_at, tz) if a.end_at else None
-                if a_end is None or a_end > now:
-                    # закрываем в старой версии
+            if free_days > 0:
+                # Создаем версию с бесплатными днями
+                free_start = now
+                free_end = free_start + timezone.timedelta(days=free_days)
+                try:
+                    new_version_num = root.group_versions().count() + 1
+                except Exception:
+                    new_version_num = rental.version + 1
+                free_version = Rental(
+                    client=rental.client,
+                    start_at=free_start,
+                    end_at=free_end,
+                    weekly_rate=Decimal(0),
+                    deposit_amount=rental.deposit_amount,
+                    status=Rental.Status.ACTIVE,
+                    battery_type=rental.battery_type,
+                    parent=rental,
+                    root=root,
+                    version=new_version_num,
+                    contract_code=root.contract_code or rental.contract_code,
+                )
+                free_version.created_by = request.user
+                free_version.updated_by = request.user
+                free_version.save()
+                # Создаем следующую версию после бесплатных дней
+                try:
+                    new_version_num = root.group_versions().count() + 1
+                except Exception:
+                    new_version_num = free_version.version + 1
+                next_start = free_end + timezone.timedelta(days=1)
+                new_rental = Rental(
+                    client=rental.client,
+                    start_at=next_start,
+                    weekly_rate=new_rate if new_rate is not None else rental.weekly_rate,
+                    deposit_amount=rental.deposit_amount,
+                    status=Rental.Status.ACTIVE,
+                    battery_type=rental.battery_type,
+                    parent=free_version,
+                    root=root,
+                    version=new_version_num,
+                    contract_code=root.contract_code or rental.contract_code,
+                )
+                new_rental.created_by = request.user
+                new_rental.updated_by = request.user
+                new_rental.save()
+                # Переносим активные назначения батарей на новую версию, закрыв их в старой
+                tz = timezone.get_current_timezone()
+                for a in rental.assignments.all():
+                    a_start = timezone.localtime(a.start_at, tz)
+                    a_end = timezone.localtime(a.end_at, tz) if a.end_at else None
                     if a_end is None or a_end > now:
-                        a.end_at = now
-                        a.updated_by = request.user
-                        a.save(update_fields=["end_at", "updated_by"])
-                    # создаем продолжение в новой версии, начиная сейчас
-                    RentalBatteryAssignment.objects.create(
-                        rental=new_rental,
-                        battery=a.battery,
-                        start_at=now,
-                        end_at=None,
-                        created_by=request.user,
-                        updated_by=request.user,
-                    )
-            count += 1
+                        # закрываем в старой версии
+                        if a_end is None or a_end > now:
+                            a.end_at = now
+                            a.updated_by = request.user
+                            a.save(update_fields=["end_at", "updated_by"])
+                        # создаем продолжение в новой версии, начиная сейчас
+                        RentalBatteryAssignment.objects.create(
+                            rental=new_rental,
+                            battery=a.battery,
+                            start_at=now,
+                            end_at=None,
+                            created_by=request.user,
+                            updated_by=request.user,
+                        )
+                count += 2
+            else:
+                # Создаем новую версию без бесплатных дней
+                try:
+                    new_version_num = root.group_versions().count() + 1
+                except Exception:
+                    new_version_num = rental.version + 1
+                new_rental = Rental(
+                    client=rental.client,
+                    start_at=now,
+                    weekly_rate=new_rate if new_rate is not None else rental.weekly_rate,
+                    deposit_amount=rental.deposit_amount,
+                    status=Rental.Status.ACTIVE,
+                    battery_type=rental.battery_type,
+                    parent=rental,
+                    root=root,
+                    version=new_version_num,
+                    contract_code=root.contract_code or rental.contract_code,
+                )
+                new_rental.created_by = request.user
+                new_rental.updated_by = request.user
+                new_rental.save()
+                # Переносим активные назначения батарей на новую версию, закрыв их в старой
+                tz = timezone.get_current_timezone()
+                for a in rental.assignments.all():
+                    a_start = timezone.localtime(a.start_at, tz)
+                    a_end = timezone.localtime(a.end_at, tz) if a.end_at else None
+                    if a_end is None or a_end > now:
+                        # закрываем в старой версии
+                        if a_end is None or a_end > now:
+                            a.end_at = now
+                            a.updated_by = request.user
+                            a.save(update_fields=["end_at", "updated_by"])
+                        # создаем продолжение в новой версии, начиная сейчас
+                        RentalBatteryAssignment.objects.create(
+                            rental=new_rental,
+                            battery=a.battery,
+                            start_at=now,
+                            end_at=None,
+                            created_by=request.user,
+                            updated_by=request.user,
+                        )
+                count += 1
         self.message_user(request, f"Создано новых версий: {count}; активные батареи перенесены")
-    make_new_version.short_description = "Создать новую версию (начало сейчас, с переносом батарей)"
+    make_new_version.short_description = "Создать новую версию (начало с даты и времени, с переносом батарей)"
 
     # Пользовательский admin-view для изменения состава батарей
     def get_urls(self):
