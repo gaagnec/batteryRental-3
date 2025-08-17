@@ -523,7 +523,7 @@ class RentalAdmin(SimpleHistoryAdmin):
                     new_version_num = root.group_versions().count() + 1
                 except Exception:
                     new_version_num = free_version.version + 1
-                next_start = free_end + timezone.timedelta(days=1)
+                next_start = free_end
                 new_rental = Rental(
                     client=rental.client,
                     start_at=next_start,
