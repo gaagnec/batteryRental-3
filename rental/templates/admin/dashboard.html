@@ -1,0 +1,203 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Dashboard | {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <h1 class="h3 mb-4">Dashboard</h1>
+
+  <div class="row g-3">
+    <div class="col-md-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="text-muted">Активных клиентов</div>
+              <div class="h4 mb-0">{{ active_clients_count }}</div>
+            </div>
+            <div class="text-primary"><i class="bi bi-people" style="font-size: 1.8rem;"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="text-muted">Батарей всего</div>
+          <div class="h4 mb-0">{{ battery_stats.total }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="text-muted">В аренде</div>
+          <div class="h4 mb-0">{{ battery_stats.rented }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="text-muted">На сервисе</div>
+          <div class="h4 mb-0">{{ battery_stats.in_service }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mt-1">
+    <div class="col-md-12">
+      <div class="card shadow-sm">
+        <div class="card-header">Доступные: {{ battery_stats.available }}</div>
+        <div class="card-body">
+          <canvas id="batteryStatusChart" height="80"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mt-1">
+    <div class="col-lg-7">
+      <div class="card shadow-sm">
+        <div class="card-header">Активные клиенты: батареи и баланс</div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead>
+                <tr>
+                  <th>Клиент</th>
+                  <th>Батареи</th>
+                  <th class="text-end">Баланс</th>
+                </tr>
+              </thead>
+              <tbody>
+              {% for row in clients_data %}
+                <tr>
+                  <td>{{ row.client.name }}</td>
+                  <td>
+                    {% if row.batteries %}
+                      {% for b in row.batteries %}
+                        <span class="badge text-bg-secondary me-1">{{ b.short_code }}</span>
+                      {% endfor %}
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-end">
+                    {% if row.balance > 0 %}
+                      <span class="text-danger">{{ row.balance }}</span>
+                    {% elif row.balance < 0 %}
+                      <span class="text-success">{{ row.balance }}</span>
+                    {% else %}
+                      {{ row.balance }}
+                    {% endif %}
+                  </td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="3" class="text-center text-muted py-3">Нет активных клиентов</td></tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="card shadow-sm h-100">
+        <div class="card-header">Последние 5 платежей</div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm mb-0">
+              <thead>
+                <tr>
+                  <th>Клиент</th>
+                  <th>Дата</th>
+                  <th class="text-end">Сумма</th>
+                  <th>Кем</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for p in latest_payments %}
+                <tr>
+                  <td>{{ p.rental.client.name }}</td>
+                  <td>{{ p.date }}</td>
+                  <td class="text-end">{{ p.amount }}</td>
+                  <td>{{ p.created_by.get_full_name|default:p.created_by.username|default:p.created_by.email|default:"—" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-center text-muted py-3">Платежей нет</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mt-1">
+    <div class="col-md-12">
+      <div class="card shadow-sm">
+        <div class="card-header">Платежи за последние 14 дней</div>
+        <div class="card-body">
+          <canvas id="paymentsChart" height="80"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block footer %}
+{{ block.super }}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const batteryCtx = document.getElementById('batteryStatusChart');
+    if (batteryCtx) {
+      new Chart(batteryCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['В аренде', 'На сервисе', 'Доступные'],
+          datasets: [{
+            data: [{{ battery_stats.rented|default:0 }}, {{ battery_stats.in_service|default:0 }}, {{ battery_stats.available|default:0 }}],
+            backgroundColor: ['#0d6efd','#ffc107','#198754']
+          }]
+        },
+        options: { plugins: { legend: { position: 'bottom' } } }
+      });
+    }
+
+    const paymentsCtx = document.getElementById('paymentsChart');
+    if (paymentsCtx) {
+      const labels = {{ payments_series.labels|safe }};
+      const data = {{ payments_series.values|safe }};
+      new Chart(paymentsCtx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Сумма платежей',
+            data: data,
+            borderColor: '#0d6efd',
+            backgroundColor: 'rgba(13,110,253,0.15)',
+            tension: 0.3,
+            fill: true,
+            pointRadius: 2
+          }]
+        },
+        options: {
+          scales: { y: { beginAtZero: true } },
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+  });
+</script>
+{% endblock %}
