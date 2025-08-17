@@ -19,6 +19,7 @@ from django.urls import path
 from rental.views import dashboard
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    # Place dashboard BEFORE admin.site.urls so it's not captured by admin's catch-all
     path('admin/dashboard/', dashboard, name='admin-dashboard'),
+    path('admin/', admin.site.urls),
 ]
