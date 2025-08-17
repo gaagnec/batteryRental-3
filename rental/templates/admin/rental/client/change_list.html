@@ -9,38 +9,42 @@
 {% endblock %}
 
 {% block object-tools-items %}
-  {% with cur=request.GET.active %}
-  <li>
-    <button type="button"
-            class="button btn btn-sm {% if cur == '1' %}btn-primary{% else %}btn-outline-primary{% endif %}"
-            hx-get="?active=1"
-            hx-target="#client-results"
-            hx-push-url="true"
-            hx-indicator="#client-results-loading">
-      С активным
-    </button>
-  </li>
-  <li>
-    <button type="button"
-            class="button btn btn-sm {% if cur == '0' %}btn-primary{% else %}btn-outline-primary{% endif %}"
-            hx-get="?active=0"
-            hx-target="#client-results"
-            hx-push-url="true"
-            hx-indicator="#client-results-loading">
-      Без активного
-    </button>
-  </li>
-  <li>
-    <button type="button"
-            class="button btn btn-sm {% if cur != '0' and cur != '1' %}btn-secondary{% else %}btn-outline-secondary{% endif %}"
-            hx-get="."
-            hx-target="#client-results"
-            hx-push-url="true"
-            hx-indicator="#client-results-loading">
-      Все
-    </button>
-  </li>
-  {% endwith %}
+  <div class="d-flex justify-content-center mb-3">
+    <ul class="nav nav-pills">
+      {% with cur=request.GET.active %}
+      <li class="nav-item">
+        <button type="button"
+                class="btn btn-sm {% if cur == '1' %}btn-primary{% else %}btn-outline-primary{% endif %}"
+                hx-get="?active=1"
+                hx-target="#client-results"
+                hx-push-url="true"
+                hx-indicator="#client-results-loading">
+          С активным
+        </button>
+      </li>
+      <li class="nav-item">
+        <button type="button"
+                class="btn btn-sm {% if cur == '0' %}btn-primary{% else %}btn-outline-primary{% endif %}"
+                hx-get="?active=0"
+                hx-target="#client-results"
+                hx-push-url="true"
+                hx-indicator="#client-results-loading">
+          Без активного
+        </button>
+      </li>
+      <li class="nav-item">
+        <button type="button"
+                class="btn btn-sm {% if cur != '0' and cur != '1' %}btn-secondary{% else %}btn-outline-secondary{% endif %}"
+                hx-get="."
+                hx-target="#client-results"
+                hx-push-url="true"
+                hx-indicator="#client-results-loading">
+          Все
+        </button>
+      </li>
+      {% endwith %}
+    </ul>
+  </div>
   {{ block.super }}
 {% endblock %}
 
@@ -48,9 +52,29 @@
   <style>
     .htmx-indicator { display: none; }
     .htmx-request .htmx-indicator { display: inline-block; }
+    .table-responsive {
+      overflow-x: auto;
+      margin-bottom: 1rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    thead th {
+      white-space: normal !important;
+      word-break: break-word;
+      text-align: center;
+      vertical-align: middle;
+    }
+    thead th .two-lines {
+      display: block;
+      line-height: 1.2;
+    }
   </style>
-  <div id="client-results" hx-ext="morphdom-swap">
-    <div id="client-results-loading" class="htmx-indicator">Загрузка…</div>
-    {{ block.super }}
+  <div class="table-responsive">
+    <div id="client-results" hx-ext="morphdom-swap">
+      <div id="client-results-loading" class="htmx-indicator">Загрузка…</div>
+      {{ block.super }}
+    </div>
   </div>
 {% endblock %}

@@ -407,19 +407,19 @@ class RentalAdmin(SimpleHistoryAdmin):
             if a_start <= now and (a_end is None or a_end > now):
                 codes.append(a.battery.short_code)
         return ", ".join(sorted(set(codes))) or "—"
-    assigned_batteries_short.short_description = "Батареи (сейчас)"
+    assigned_batteries_short.short_description = "Батареи"
 
     def group_charges_now(self, obj):
         return self.fmt_pln(obj.group_charges_until(until=timezone.now()))
-    group_charges_now.short_description = "Начислено (сейчас)"
+    group_charges_now.short_description = "Начислено"
 
     def group_paid_total(self, obj):
         return self.fmt_pln(obj.group_paid_total())
-    group_paid_total.short_description = "Оплачено (аренда)"
+    group_paid_total.short_description = "Оплачено"
 
     def group_deposit_total(self, obj):
         return self.fmt_pln(obj.group_deposit_total())
-    group_deposit_total.short_description = "Депозит (чистый)"
+    group_deposit_total.short_description = "Депозит"
 
     def group_balance_now(self, obj):
         now = timezone.now()
@@ -427,7 +427,7 @@ class RentalAdmin(SimpleHistoryAdmin):
         paid = obj.group_paid_total()
         return self.fmt_pln(paid - charges)
 
-    group_balance_now.short_description = "Баланс (сейчас)"
+    group_balance_now.short_description = "Баланс"
 
     def save_model(self, request, obj, form, change):
         if not change and not getattr(obj, 'created_by_id', None):
