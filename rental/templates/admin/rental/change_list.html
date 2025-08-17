@@ -21,43 +21,13 @@
   </style>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
-      // Apply Bootstrap-like classes to Django admin result table
       const tbl = document.getElementById('result_list');
       if (tbl) {
         tbl.classList.add('table','table-sm','table-hover','table-striped');
-        // Tweak headers: make two-line for Weekly rate and Contract code
         const hdrWeekly = tbl.querySelector('th.column-weekly_rate');
         if (hdrWeekly) hdrWeekly.innerHTML = 'Weekly <br><span class="two-lines">rate</span>';
         const hdrCode = tbl.querySelector('th.column-contract_code');
         if (hdrCode) hdrCode.innerHTML = 'Contract <br><span class="two-lines">code</span>';
-      }
-      // Create top scroll that mirrors bottom
-      const chg = document.getElementById('changelist');
-      if (!chg) return;
-      let top = document.getElementById('top-scroll');
-      if (!top) {
-        top = document.createElement('div');
-        top.id = 'top-scroll';
-        top.className = 'top-scroll';
-        const spacer = document.createElement('div');
-        spacer.className = 'spacer';
-        top.appendChild(spacer);
-        chg.insertBefore(top, chg.firstChild);
-      }
-      const container = document.querySelector('.results') || (tbl && tbl.parentElement);
-      const updateWidth = () => {
-        const target = tbl;
-        if (top && target) {
-          top.firstChild.style.width = target.scrollWidth + 'px';
-        }
-      };
-      const sync = (src, dst) => { dst.scrollLeft = src.scrollLeft; };
-      if (container && top) {
-        updateWidth();
-        top.addEventListener('scroll', () => sync(top, container));
-        container.addEventListener('scroll', () => sync(container, top));
-        window.addEventListener('resize', updateWidth);
-        setTimeout(updateWidth, 200);
       }
     });
   </script>
