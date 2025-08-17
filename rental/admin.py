@@ -344,6 +344,8 @@ class NewVersionActionForm(ActionForm):
     new_weekly_rate = forms.DecimalField(
         required=False, max_digits=12, decimal_places=2, label="Новая недельная ставка (PLN)"
     )
+    new_start_at = forms.CharField(required=False, label="Начало новой версии (ISO: YYYY-MM-DD HH:MM)")
+    free_days = forms.IntegerField(required=False, min_value=0, label="Бесплатные дни")
     payment_amount = forms.DecimalField(required=False, max_digits=12, decimal_places=2, label="Сумма оплаты")
     payment_method = forms.ChoiceField(required=False, choices=[('cash','Наличные'),('blik','BLIK'),('revolut','Revolut'),('other','Другое')], label="Метод оплаты")
     payment_note = forms.CharField(required=False, label="Примечание к оплате")
@@ -453,8 +455,6 @@ class RentalAdmin(SimpleHistoryAdmin):
                 inst.created_by = request.user
             if hasattr(inst, "updated_by"):
                 inst.updated_by = request.user
-    free_days = forms.IntegerField(required=False, min_value=0, label="Бесплатные дни")
-
             inst.save()
         formset.save_m2m()
 
