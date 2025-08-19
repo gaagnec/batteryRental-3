@@ -56,11 +56,12 @@ def dashboard(request):
         'available': available,
     }
 
-    # Последние 5 платежей
-    latest_payments = Payment.objects.select_related('rental__client', 'created_by').order_by('-date', '-id')[:5]
+    # Последние 10 платежей
+    latest_payments = Payment.objects.select_related('rental__client', 'created_by').order_by('-date', '-id')[:10]
 
-    # Серия платежей и начислений за 14 дней
-    start_date = timezone.localdate() - timedelta(days=13)
+    # Серия платежей и начислений за 30 дней
+    window_days = 30
+    start_date = timezone.localdate() - timedelta(days=window_days - 1)
     pay_qs = (
         Payment.objects.filter(date__gte=start_date)
         .values('date')
@@ -75,7 +76,7 @@ def dashboard(request):
     # Перебор по дням и подсчет активных assignments на 14:00 каждого дня
     charges_values = []
     tz = timezone.get_current_timezone()
-    for i in range(14):
+    for i in range(window_days):
         d = start_date + timedelta(days=i)
         labels.append(d.isoformat())
         paid_values.append(float(totals_pay.get(d, 0) or 0))
@@ -101,16 +102,21 @@ def dashboard(request):
 
     # Топ должников: по текущему балансу, берём 5
     debtors = []
+    overall_debt = Decimal(0)
     for r in latest_by_client:
         bal = r.group_balance()
         if bal > 0:
             debtors.append((str(r.client), float(bal)))
+            overall_debt += bal
     debtors.sort(key=lambda x: x[1], reverse=True)
     debtors = debtors[:5]
     top_debtors = {
         'names': [name for name, _ in debtors],
         'values': [val for _, val in debtors]
     }
+
+    total_paid_30 = float(sum(paid_values))
+    total_charged_30 = float(sum(charges_values))
 
     context = {
         'active_clients_count': active_clients_count,
@@ -120,5 +126,9 @@ def dashboard(request):
         'payments_series': payments_series,
         'charges_series': charges_series,
         'top_debtors': top_debtors,
+        'overall_debt': overall_debt,
+        'total_paid_30': total_paid_30,
+        'total_charged_30': total_charged_30,
+        'window_days': window_days,
     }
     return render(request, 'admin/dashboard.html', context)
