@@ -6,11 +6,16 @@
   <style>
     /* Hide default right sidebar filter */
     #changelist-filter { display: none !important; }
-    /* Make content area full width */
-    #content { max-width: 100%; }
-    .table-responsive { overflow-x: auto; }
-    .top-scroll { overflow-x: auto; height: 16px; margin-bottom: .25rem; }
+
+    /* Make content stretch full width */
+    #content { width: 100% !important; max-width: none !important; }
+    #changelist, .changelist-form-container, .results { width: 100% !important; }
+    .changelist-form-container { margin: 0 !important; display: block !important; }
+
+    /* Top synchronized scroll bar spans full width */
+    .top-scroll { overflow-x: auto; height: 16px; margin: 0 0 .25rem 0; width: 100% !important; }
     .top-scroll .spacer { height: 1px; }
+
     /* Make headers wrap to allow two-line labels */
     #result_list thead th { white-space: normal; word-break: break-word; vertical-align: middle; }
     #result_list thead th .two-lines { display: inline-block; line-height: 1.1; }
@@ -32,6 +37,7 @@
         top.className = 'top-scroll';
         const spacer = document.createElement('div');
         spacer.className = 'spacer';
+        spacer.style.width = '100%';
         top.appendChild(spacer);
         chg.insertBefore(top, chg.firstChild);
       }
