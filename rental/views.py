@@ -38,10 +38,14 @@ def dashboard(request):
     )
     for r in latest_by_client:
         balance = r.group_balance()
+        # Найти активный договор клиента
+        active_rental = Rental.objects.filter(client=r.client, status=Rental.Status.ACTIVE).first()
+        weekly_rate = active_rental.weekly_rate if active_rental else None
         clients_data.append({
             'client': r.client,
             'batteries': batteries_by_client.get(r.client_id, []),
             'balance': balance,
+            'weekly_rate': weekly_rate,
         })
 
     # Статистика по батареям
