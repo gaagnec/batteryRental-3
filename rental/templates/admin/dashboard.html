@@ -64,6 +64,7 @@
                   <th>Клиент</th>
                   <th>Батареи</th>
                   <th class="text-end">Баланс</th>
+                  <th class="text-end">pln/week</th>
                 </tr>
               </thead>
               <tbody>
@@ -82,13 +83,20 @@
                   <td class="text-end">
                     {% with val=row.balance %}
                       {% if val > 0 %}
-                        <span class="text-danger">+{{ val|floatformat:2 }}</span>
+                        <span class="text-success">+{{ val|floatformat:2 }}</span>
                       {% elif val < 0 %}
-                        <span class="text-success">{{ val|floatformat:2 }}</span>
+                        <span class="text-danger">{{ val|floatformat:2 }}</span>
                       {% else %}
                         {{ val|floatformat:2 }}
                       {% endif %}
                     {% endwith %}
+                  </td>
+                  <td class="text-end">
+                    {% if row.weekly_rate is not None %}
+                      {{ row.weekly_rate|floatformat:2 }}
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
                   </td>
                 </tr>
               {% empty %}

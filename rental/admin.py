@@ -355,6 +355,41 @@ class NewVersionActionForm(ActionForm):
 
 @admin.register(Rental)
 class RentalAdmin(SimpleHistoryAdmin):
+    def changelist_view(self, request, extra_context=None):
+        if extra_context is None:
+            extra_context = {}
+        from .models import Client
+        extra_context['clients'] = Client.objects.all().order_by('name')
+        return super().changelist_view(request, extra_context=extra_context)
+
+    def get_changelist(self, request, **kwargs):
+        from django.contrib.admin.views.main import ChangeList
+
+        class CustomChangeList(ChangeList):
+            def get_results(self, request):
+                super().get_results(request)
+                # Приглушить строки с статусом modified или closed
+                for result in self.result_list:
+                    if hasattr(result, 'status') and result.status in [result.Status.MODIFIED, result.Status.CLOSED]:
+                        result.row_class = 'opacity-80'
+
+        return CustomChangeList
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        # Добавить row_class для приглушения строк
+        for obj in qs:
+            if obj.status in [obj.Status.MODIFIED, obj.Status.CLOSED]:
+                obj.row_class = 'opacity-80'
+            else:
+                obj.row_class = ''
+        return qs
+
+    class Media:
+        css = {
+            'all': ('admin/css/custom.css',)
+        }
+
     list_display = (
         "id", "contract_code", "version", "client", "start_at", "end_at",
         "weekly_rate", "status", "assigned_batteries_short", "change_batteries_link", "group_charges_now", "group_paid_total", "group_deposit_total", "group_balance_now"
@@ -373,12 +408,35 @@ class RentalAdmin(SimpleHistoryAdmin):
         tz = timezone.get_current_timezone()
         now = timezone.now()
         count = 0
+        batteries = []
         for a in obj.assignments.all():
             a_start = timezone.localtime(a.start_at, tz)
             a_end = timezone.localtime(a.end_at, tz) if a.end_at else None
             if a_start <= now and (a_end is None or a_end > now):
                 count += 1
+                batteries.append(a.battery.short_code)
+        obj._batteries_list = batteries
         return count
+
+    def assigned_batteries_short(self, obj):
+        tz = timezone.get_current_timezone()
+        now = timezone.now()
+        codes = []
+        for a in obj.assignments.select_related('battery').all():
+            a_start = timezone.localtime(a.start_at, tz)
+            a_end = timezone.localtime(a.end_at, tz) if a.end_at else None
+            if a_start <= now and (a_end is None or a_end > now):
+                codes.append(a.battery.short_code)
+        if obj.status in [obj.Status.ACTIVE, obj.Status.MODIFIED]:
+            if codes:
+                return format_html(' '.join(['<span class="badge bg-secondary me-1">{}</span>'] * len(codes)), *codes)
+            else:
+                return mark_safe('<span class="text-muted">—</span>')
+        if obj.status == obj.Status.CLOSED:
+            return mark_safe('<span class="text-muted">—</span>')
+        return ''
+
+    assigned_batteries_short.short_description = "Батареи"
 
 
     action_form = NewVersionActionForm

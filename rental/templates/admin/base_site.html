@@ -5,6 +5,9 @@
 {% block nav-global %}
   {{ block.super }}
   <div class="nav-global-item"><a href="{% url 'admin-dashboard' %}">Dashboard</a></div>
+  <style>
+    .nav-global-item a { display: block; padding: 0.25rem 0.5rem; }
+  </style>
 {% endblock %}
 
 
