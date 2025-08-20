@@ -139,6 +139,67 @@
             </table>
           </div>
         </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Сводка по месяцам: Июнь, Июль, Август -->
+    <div class="row g-3 mt-3">
+      <div class="col-12">
+        <div class="card shadow-sm">
+          <div class="card-header">Июнь–Август: поступления, расходы, прибыль</div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-sm table-striped mb-3">
+                <thead>
+                  <tr>
+                    <th>Месяц</th>
+                    <th class="text-end">Пришло</th>
+                    <th class="text-end">Потрачено</th>
+                    <th class="text-end">Прибыль</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in monthly3_rows %}
+                  <tr>
+                    <td>{{ row.label }}</td>
+                    <td class="text-end">{{ row.income|floatformat:2 }}</td>
+                    <td class="text-end">{{ row.expense|floatformat:2 }}</td>
+                    <td class="text-end">{{ row.profit|floatformat:2 }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <div id="monthly3Chart"></div>
+          </div>
+          <script>
+            document.addEventListener('DOMContentLoaded', function() {
+              const chartEl = document.getElementById('monthly3Chart');
+              if (!chartEl) return;
+              const chart = echarts.init(chartEl);
+              const option = {
+                tooltip: { trigger: 'axis' },
+                legend: { bottom: 0, data: ['Пришло', 'Потрачено', 'Прибыль'] },
+                grid: { left: 40, right: 20, top: 20, bottom: 40 },
+                xAxis: { type: 'category', data: {{ monthly3.labels|safe }} },
+                yAxis: { type: 'value' },
+                series: [
+                  { name: 'Пришло', type: 'line', data: {{ monthly3.income|safe }}, smooth: true },
+                  { name: 'Потрачено', type: 'line', data: {{ monthly3.expense|safe }}, smooth: true },
+                  { name: 'Прибыль', type: 'line', data: {{ monthly3.profit|safe }}, smooth: true },
+                ]
+              };
+              chart.setOption(option);
+              window.addEventListener('resize', () => chart.resize());
+            });
+          </script>
+
+        </div>
+      </div>
+    </div>
+
       </div>
     </div>
   </div>

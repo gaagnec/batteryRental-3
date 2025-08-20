@@ -64,6 +64,39 @@ def dashboard(request):
     # Последние 10 платежей
     latest_payments = Payment.objects.select_related('rental__client', 'created_by').order_by('-date', '-id')[:10]
 
+    # Месячная сводка (Июнь, Июль, Август) по фактическим поступлениям от клиентов
+    from datetime import date
+    year = timezone.localdate().year
+    month_names = {6: 'Июнь', 7: 'Июль', 8: 'Август'}
+    start_june = date(year, 6, 1)
+    start_sep = date(year, 9, 1)
+    pay_monthly = (
+        Payment.objects
+        .filter(date__gte=start_june, date__lt=start_sep, type=Payment.PaymentType.RENT)
+        .values('date__month')
+        .annotate(total=Sum('amount'))
+    )
+    income_map = {row['date__month']: float(row['total'] or 0) for row in pay_monthly}
+    months = [6, 7, 8]
+    monthly_income = [income_map.get(m, 0.0) for m in months]
+    monthly_expense = [500.0 for _ in months]
+    monthly_profit = [round(income - expense, 2) for income, expense in zip(monthly_income, monthly_expense)]
+    monthly3 = {
+        'labels': [month_names[m] for m in months],
+        'income': monthly_income,
+        'expense': monthly_expense,
+        'profit': monthly_profit,
+    }
+    monthly3_rows = [
+        {
+            'label': month_names[m],
+            'income': monthly_income[i],
+            'expense': monthly_expense[i],
+            'profit': monthly_profit[i],
+        }
+        for i, m in enumerate(months)
+    ]
+
     # Серия платежей и начислений за 30 дней
     window_days = 30
     start_date = timezone.localdate() - timedelta(days=window_days - 1)
@@ -135,5 +168,6 @@ def dashboard(request):
         'total_paid_30': total_paid_30,
         'total_charged_30': total_charged_30,
         'window_days': window_days,
+        'monthly3': monthly3,
     }
     return render(request, 'admin/dashboard.html', context)
