@@ -67,26 +67,22 @@ def dashboard(request):
     # Месячная сводка (Июнь, Июль, Август) по фактическим поступлениям от клиентов
     from datetime import date
     year = timezone.localdate().year
-    month_names = {6: 'Июнь', 7: 'Июль', 8: 'Август'}
+    month_names = {6: 'Июнь', 7: 'Июль', 8: 'Август', 9: 'Сентябрь', 10: 'Октябрь', 11: 'Ноябрь', 12: 'Декабрь'}
     start_june = date(year, 6, 1)
+    start_dec_next = date(year + 1 if 12 == 12 else year, 12, 31)  # not used, just placeholder
     start_sep = date(year, 9, 1)
     pay_monthly = (
         Payment.objects
-        .filter(date__gte=start_june, date__lt=start_sep, type=Payment.PaymentType.RENT)
+        .filter(date__gte=start_june, date__lt=date(year, 9, 1), type=Payment.PaymentType.RENT)
         .values('date__month')
         .annotate(total=Sum('amount'))
     )
     income_map = {row['date__month']: float(row['total'] or 0) for row in pay_monthly}
-    months = [6, 7, 8]
-    monthly_income = [income_map.get(m, 0.0) for m in months]
-    monthly_expense = [500.0 for _ in months]
+    # Для таблицы — только июнь, июль, август
+    months_table = [6, 7, 8]
+    monthly_income = [income_map.get(m, 0.0) for m in months_table]
+    monthly_expense = [500.0 for _ in months_table]
     monthly_profit = [round(income - expense, 2) for income, expense in zip(monthly_income, monthly_expense)]
-    monthly3 = {
-        'labels': [month_names[m] for m in months],
-        'income': monthly_income,
-        'expense': monthly_expense,
-        'profit': monthly_profit,
-    }
     monthly3_rows = [
         {
             'label': month_names[m],
@@ -94,8 +90,20 @@ def dashboard(request):
             'expense': monthly_expense[i],
             'profit': monthly_profit[i],
         }
-        for i, m in enumerate(months)
+        for i, m in enumerate(months_table)
     ]
+
+    # Для графика — с июня по декабрь
+    months_chart = [6, 7, 8, 9, 10, 11, 12]
+    chart_income = [income_map.get(m, 0.0) for m in months_chart]
+    chart_expense = [500.0 for _ in months_chart]
+    chart_profit = [round(i - e, 2) for i, e in zip(chart_income, chart_expense)]
+    monthly3_chart = {
+        'labels': [month_names[m] for m in months_chart],
+        'income': chart_income,
+        'expense': chart_expense,
+        'profit': chart_profit,
+    }
 
     # Серия платежей и начислений за 30 дней
     window_days = 30
@@ -168,6 +176,7 @@ def dashboard(request):
         'total_paid_30': total_paid_30,
         'total_charged_30': total_charged_30,
         'window_days': window_days,
-        'monthly3': monthly3,
+        'monthly3_rows': monthly3_rows,
+        'monthly3_chart': monthly3_chart,
     }
     return render(request, 'admin/dashboard.html', context)

@@ -146,12 +146,12 @@
 
     <!-- Сводка по месяцам: Июнь, Июль, Август -->
     <div class="row g-3 mt-3">
-      <div class="col-12">
-        <div class="card shadow-sm">
+      <div class="col-lg-4 col-md-12">
+        <div class="card shadow-sm h-100">
           <div class="card-header">Июнь–Август: поступления, расходы, прибыль</div>
-          <div class="card-body">
+          <div class="card-body p-0">
             <div class="table-responsive">
-              <table class="table table-sm table-striped mb-3">
+              <table class="table table-sm table-striped mb-0">
                 <thead>
                   <tr>
                     <th>Месяц</th>
@@ -172,33 +172,39 @@
                 </tbody>
               </table>
             </div>
-            <div id="monthly3Chart"></div>
           </div>
-          <script>
-            document.addEventListener('DOMContentLoaded', function() {
-              const chartEl = document.getElementById('monthly3Chart');
-              if (!chartEl) return;
-              const chart = echarts.init(chartEl);
-              const option = {
-                tooltip: { trigger: 'axis' },
-                legend: { bottom: 0, data: ['Пришло', 'Потрачено', 'Прибыль'] },
-                grid: { left: 40, right: 20, top: 20, bottom: 40 },
-                xAxis: { type: 'category', data: {{ monthly3.labels|safe }} },
-                yAxis: { type: 'value' },
-                series: [
-                  { name: 'Пришло', type: 'line', data: {{ monthly3.income|safe }}, smooth: true },
-                  { name: 'Потрачено', type: 'line', data: {{ monthly3.expense|safe }}, smooth: true },
-                  { name: 'Прибыль', type: 'line', data: {{ monthly3.profit|safe }}, smooth: true },
-                ]
-              };
-              chart.setOption(option);
-              window.addEventListener('resize', () => chart.resize());
-            });
-          </script>
-
+        </div>
+      </div>
+      <div class="col-lg-8 col-md-12">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div id="monthly3Chart" style="height:260px;"></div>
+          </div>
         </div>
       </div>
     </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const chartEl = document.getElementById('monthly3Chart');
+        if (!chartEl) return;
+        const chart = echarts.init(chartEl);
+        const option = {
+          tooltip: { trigger: 'axis' },
+          legend: { bottom: 0, data: ['Пришло', 'Потрачено', 'Прибыль'] },
+          grid: { left: 40, right: 20, top: 20, bottom: 40 },
+          xAxis: { type: 'category', data: {{ monthly3_chart.labels|safe }} },
+          yAxis: { type: 'value' },
+          series: [
+            { name: 'Пришло', type: 'line', data: {{ monthly3_chart.income|safe }}, smooth: true },
+            { name: 'Потрачено', type: 'line', data: {{ monthly3_chart.expense|safe }}, smooth: true },
+            { name: 'Прибыль', type: 'line', data: {{ monthly3_chart.profit|safe }}, smooth: true },
+          ]
+        };
+        chart.setOption(option);
+        window.addEventListener('resize', () => chart.resize());
+      });
+    </script>
 
       </div>
     </div>
