@@ -37,14 +37,15 @@ def dashboard(request):
         .select_related('client')
     )
     for r in latest_by_client:
-        balance = r.group_balance()
+        balance_raw = r.group_balance()
+        balance_ui = -balance_raw  # для UI: кредит положительный, долг отрицательный
         # Найти активный договор клиента
         active_rental = Rental.objects.filter(client=r.client, status=Rental.Status.ACTIVE).first()
         weekly_rate = active_rental.weekly_rate if active_rental else None
         clients_data.append({
             'client': r.client,
             'batteries': batteries_by_client.get(r.client_id, []),
-            'balance': balance,
+            'balance_ui': balance_ui,
             'weekly_rate': weekly_rate,
         })
 

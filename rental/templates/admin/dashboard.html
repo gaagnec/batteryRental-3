@@ -81,7 +81,7 @@
                     {% endif %}
                   </td>
                   <td class="text-end">
-                    {% with val=row.balance %}
+                    {% with val=row.balance_ui %}
                       {% if val > 0 %}
                         <span class="text-success">+{{ val|floatformat:2 }}</span>
                       {% elif val < 0 %}

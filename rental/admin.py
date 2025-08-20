@@ -464,7 +464,15 @@ class RentalAdmin(SimpleHistoryAdmin):
             a_end = timezone.localtime(a.end_at, tz) if a.end_at else None
             if a_start <= now and (a_end is None or a_end > now):
                 codes.append(a.battery.short_code)
-        return ", ".join(sorted(set(codes))) or "—"
+        if obj.status in [obj.Status.ACTIVE, obj.Status.MODIFIED]:
+            if codes:
+                # badges for active or modified
+                return format_html(' '.join(['<span class="badge bg-secondary me-1">{}</span>'] * len(codes)), *codes)
+            else:
+                return mark_safe('<span class="text-muted">—</span>')
+        if obj.status == obj.Status.CLOSED:
+            return mark_safe('<span class="text-muted">—</span>')
+        return ''
     assigned_batteries_short.short_description = "Батареи"
 
     def group_charges_now(self, obj):
