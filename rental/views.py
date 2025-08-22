@@ -37,11 +37,16 @@ def dashboard(request):
         .select_related('client')
     )
     for r in latest_by_client:
-        balance = r.group_balance()
+        balance_raw = r.group_balance()
+        balance_ui = -balance_raw  # для UI: кредит положительный, долг отрицательный
+        # Найти активный договор клиента
+        active_rental = Rental.objects.filter(client=r.client, status=Rental.Status.ACTIVE).first()
+        weekly_rate = active_rental.weekly_rate if active_rental else None
         clients_data.append({
             'client': r.client,
             'batteries': batteries_by_client.get(r.client_id, []),
-            'balance': balance,
+            'balance_ui': balance_ui,
+            'weekly_rate': weekly_rate,
         })
 
     # Статистика по батареям
@@ -56,11 +61,53 @@ def dashboard(request):
         'available': available,
     }
 
-    # Последние 5 платежей
-    latest_payments = Payment.objects.select_related('rental__client', 'created_by').order_by('-date', '-id')[:5]
+    # Последние 10 платежей
+    latest_payments = Payment.objects.select_related('rental__client', 'created_by').order_by('-date', '-id')[:10]
 
-    # Серия платежей и начислений за 14 дней
-    start_date = timezone.localdate() - timedelta(days=13)
+    # Месячная сводка (Июнь, Июль, Август) по фактическим поступлениям от клиентов
+    from datetime import date
+    year = timezone.localdate().year
+    month_names = {6: 'Июнь', 7: 'Июль', 8: 'Август', 9: 'Сентябрь', 10: 'Октябрь', 11: 'Ноябрь', 12: 'Декабрь'}
+    start_june = date(year, 6, 1)
+    start_dec_next = date(year + 1 if 12 == 12 else year, 12, 31)  # not used, just placeholder
+    start_sep = date(year, 9, 1)
+    pay_monthly = (
+        Payment.objects
+        .filter(date__gte=start_june, date__lt=date(year, 9, 1), type=Payment.PaymentType.RENT)
+        .values('date__month')
+        .annotate(total=Sum('amount'))
+    )
+    income_map = {row['date__month']: float(row['total'] or 0) for row in pay_monthly}
+    # Для таблицы — только июнь, июль, август
+    months_table = [6, 7, 8]
+    monthly_income = [income_map.get(m, 0.0) for m in months_table]
+    monthly_expense = [500.0 for _ in months_table]
+    monthly_profit = [round(income - expense, 2) for income, expense in zip(monthly_income, monthly_expense)]
+    monthly3_rows = [
+        {
+            'label': month_names[m],
+            'income': monthly_income[i],
+            'expense': monthly_expense[i],
+            'profit': monthly_profit[i],
+        }
+        for i, m in enumerate(months_table)
+    ]
+
+    # Для графика — с июня по декабрь
+    months_chart = [6, 7, 8, 9, 10, 11, 12]
+    chart_income = [income_map.get(m, 0.0) for m in months_chart]
+    chart_expense = [500.0 for _ in months_chart]
+    chart_profit = [round(i - e, 2) for i, e in zip(chart_income, chart_expense)]
+    monthly3_chart = {
+        'labels': [month_names[m] for m in months_chart],
+        'income': chart_income,
+        'expense': chart_expense,
+        'profit': chart_profit,
+    }
+
+    # Серия платежей и начислений за 30 дней
+    window_days = 30
+    start_date = timezone.localdate() - timedelta(days=window_days - 1)
     pay_qs = (
         Payment.objects.filter(date__gte=start_date)
         .values('date')
@@ -75,7 +122,7 @@ def dashboard(request):
     # Перебор по дням и подсчет активных assignments на 14:00 каждого дня
     charges_values = []
     tz = timezone.get_current_timezone()
-    for i in range(14):
+    for i in range(window_days):
         d = start_date + timedelta(days=i)
         labels.append(d.isoformat())
         paid_values.append(float(totals_pay.get(d, 0) or 0))
@@ -101,16 +148,21 @@ def dashboard(request):
 
     # Топ должников: по текущему балансу, берём 5
     debtors = []
+    overall_debt = Decimal(0)
     for r in latest_by_client:
         bal = r.group_balance()
         if bal > 0:
             debtors.append((str(r.client), float(bal)))
+            overall_debt += bal
     debtors.sort(key=lambda x: x[1], reverse=True)
     debtors = debtors[:5]
     top_debtors = {
         'names': [name for name, _ in debtors],
         'values': [val for _, val in debtors]
     }
+
+    total_paid_30 = float(sum(paid_values))
+    total_charged_30 = float(sum(charges_values))
 
     context = {
         'active_clients_count': active_clients_count,
@@ -120,5 +172,11 @@ def dashboard(request):
         'payments_series': payments_series,
         'charges_series': charges_series,
         'top_debtors': top_debtors,
+        'overall_debt': overall_debt,
+        'total_paid_30': total_paid_30,
+        'total_charged_30': total_charged_30,
+        'window_days': window_days,
+        'monthly3_rows': monthly3_rows,
+        'monthly3_chart': monthly3_chart,
     }
     return render(request, 'admin/dashboard.html', context)

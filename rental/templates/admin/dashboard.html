@@ -7,60 +7,54 @@
 <div class="container-fluid">
   <h1 class="h3 mb-4">Dashboard</h1>
 
+  <!-- Три колонки сверху -->
   <div class="row g-3">
-    <div class="col-md-3">
+    <!-- Левая колонка: KPI + half-donut под списком -->
+    <div class="col-lg-4 col-md-6">
       <div class="card shadow-sm">
         <div class="card-body">
-          <div class="d-flex justify-content-between align-items-center">
-            <div>
-              <div class="text-muted">Активных клиентов</div>
-              <div class="h4 mb-0">{{ active_clients_count }}</div>
-            </div>
-            <div class="text-primary"><i class="bi bi-people" style="font-size: 1.8rem;"></i></div>
+          <div class="d-flex justify-content-between align-items-baseline mb-2">
+            <h5 class="mb-0" style="font-weight:600;">Бизнес‑метрики</h5>
+            <div class="text-muted small">Всего батарей: {{ battery_stats.total }}</div>
           </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-3">
-      <div class="card shadow-sm">
-        <div class="card-body">
-          <div class="text-muted">Батарей всего</div>
-          <div class="h4 mb-0">{{ battery_stats.total }}</div>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-3">
-      <div class="card shadow-sm">
-        <div class="card-body">
-          <div class="text-muted">В аренде</div>
-          <div class="h4 mb-0">{{ battery_stats.rented }}</div>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-3">
-      <div class="card shadow-sm">
-        <div class="card-body">
-          <div class="text-muted">На сервисе</div>
-          <div class="h4 mb-0">{{ battery_stats.in_service }}</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="row g-3 mt-1">
-    <div class="col-md-12">
-      <div class="card shadow-sm">
-        <div class="card-header">Доступные: {{ battery_stats.available }}</div>
-        <div class="card-body">
+          <ul class="list-unstyled mb-3" style="line-height:1.4;">
+            <li class="d-flex justify-content-between align-items-center mb-1">
+              <span class="d-flex align-items-center"><span class="rounded-circle me-2" style="display:inline-block;width:10px;height:10px;background:#8ad0ff;"></span>Активные клиенты</span>
+              <span class="fw-semibold">{{ active_clients_count }}</span>
+            </li>
+            <li class="d-flex justify-content-between align-items-center mb-1">
+              <span class="d-flex align-items-center"><span class="rounded-circle me-2" style="display:inline-block;width:10px;height:10px;background:#ffd28a;"></span>В аренде</span>
+              <span class="fw-semibold">{{ battery_stats.rented }}</span>
+            </li>
+            <li class="d-flex justify-content-between align-items-center mb-1">
+              <span class="d-flex align-items-center"><span class="rounded-circle me-2" style="display:inline-block;width:10px;height:10px;background:#a8e2a8;"></span>На сервисе</span>
+              <span class="fw-semibold">{{ battery_stats.in_service }}</span>
+            </li>
+            <li class="d-flex justify-content-between align-items-center mb-1">
+              <span class="d-flex align-items-center"><span class="rounded-circle me-2" style="display:inline-block;width:10px;height:10px;background:#9bb2ff;"></span>Доступные</span>
+              <span class="fw-semibold">{{ battery_stats.available }}</span>
+            </li>
+            <li class="d-flex justify-content-between align-items-center mb-1">
+              <span class="text-muted">Начислено ({{ window_days }} дн.)</span>
+              <span class="fw-semibold">{{ total_charged_30|floatformat:2 }}</span>
+            </li>
+            <li class="d-flex justify-content-between align-items-center mb-1">
+              <span class="text-muted">Оплачено ({{ window_days }} дн.)</span>
+              <span class="fw-semibold">{{ total_paid_30|floatformat:2 }}</span>
+            </li>
+            <li class="d-flex justify-content-between align-items-center">
+              <span class="text-muted">Общая дебиторка</span>
+              <span class="fw-semibold text-danger">{{ overall_debt|floatformat:2 }}</span>
+            </li>
+          </ul>
           <div id="batteryStatusChart"></div>
         </div>
       </div>
     </div>
-  </div>
 
-  <div class="row g-3 mt-1">
-    <div class="col-lg-7">
-      <div class="card shadow-sm">
+    <!-- Средняя колонка: Активные клиенты -->
+    <div class="col-lg-4 col-md-6">
+      <div class="card shadow-sm h-100">
         <div class="card-header">Активные клиенты: батареи и баланс</div>
         <div class="card-body p-0">
           <div class="table-responsive">
@@ -70,6 +64,7 @@
                   <th>Клиент</th>
                   <th>Батареи</th>
                   <th class="text-end">Баланс</th>
+                  <th class="text-end">pln/week</th>
                 </tr>
               </thead>
               <tbody>
@@ -86,12 +81,21 @@
                     {% endif %}
                   </td>
                   <td class="text-end">
-                    {% if row.balance > 0 %}
-                      <span class="text-danger">{{ row.balance }}</span>
-                    {% elif row.balance < 0 %}
-                      <span class="text-success">{{ row.balance }}</span>
+                    {% with val=row.balance_ui %}
+                      {% if val > 0 %}
+                        <span class="text-success">+{{ val|floatformat:2 }}</span>
+                      {% elif val < 0 %}
+                        <span class="text-danger">{{ val|floatformat:2 }}</span>
+                      {% else %}
+                        {{ val|floatformat:2 }}
+                      {% endif %}
+                    {% endwith %}
+                  </td>
+                  <td class="text-end">
+                    {% if row.weekly_rate is not None %}
+                      {{ row.weekly_rate|floatformat:2 }}
                     {% else %}
-                      {{ row.balance }}
+                      <span class="text-muted">—</span>
                     {% endif %}
                   </td>
                 </tr>
@@ -104,12 +108,14 @@
         </div>
       </div>
     </div>
-    <div class="col-lg-5">
+
+    <!-- Правая колонка: Последние платежи -->
+    <div class="col-lg-4 col-md-12">
       <div class="card shadow-sm h-100">
-        <div class="card-header">Последние 5 платежей</div>
+        <div class="card-header">Последние 10 платежей</div>
         <div class="card-body p-0">
           <div class="table-responsive">
-            <table class="table table-sm mb-0">
+            <table class="table table-sm table-striped mb-0">
               <thead>
                 <tr>
                   <th>Клиент</th>
@@ -123,7 +129,7 @@
                 <tr>
                   <td>{{ p.rental.client.name }}</td>
                   <td>{{ p.date }}</td>
-                  <td class="text-end">{{ p.amount }}</td>
+                  <td class="text-end">{{ p.amount|floatformat:2 }}</td>
                   <td>{{ p.created_by.get_full_name|default:p.created_by.username|default:p.created_by.email|default:"—" }}</td>
                 </tr>
                 {% empty %}
@@ -133,21 +139,87 @@
             </table>
           </div>
         </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Сводка по месяцам: Июнь, Июль, Август -->
+    <div class="row g-3 mt-3">
+      <div class="col-lg-4 col-md-12">
+        <div class="card shadow-sm h-100">
+          <div class="card-header">Июнь–Август: поступления, расходы, прибыль</div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-sm table-striped mb-0">
+                <thead>
+                  <tr>
+                    <th>Месяц</th>
+                    <th class="text-end">Пришло</th>
+                    <th class="text-end">Потрачено</th>
+                    <th class="text-end">Прибыль</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in monthly3_rows %}
+                  <tr>
+                    <td>{{ row.label }}</td>
+                    <td class="text-end">{{ row.income|floatformat:2 }}</td>
+                    <td class="text-end">{{ row.expense|floatformat:2 }}</td>
+                    <td class="text-end">{{ row.profit|floatformat:2 }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-8 col-md-12">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div id="monthly3Chart" style="height:260px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const chartEl = document.getElementById('monthly3Chart');
+        if (!chartEl) return;
+        const chart = echarts.init(chartEl);
+        const option = {
+          tooltip: { trigger: 'axis' },
+          legend: { bottom: 0, data: ['Пришло', 'Потрачено', 'Прибыль'] },
+          grid: { left: 40, right: 20, top: 20, bottom: 40 },
+          xAxis: { type: 'category', data: {{ monthly3_chart.labels|safe }} },
+          yAxis: { type: 'value' },
+          series: [
+            { name: 'Пришло', type: 'line', data: {{ monthly3_chart.income|safe }}, smooth: true },
+            { name: 'Потрачено', type: 'line', data: {{ monthly3_chart.expense|safe }}, smooth: true },
+            { name: 'Прибыль', type: 'line', data: {{ monthly3_chart.profit|safe }}, smooth: true },
+          ]
+        };
+        chart.setOption(option);
+        window.addEventListener('resize', () => chart.resize());
+      });
+    </script>
+
       </div>
     </div>
   </div>
 
+  <!-- Нижняя зона на всю ширину -->
   <div class="row g-3 mt-1">
-    <div class="col-lg-7">
-      <div class="card shadow-sm">
-        <div class="card-header">Начислено vs Оплачено (14 дней)</div>
+    <div class="col-12">
+      <div class="card shadow-sm mb-3">
+        <div class="card-header">Начислено vs Оплачено ({{ window_days }} дней)</div>
         <div class="card-body">
           <div id="paymentsChart"></div>
         </div>
       </div>
-    </div>
-    <div class="col-lg-5">
-      <div class="card shadow-sm h-100">
+      <div class="card shadow-sm">
         <div class="card-header">Топ должников</div>
         <div class="card-body">
           <div id="topDebtorsChart"></div>
@@ -158,19 +230,38 @@
 </div>
 {% endblock %}
 
+{% block extrastyle %}
+  {{ block.super }}
+  <style>
+    /* Выравнивание цифр списка KPI по правому краю одной колонкой */
+    .card .list-unstyled li span.fw-semibold { min-width: 80px; text-align: right; display: inline-block; }
+  </style>
+{% endblock %}
+
 {% block extrahead %}
   {{ block.super }}
+  <!-- Bootstrap 5 CSS (включаем локально для этой страницы, т.к. base_site может не подмешиваться) -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <style>
+    /* Пастельная палитра как в референсе */
+    :root {
+      --pastel-blue: #8ad0ff;
+      --pastel-orange: #ffd28a;
+      --pastel-green: #a8e2a8;
+      --pastel-violet: #9bb2ff;
+    }
+    #batteryStatusChart { height: 240px; }
+  </style>
 {% endblock %}
 
 {% block footer %}
 {{ block.super }}
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    // Half-donut (semi) for battery statuses
+    // Half-donut (semi) for battery statuses in pastel colors
     const pieEl = document.getElementById('batteryStatusChart');
     if (pieEl) {
-      pieEl.style.height = '220px';
       const pie = echarts.init(pieEl);
       const rented = {{ battery_stats.rented|default:0 }};
       const inService = {{ battery_stats.in_service|default:0 }};
@@ -182,15 +273,15 @@
         series: [{
           type: 'pie',
           startAngle: 180,
-          radius: ['50%','80%'],
-          center: ['50%','70%'],
-          avoidLabelOverlap: false,
+          radius: ['60%','85%'],
+          center: ['50%','72%'],
+          avoidLabelOverlap: true,
           itemStyle: { borderWidth: 0 },
           label: { show: true, formatter: '{b}: {c}' },
           data: [
-            { value: rented, name: 'В аренде', itemStyle: { color: '#0d6efd' } },
-            { value: inService, name: 'На сервисе', itemStyle: { color: '#ffc107' } },
-            { value: available, name: 'Доступные', itemStyle: { color: '#198754' } },
+            { value: rented, name: 'В аренде', itemStyle: { color: getComputedStyle(document.documentElement).getPropertyValue('--pastel-blue').trim() } },
+            { value: inService, name: 'На сервисе', itemStyle: { color: getComputedStyle(document.documentElement).getPropertyValue('--pastel-orange').trim() } },
+            { value: available, name: 'Доступные', itemStyle: { color: getComputedStyle(document.documentElement).getPropertyValue('--pastel-green').trim() } },
             { value: sum, itemStyle: { color: 'none' }, label: { show: false }, tooltip: { show: false } }
           ]
         }]
@@ -199,7 +290,7 @@
       window.addEventListener('resize', () => pie.resize());
     }
 
-    // Stacked bar: Начислено vs Оплачено (за 14 дней)
+    // Stacked bar: Начислено vs Оплачено (за 30 дней)
     const barEl = document.getElementById('paymentsChart');
     if (barEl) {
       barEl.style.height = '260px';
