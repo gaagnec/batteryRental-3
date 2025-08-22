@@ -8,3 +8,6 @@ gunicorn==23.0.0
 
 # HTMX integration for Django
 django-htmx
+
+# Static files in production
+whitenoise==6.7.0
