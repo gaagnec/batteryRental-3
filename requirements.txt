@@ -5,3 +5,6 @@ python-dotenv==1.0.1
 
 # WSGI server
 gunicorn==23.0.0
+
+# HTMX integration for Django
+django-htmx
