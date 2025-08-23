@@ -175,7 +175,8 @@ class ClientAdmin(SimpleHistoryAdmin):
 
 @admin.register(Battery)
 class BatteryAdmin(SimpleHistoryAdmin):
-    list_display = ("id", "short_code", "usage_now", "serial_number", "cost_price", "roi_progress", "created_at")
+    # Убираем тяжёлые колонки roi_progress из списка, возвращаем в detail
+    list_display = ("id", "short_code", "usage_now", "serial_number", "cost_price", "created_at")
     search_fields = ("short_code", "serial_number")
 
     def usage_now(self, obj):
@@ -377,6 +378,10 @@ class RentalAdmin(SimpleHistoryAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
+        # Предзагрузить связанные assignments, чтобы избежать N+1
+        from django.db.models import Count
+        qs = qs.prefetch_related('assignments', 'assignments__battery')
+        qs = qs.annotate(assignments_count=Count('assignments'))
         # Добавить row_class для приглушения строк
         for obj in qs:
             if obj.status in [obj.Status.MODIFIED, obj.Status.CLOSED]:
@@ -392,7 +397,9 @@ class RentalAdmin(SimpleHistoryAdmin):
 
     list_display = (
         "id", "contract_code", "version", "client", "start_at", "end_at",
-        "weekly_rate", "status", "assigned_batteries_short", "change_batteries_link", "group_charges_now", "group_paid_total", "group_deposit_total", "group_balance_now"
+        "weekly_rate", "status", "assigned_batteries_short", "change_batteries_link",
+        # Временно убираем тяжёлые колонки группы: group_charges_now, group_paid_total, group_deposit_total, group_balance_now
+        "group_paid_total", "group_deposit_total"
     )
     list_filter = ("status",)
     def change_batteries_link(self, obj):
