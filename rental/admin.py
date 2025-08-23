@@ -398,8 +398,6 @@ class RentalAdmin(SimpleHistoryAdmin):
     list_display = (
         "id", "contract_code", "version", "client", "start_at", "end_at",
         "weekly_rate", "status", "assigned_batteries_short", "change_batteries_link",
-        # Временно убираем тяжёлые колонки группы: group_charges_now, group_paid_total, group_deposit_total, group_balance_now
-        "group_paid_total", "group_deposit_total"
     )
     list_filter = ("status",)
     def change_batteries_link(self, obj):
