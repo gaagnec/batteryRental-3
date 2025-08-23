@@ -93,6 +93,22 @@
       min-width: 0;
     }
   </style>
+  <style>
+    @media (max-width: 576px) {
+      .compact-row > * {
+        flex: 1 1 100% !important;
+      }
+      .btn-group.btn-group-sm {
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
+      }
+      .btn-group.btn-group-sm .btn {
+        width: 100% !important;
+        margin-bottom: 0.25rem !important;
+      }
+    }
+  </style>
 {% endblock %}
 
 {% block object-tools-items %}
