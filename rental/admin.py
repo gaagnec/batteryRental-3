@@ -397,13 +397,11 @@ class RentalAdmin(SimpleHistoryAdmin):
 
     list_display = (
         "id", "contract_code", "version", "client", "start_at", "end_at",
-        "weekly_rate", "status", "assigned_batteries_short", "change_batteries_link",
+        "weekly_rate", "status", "assigned_batteries_short",
     )
     list_filter = ("status",)
-    def change_batteries_link(self, obj):
-        url = reverse('admin:rental_rental_change_batteries', args=[obj.pk])
-        return format_html('<a class="button" href="{}">Изменить батареи</a>', url)
-    change_batteries_link.short_description = "Изменить"
+    list_per_page = 25  # Ограничение записей на странице для ускорения отображения
+
 
     search_fields = ("client__name", "contract_code")
     inlines = [RentalBatteryAssignmentInline, PaymentInline]
