@@ -168,6 +168,20 @@
                     <td class="text-end">{{ row.expense|floatformat:2 }}</td>
                     <td class="text-end">{{ row.profit|floatformat:2 }}</td>
                   </tr>
+                  <tr class="table-active">
+                    <td></td>
+                    <td colspan="3">
+                      <small class="text-muted">
+                        {% if row.user_totals %}
+                          {% for ut in row.user_totals %}
+                            {{ ut.user }}: {{ ut.total|floatformat:2 }}{% if not forloop.last %}, {% endif %}
+                          {% endfor %}
+                        {% else %}
+                          Нет платежей
+                        {% endif %}
+                      </small>
+                    </td>
+                  </tr>
                   {% endfor %}
                 </tbody>
               </table>

@@ -83,15 +83,34 @@ def dashboard(request):
     monthly_income = [income_map.get(m, 0.0) for m in months_table]
     monthly_expense = [500.0 for _ in months_table]
     monthly_profit = [round(income - expense, 2) for income, expense in zip(monthly_income, monthly_expense)]
-    monthly3_rows = [
-        {
-            'label': month_names[m],
-            'income': monthly_income[i],
-            'expense': monthly_expense[i],
-            'profit': monthly_profit[i],
-        }
-        for i, m in enumerate(months_table)
-    ]
+    monthly3_rows = []
+    for i, m in enumerate(months_table):
+        label = month_names[m]
+        income = monthly_income[i]
+        expense = monthly_expense[i]
+        profit = monthly_profit[i]
+        # aggregate payments by user for this month
+        payments_by_user = (
+            Payment.objects
+            .filter(date__month=m, date__year=year, type=Payment.PaymentType.RENT)
+            .values('created_by__username', 'created_by__first_name', 'created_by__last_name')
+            .annotate(total=Sum('amount'))
+            .order_by('-total')
+        )
+        user_totals = []
+        for pu in payments_by_user:
+            first = pu.get('created_by__first_name') or ''
+            last = pu.get('created_by__last_name') or ''
+            name = f"{first} {last}".strip() or pu.get('created_by__username')
+            user_totals.append({'user': name, 'total': float(pu.get('total') or 0)})
+        monthly3_rows.append({
+            'label': label,
+            'income': income,
+            'expense': expense,
+            'profit': profit,
+            'user_totals': user_totals,
+        })
+
 
     # Для графика — с июня по декабрь
     months_chart = [6, 7, 8, 9, 10, 11, 12]

@@ -800,10 +800,18 @@ class RentalAdmin(SimpleHistoryAdmin):
 
 @admin.register(Payment)
 class PaymentAdmin(SimpleHistoryAdmin):
-    list_display = ("id", "rental", "date", "amount", "type", "method")
+    list_display = ("id", "rental", "date", "amount", "type", "method", "created_by_name")
     list_filter = ("type", "method")
     search_fields = ("rental__id", "note")
     readonly_fields = ("created_by", "updated_by")
+    @admin.display(ordering='created_by__username', description='Кто ввёл запись')
+    def created_by_name(self, obj):
+        user = obj.created_by
+        if not user:
+            return ''
+        name = f"{user.first_name} {user.last_name}".strip()
+        return name or user.username
+
 
     def save_model(self, request, obj, form, change):
         if not change and not getattr(obj, 'created_by_id', None):
