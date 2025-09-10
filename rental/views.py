@@ -72,35 +72,36 @@ def dashboard(request):
     # Последние 10 платежей
     latest_payments = Payment.objects.select_related('rental__client', 'created_by').order_by('-date', '-id')[:10]
 
-    # Месячная сводка (Июнь, Июль, Август) по фактическим поступлениям от клиентов
-    from datetime import date
-    year = timezone.localdate().year
-    month_names = {6: 'Июнь', 7: 'Июль', 8: 'Август', 9: 'Сентябрь', 10: 'Октябрь', 11: 'Ноябрь', 12: 'Декабрь'}
-    start_june = date(year, 6, 1)
-    start_dec_next = date(year + 1 if 12 == 12 else year, 12, 31)  # not used, just placeholder
-    start_sep = date(year, 9, 1)
+    # Месячные итоги
+    month_names = {
+        1: 'Январь', 2: 'Февраль', 3: 'Март', 4: 'Апрель',
+        5: 'Май', 6: 'Июнь', 7: 'Июль', 8: 'Август',
+        9: 'Сентябрь', 10: 'Октябрь', 11: 'Ноябрь', 12: 'Декабрь'
+    }
+    # Собираем суммы по месяцам за всю историю (тип RENT)
     pay_monthly = (
         Payment.objects
-        .filter(date__gte=start_june, date__lt=date(year, 9, 1), type=Payment.PaymentType.RENT)
-        .values('date__month')
+        .filter(type=Payment.PaymentType.RENT)
+        .values('date__year', 'date__month')
         .annotate(total=Sum('amount'))
+        .order_by('date__year', 'date__month')
     )
-    income_map = {row['date__month']: float(row['total'] or 0) for row in pay_monthly}
-    # Для таблицы — только июнь, июль, август
-    months_table = [6, 7, 8]
-    monthly_income = [income_map.get(m, 0.0) for m in months_table]
-    monthly_expense = [500.0 for _ in months_table]
-    monthly_profit = [round(income - expense, 2) for income, expense in zip(monthly_income, monthly_expense)]
     monthly3_rows = []
-    for i, m in enumerate(months_table):
-        label = month_names[m]
-        income = monthly_income[i]
-        expense = monthly_expense[i]
-        profit = monthly_profit[i]
+    chart_labels = []
+    chart_income = []
+    chart_expense = []
+    chart_profit = []
+    for row in pay_monthly:
+        y = row['date__year']
+        m = row['date__month']
+        label = f"{month_names[m]} {y}"
+        income = float(row['total'] or 0)
+        expense = 500.0
+        profit = round(income - expense, 2)
         # aggregate payments by user for this month
         payments_by_user = (
             Payment.objects
-            .filter(date__month=m, date__year=year, type=Payment.PaymentType.RENT)
+            .filter(date__year=y, date__month=m, type=Payment.PaymentType.RENT)
             .values('created_by__username', 'created_by__first_name', 'created_by__last_name')
             .annotate(total=Sum('amount'))
             .order_by('-total')
@@ -118,15 +119,12 @@ def dashboard(request):
             'profit': profit,
             'user_totals': user_totals,
         })
-
-
-    # Для графика — с июня по декабрь
-    months_chart = [6, 7, 8, 9, 10, 11, 12]
-    chart_income = [income_map.get(m, 0.0) for m in months_chart]
-    chart_expense = [500.0 for _ in months_chart]
-    chart_profit = [round(i - e, 2) for i, e in zip(chart_income, chart_expense)]
+        chart_labels.append(label)
+        chart_income.append(income)
+        chart_expense.append(expense)
+        chart_profit.append(profit)
     monthly3_chart = {
-        'labels': [month_names[m] for m in months_chart],
+        'labels': chart_labels,
         'income': chart_income,
         'expense': chart_expense,
         'profit': chart_profit,
