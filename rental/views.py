@@ -2,8 +2,9 @@ from django.shortcuts import render
 from django.contrib.admin.views.decorators import staff_member_required
 from django.utils import timezone
 from django.db.models import Count, Sum
-from datetime import timedelta
+from datetime import timedelta, datetime, time
 from django.db import models
+from django.db.models import Prefetch, Q
 
 from decimal import Decimal
 
@@ -13,21 +14,29 @@ from .models import Client, Rental, Battery, Payment, Repair, RentalBatteryAssig
 @staff_member_required
 def dashboard(request):
     # Активные клиенты: есть хотя бы один активный рентал
-    active_rentals = Rental.objects.filter(status=Rental.Status.ACTIVE)
+    # Активные клиенты с предзагрузкой назначений батарей
+    now = timezone.now()
+    active_assignments_qs = RentalBatteryAssignment.objects.filter(
+        start_at__lte=now
+    ).filter(Q(end_at__isnull=True) | Q(end_at__gt=now)).select_related('battery')
+    active_rentals = (
+        Rental.objects
+        .filter(status=Rental.Status.ACTIVE)
+        .select_related('client')
+        .prefetch_related(Prefetch('assignments', queryset=active_assignments_qs, to_attr='active_assignments'))
+    )
     active_clients_ids = active_rentals.values_list('client_id', flat=True).distinct()
     active_clients_count = active_clients_ids.count()
 
-    # Батареи у активных клиентов: соберём по assignments сейчас
+    # Батареи у активных клиентов: соберём по предзагруженным назначениям
+    batteries_by_client = {r.client_id: [a.battery for a in r.active_assignments] for r in active_rentals}
+
+    # Отдельный запрос для статистики по батареям
     now = timezone.now()
     assignments = RentalBatteryAssignment.objects.filter(
         rental__status=Rental.Status.ACTIVE,
         start_at__lte=now
-    ).filter(models.Q(end_at__isnull=True) | models.Q(end_at__gt=now))
-
-    batteries_by_client = {}
-    for a in assignments.select_related('battery', 'rental__client'):
-        cid = a.rental.client_id
-        batteries_by_client.setdefault(cid, []).append(a.battery)
+    ).filter(Q(end_at__isnull=True) | Q(end_at__gt=now))
 
     clients_data = []
     # Баланс считаем по root-группе последних активных ренталов клиента
