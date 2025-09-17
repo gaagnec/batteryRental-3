@@ -817,37 +817,28 @@ class PaymentAdmin(SimpleHistoryAdmin):
         return name or user.username
 
     def get_form(self, request, obj=None, **kwargs):
+        base_form = super().get_form(request, obj, **kwargs)
         if request.user.is_superuser:
             allowed_qs = User.objects.filter(is_active=True, is_staff=True).order_by('first_name', 'username')
-            class ReceiverPaymentForm(forms.ModelForm):
+            class ReceiverForm(base_form):
                 receiver = forms.ModelChoiceField(
                     queryset=allowed_qs,
                     required=False,
                     label='Кто получил',
                     help_text='Выберите модератора, получившего деньги'
                 )
-                class Meta:
-                    model = Payment
-                    fields = '__all__'
-            return ReceiverPaymentForm
-        return super().get_form(request, obj, **kwargs)
+                def __init__(self2, *args, **kw):
+                    super().__init__(*args, **kw)
+                    if obj and getattr(obj, 'created_by_id', None):
+                        self2.fields['receiver'].initial = obj.created_by_id
+            return ReceiverForm
+        return base_form
 
-    def get_fieldsets(self, request, obj=None):
-        fieldsets = super().get_fieldsets(request, obj)
-        if request.user.is_superuser:
-            # Добавляем поле receiver в первую группу полей
-            if fieldsets:
-                name, opts = fieldsets[0]
-                fields = tuple(opts.get('fields', ())) + ('receiver',)
-                new_first = (name, {**opts, 'fields': fields})
-                return (new_first,) + tuple(fieldsets[1:])
-            return ((None, {'fields': ('receiver',)}),)
-        return fieldsets
 
 
     def save_model(self, request, obj, form, change):
         # Для суперпользователя позволяем приписать платеж выбранному модератору
-        if request.user.is_superuser and form and 'receiver' in form.cleaned_data and form.cleaned_data.get('receiver'):
+        if request.user.is_superuser and form and hasattr(form, 'cleaned_data') and form.cleaned_data.get('receiver'):
             obj.created_by = form.cleaned_data['receiver']
         elif not change and not getattr(obj, 'created_by_id', None):
             obj.created_by = request.user
