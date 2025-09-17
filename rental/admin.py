@@ -8,7 +8,6 @@ from django.utils import timezone
 from django.template.response import TemplateResponse
 from django.forms import inlineformset_factory, BaseInlineFormSet
 from django.contrib.auth import get_user_model
-from django.db.models import Q
 from decimal import Decimal
 from django.utils.safestring import mark_safe
 from datetime import datetime, time, timedelta
@@ -23,7 +22,6 @@ from .models import (
 )
 
 User = get_user_model()
-ALLOWED_RECEIVERS = ["Dima", "Denis", "Vadim"]
 
 
 class ActiveRentalFilter(admin.SimpleListFilter):
@@ -821,10 +819,8 @@ class PaymentAdmin(SimpleHistoryAdmin):
     def get_form(self, request, obj=None, **kwargs):
         Form = super().get_form(request, obj, **kwargs)
         if request.user.is_superuser:
-            # Привязка по реальным пользователям по username (auth_user.username)
-            allowed_qs = User.objects.filter(
-                username__in=ALLOWED_RECEIVERS
-            ).order_by('username')
+            # Разрешаем выбрать любого активного staff-пользователя как получателя средств
+            allowed_qs = User.objects.filter(is_active=True, is_staff=True).order_by('first_name', 'username')
             class ReceiverForm(Form):
                 def __init__(self2, *args, **kw):
                     super().__init__(*args, **kw)
