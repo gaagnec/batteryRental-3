@@ -821,9 +821,10 @@ class PaymentAdmin(SimpleHistoryAdmin):
     def get_form(self, request, obj=None, **kwargs):
         Form = super().get_form(request, obj, **kwargs)
         if request.user.is_superuser:
+            # Привязка по реальным пользователям по username (auth_user.username)
             allowed_qs = User.objects.filter(
-                Q(username__in=ALLOWED_RECEIVERS) | Q(first_name__in=ALLOWED_RECEIVERS) | Q(last_name__in=ALLOWED_RECEIVERS)
-            ).order_by('first_name', 'username')
+                username__in=ALLOWED_RECEIVERS
+            ).order_by('username')
             class ReceiverForm(Form):
                 def __init__(self2, *args, **kw):
                     super().__init__(*args, **kw)
