@@ -835,6 +835,12 @@ class PaymentAdmin(SimpleHistoryAdmin):
             return ReceiverForm
         return Form
 
+    def get_fields(self, request, obj=None):
+        fields = list(super().get_fields(request, obj))
+        if request.user.is_superuser and 'receiver' not in fields:
+            fields.append('receiver')
+        return fields
+
     def save_model(self, request, obj, form, change):
         # Для суперпользователя позволяем приписать платеж выбранному модератору
         if request.user.is_superuser and form and 'receiver' in form.cleaned_data and form.cleaned_data.get('receiver'):
