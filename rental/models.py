@@ -1,4 +1,6 @@
+from __future__ import annotations
 from django.db import models
+
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.db.models import Sum
@@ -231,6 +233,188 @@ class Payment(TimeStampedModel):
         if self.rental and self.rental.root_id and self.rental_id != self.rental.root_id:
             self.rental = self.rental.root
         super().save(*args, **kwargs)
+        # Автопостинг в журнал
+        try:
+            post_payment_to_ledger(self)
+        except Exception:
+            pass
+
+
+# ---------------------- Мини-бухгалтерия (Журнал проводок) ----------------------
+class Account(TimeStampedModel):
+    class Type(models.TextChoices):
+        ASSET = "asset", "Актив"
+        LIABILITY = "liability", "Обязательство"
+        INCOME = "income", "Доход"
+        EXPENSE = "expense", "Расход"
+        EQUITY = "equity", "Капитал"
+
+    code = models.CharField(max_length=64, unique=True)
+    name = models.CharField(max_length=255)
+    type = models.CharField(max_length=16, choices=Type.choices)
+    history = HistoricalRecords()
+
+    def __str__(self):
+        return f"{self.code} — {self.name}"
+
+
+class JournalEntry(TimeStampedModel):
+    date = models.DateField(default=timezone.localdate)
+    description = models.CharField(max_length=255, blank=True)
+    payment = models.OneToOneField('Payment', null=True, blank=True, on_delete=models.CASCADE, related_name='journal_entry')
+    expense = models.OneToOneField('Expense', null=True, blank=True, on_delete=models.CASCADE, related_name='journal_entry')
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["-date", "-id"]
+
+    def __str__(self):
+        base = self.description or f"Запись #{self.pk}"
+        return f"{self.date} — {base}"
+
+    def is_balanced(self) -> bool:
+        agg = self.lines.aggregate(deb=Sum('debit'), cred=Sum('credit'))
+        return (agg.get('deb') or Decimal(0)) == (agg.get('cred') or Decimal(0))
+
+
+class JournalLine(TimeStampedModel):
+    entry = models.ForeignKey(JournalEntry, on_delete=models.CASCADE, related_name='lines')
+    account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='lines')
+    debit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    credit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    # Атрибуция по клиенту и сотруднику для аналитики
+    client = models.ForeignKey(Client, null=True, blank=True, on_delete=models.SET_NULL)
+    staff_user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
+    rental = models.ForeignKey(Rental, null=True, blank=True, on_delete=models.SET_NULL)
+    history = HistoricalRecords()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["account", "created_at"], name="idx_jline_acc_created"),
+            models.Index(fields=["client", "created_at"], name="idx_jline_client_created"),
+        ]
+
+    def __str__(self):
+        amt = self.debit or self.credit
+        side = 'D' if self.debit else 'C'
+        return f"{self.account.code} {side} {amt}"
+
+
+# Утилиты для автопроводок
+SYSTEM_ACCOUNTS = {
+    'cash': ("CASH", "Касса", Account.Type.ASSET),
+    'blik': ("BLIK", "BLIK", Account.Type.ASSET),
+    'revolut': ("REVOLUT", "Revolut", Account.Type.ASSET),
+    'rent_income': ("RENT_INC", "Доход от аренды", Account.Type.INCOME),
+    'deposit_liab': ("DEPOSIT", "Залог (обязательство)", Account.Type.LIABILITY),
+    'adjust_income': ("ADJ_INC", "Корректировки (доход)", Account.Type.INCOME),
+    'adjust_expense': ("ADJ_EXP", "Корректировки (расход)", Account.Type.EXPENSE),
+}
+
+
+def get_or_create_account(code: str, name: str, atype: str) -> Account:
+    acc, _ = Account.objects.get_or_create(code=code, defaults={"name": name, "type": atype})
+    return acc
+
+
+def account_for_method(method: str) -> Account:
+    key = 'cash'
+    if method == Payment.Method.REVOLUT:
+        key = 'revolut'
+    elif method == Payment.Method.BLIK:
+        key = 'blik'
+    code, name, atype = SYSTEM_ACCOUNTS[key]
+    return get_or_create_account(code, name, atype)
+
+
+def rent_income_account() -> Account:
+    code, name, atype = SYSTEM_ACCOUNTS['rent_income']
+    return get_or_create_account(code, name, atype)
+
+
+def deposit_account() -> Account:
+    code, name, atype = SYSTEM_ACCOUNTS['deposit_liab']
+    return get_or_create_account(code, name, atype)
+
+
+def adjust_income_account() -> Account:
+    code, name, atype = SYSTEM_ACCOUNTS['adjust_income']
+    return get_or_create_account(code, name, atype)
+
+
+def adjust_expense_account() -> Account:
+    code, name, atype = SYSTEM_ACCOUNTS['adjust_expense']
+    return get_or_create_account(code, name, atype)
+
+
+# Постинг платежей и расходов в журнал
+def post_payment_to_ledger(payment: Payment):
+    # Идемпотентность: если уже есть запись — переиспользуем и перезаписываем строки
+    entry, created = JournalEntry.objects.get_or_create(payment=payment, defaults={
+        'date': payment.date,
+        'description': f"Платеж {payment.get_type_display()} по {payment.rental}",
+        'created_by': payment.created_by,
+        'updated_by': payment.updated_by,
+    })
+    if not created:
+        entry.lines.all().delete()
+        entry.date = payment.date
+        entry.description = f"Платеж {payment.get_type_display()} по {payment.rental}"
+        entry.updated_by = payment.updated_by
+        entry.save(update_fields=["date", "description", "updated_by", "updated_at"])
+
+    amt = payment.amount or Decimal(0)
+    asset = account_for_method(payment.method)
+    client = payment.rental.client if payment.rental_id else None
+    staff = payment.created_by
+
+    if payment.type == Payment.PaymentType.RENT:
+        income = rent_income_account()
+        # Дт Денежные средства, Кт Доход
+        JournalLine.objects.create(entry=entry, account=asset, debit=amt, credit=0, client=client, staff_user=staff, rental=payment.rental)
+        JournalLine.objects.create(entry=entry, account=income, debit=0, credit=amt, client=client, staff_user=staff, rental=payment.rental)
+    elif payment.type == Payment.PaymentType.DEPOSIT:
+        dep = deposit_account()
+        JournalLine.objects.create(entry=entry, account=asset, debit=amt, credit=0, client=client, staff_user=staff, rental=payment.rental)
+        JournalLine.objects.create(entry=entry, account=dep, debit=0, credit=amt, client=client, staff_user=staff, rental=payment.rental)
+    elif payment.type == Payment.PaymentType.RETURN_DEPOSIT:
+        dep = deposit_account()
+        JournalLine.objects.create(entry=entry, account=dep, debit=amt, credit=0, client=client, staff_user=staff, rental=payment.rental)
+        JournalLine.objects.create(entry=entry, account=asset, debit=0, credit=amt, client=client, staff_user=staff, rental=payment.rental)
+    else:  # ADJUSTMENT
+        # По умолчанию трактуем как поступление (если нужно, можно расширить типы)
+        adj_inc = adjust_income_account()
+        JournalLine.objects.create(entry=entry, account=asset, debit=amt, credit=0, client=client, staff_user=staff, rental=payment.rental)
+        JournalLine.objects.create(entry=entry, account=adj_inc, debit=0, credit=amt, client=client, staff_user=staff, rental=payment.rental)
+
+    return entry
+
+
+def post_expense_to_ledger(expense: Expense):
+    entry, created = JournalEntry.objects.get_or_create(expense=expense, defaults={
+        'date': expense.date,
+        'description': f"Расход: {expense.category or ''}",
+        'created_by': expense.created_by,
+        'updated_by': expense.updated_by,
+    })
+    if not created:
+        entry.lines.all().delete()
+        entry.date = expense.date
+        entry.description = f"Расход: {expense.category or ''}"
+        entry.updated_by = expense.updated_by
+        entry.save(update_fields=["date", "description", "updated_by", "updated_at"])
+
+    amt = expense.amount or Decimal(0)
+    # Счёт расходов по категории (создаём при необходимости)
+    cat_name = str(expense.category or 'Прочее')
+    expense_acc = get_or_create_account(code=f"EXP_{expense.category_id or 0}", name=f"Расходы: {cat_name}", atype=Account.Type.EXPENSE)
+    # По умолчанию кредитуем кассу
+    asset = get_or_create_account(*SYSTEM_ACCOUNTS['cash'])
+    # Дт Расходы, Кт Денежные средства
+    JournalLine.objects.create(entry=entry, account=expense_acc, debit=amt, credit=0)
+    JournalLine.objects.create(entry=entry, account=asset, debit=0, credit=amt)
+    return entry
+# Хуки сохранения: отключено в пользу явного постинга в save() моделей Payment/Expense
 
 
 class ExpenseCategory(TimeStampedModel):
@@ -247,6 +431,13 @@ class Expense(TimeStampedModel):
     category = models.ForeignKey(ExpenseCategory, on_delete=models.SET_NULL, null=True, blank=True)
     description = models.TextField(blank=True)
     history = HistoricalRecords()
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        try:
+            post_expense_to_ledger(self)
+        except Exception:
+            pass
 
 
 class Repair(TimeStampedModel):

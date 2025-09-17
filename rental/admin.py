@@ -7,6 +7,8 @@ from django.utils.html import format_html
 from django.utils import timezone
 from django.template.response import TemplateResponse
 from django.forms import inlineformset_factory, BaseInlineFormSet
+from django.contrib.auth import get_user_model
+from django.db.models import Q
 from decimal import Decimal
 from django.utils.safestring import mark_safe
 from datetime import datetime, time, timedelta
@@ -19,6 +21,9 @@ from .models import (
     Client, Battery, Rental, RentalBatteryAssignment,
     Payment, ExpenseCategory, Expense, Repair, BatteryStatusLog
 )
+
+User = get_user_model()
+ALLOWED_RECEIVERS = ["Dima", "Denis", "Vadim"]
 
 
 class ActiveRentalFilter(admin.SimpleListFilter):
@@ -804,6 +809,7 @@ class PaymentAdmin(SimpleHistoryAdmin):
     list_filter = ("type", "method")
     search_fields = ("rental__id", "note")
     readonly_fields = ("created_by", "updated_by")
+
     @admin.display(ordering='created_by__username', description='Кто ввёл запись')
     def created_by_name(self, obj):
         user = obj.created_by
@@ -812,9 +818,31 @@ class PaymentAdmin(SimpleHistoryAdmin):
         name = f"{user.first_name} {user.last_name}".strip()
         return name or user.username
 
+    def get_form(self, request, obj=None, **kwargs):
+        Form = super().get_form(request, obj, **kwargs)
+        if request.user.is_superuser:
+            allowed_qs = User.objects.filter(
+                Q(username__in=ALLOWED_RECEIVERS) | Q(first_name__in=ALLOWED_RECEIVERS) | Q(last_name__in=ALLOWED_RECEIVERS)
+            ).order_by('first_name', 'username')
+            class ReceiverForm(Form):
+                def __init__(self2, *args, **kw):
+                    super().__init__(*args, **kw)
+                    self2.fields['receiver'] = forms.ModelChoiceField(
+                        queryset=allowed_qs,
+                        required=False,
+                        label='Кто получил',
+                        help_text='Выберите модератора, получившего деньги'
+                    )
+                    if obj and obj.created_by_id:
+                        self2.fields['receiver'].initial = obj.created_by_id
+            return ReceiverForm
+        return Form
 
     def save_model(self, request, obj, form, change):
-        if not change and not getattr(obj, 'created_by_id', None):
+        # Для суперпользователя позволяем приписать платеж выбранному модератору
+        if request.user.is_superuser and form and 'receiver' in form.cleaned_data and form.cleaned_data.get('receiver'):
+            obj.created_by = form.cleaned_data['receiver']
+        elif not change and not getattr(obj, 'created_by_id', None):
             obj.created_by = request.user
         obj.updated_by = request.user
         super().save_model(request, obj, form, change)

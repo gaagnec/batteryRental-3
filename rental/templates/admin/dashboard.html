@@ -112,7 +112,7 @@
     <!-- Правая колонка: Последние платежи -->
     <div class="col-lg-4 col-md-12">
       <div class="card shadow-sm h-100">
-        <div class="card-header">Последние 10 платежей</div>
+        <div class="card-header">Последние 15 платежей (получил)</div>
         <div class="card-body p-0">
           <div class="table-responsive">
             <table class="table table-sm table-striped mb-0">
@@ -121,7 +121,7 @@
                   <th>Клиент</th>
                   <th>Дата</th>
                   <th class="text-end">Сумма</th>
-                  <th>Кем</th>
+                  <th>Кто получил</th>
                 </tr>
               </thead>
               <tbody>
@@ -130,7 +130,7 @@
                   <td>{{ p.rental.client.name }}</td>
                   <td>{{ p.date }}</td>
                   <td class="text-end">{{ p.amount|floatformat:2 }}</td>
-                  <td>{{ p.created_by.get_full_name|default:p.created_by.username|default:p.created_by.email|default:"—" }}</td>
+                  <td>{% if p.created_by %}{{ p.created_by.get_full_name|default:p.created_by.username|default:p.created_by.email }}{% else %}—{% endif %}</td>
                 </tr>
                 {% empty %}
                 <tr><td colspan="4" class="text-center text-muted py-3">Платежей нет</td></tr>

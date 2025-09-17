@@ -69,8 +69,8 @@ def dashboard(request):
         'available': available,
     }
 
-    # Последние 10 платежей
-    latest_payments = Payment.objects.select_related('rental__client', 'created_by').order_by('-date', '-id')[:10]
+    # Последние 15 платежей
+    latest_payments = Payment.objects.select_related('rental__client', 'created_by').order_by('-date', '-id')[:15]
 
     # Месячные итоги
     month_names = {
