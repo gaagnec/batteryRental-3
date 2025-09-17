@@ -817,23 +817,32 @@ class PaymentAdmin(SimpleHistoryAdmin):
         return name or user.username
 
     def get_form(self, request, obj=None, **kwargs):
-        Form = super().get_form(request, obj, **kwargs)
         if request.user.is_superuser:
-            # Разрешаем выбрать любого активного staff-пользователя как получателя средств
             allowed_qs = User.objects.filter(is_active=True, is_staff=True).order_by('first_name', 'username')
-            class ReceiverForm(Form):
-                def __init__(self2, *args, **kw):
-                    super().__init__(*args, **kw)
-                    self2.fields['receiver'] = forms.ModelChoiceField(
-                        queryset=allowed_qs,
-                        required=False,
-                        label='Кто получил',
-                        help_text='Выберите модератора, получившего деньги'
-                    )
-                    if obj and obj.created_by_id:
-                        self2.fields['receiver'].initial = obj.created_by_id
-            return ReceiverForm
-        return Form
+            class ReceiverPaymentForm(forms.ModelForm):
+                receiver = forms.ModelChoiceField(
+                    queryset=allowed_qs,
+                    required=False,
+                    label='Кто получил',
+                    help_text='Выберите модератора, получившего деньги'
+                )
+                class Meta:
+                    model = Payment
+                    fields = '__all__'
+            return ReceiverPaymentForm
+        return super().get_form(request, obj, **kwargs)
+
+    def get_fieldsets(self, request, obj=None):
+        fieldsets = super().get_fieldsets(request, obj)
+        if request.user.is_superuser:
+            # Добавляем поле receiver в первую группу полей
+            if fieldsets:
+                name, opts = fieldsets[0]
+                fields = tuple(opts.get('fields', ())) + ('receiver',)
+                new_first = (name, {**opts, 'fields': fields})
+                return (new_first,) + tuple(fieldsets[1:])
+            return ((None, {'fields': ('receiver',)}),)
+        return fieldsets
 
 
     def save_model(self, request, obj, form, change):
