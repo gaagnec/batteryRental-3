@@ -50,10 +50,55 @@ def dashboard(request):
     )
     # Ограничим число клиентов в виджете для производительности
     latest_by_client = list(latest_by_client_qs[:30])
+    # Быстрый расчёт балансов пачкой для выбранных клиентов (без N+1):
+    root_ids = []
     for r in latest_by_client:
-        balance_raw = r.group_balance()
+        rid = r.root_id or r.id
+        if rid and rid not in root_ids:
+            root_ids.append(rid)
+    # Суммы оплат по root за один запрос
+    paid_map = {
+        row['rental__root_id']: row['total'] or 0
+        for row in (
+            Payment.objects
+            .filter(type=Payment.PaymentType.RENT, rental__root_id__in=root_ids)
+            .values('rental__root_id')
+            .annotate(total=Sum('amount'))
+        )
+    }
+    # Версии рентала по root с предзагрузкой назначений (только нужные поля)
+    versions_qs = (
+        Rental.objects
+        .filter(root_id__in=root_ids)
+        .only('id', 'root_id', 'start_at', 'end_at', 'status', 'weekly_rate')
+        .prefetch_related(
+            Prefetch(
+                'assignments',
+                queryset=RentalBatteryAssignment.objects.only('id', 'rental_id', 'start_at', 'end_at')
+            )
+        )
+        .order_by('root_id', 'start_at', 'id')
+    )
+    # Сгруппируем версии по root
+    from collections import defaultdict
+    versions_by_root: dict[int, list[Rental]] = defaultdict(list)  # type: ignore[name-defined]
+    for v in versions_qs:
+        if v.root_id:
+            versions_by_root[v.root_id].append(v)
+    # Посчитаем начисления до текущего момента по каждой группе
+    charges_by_root = {}
+    for rid, versions in versions_by_root.items():
+        total = Decimal(0)
+        for v in versions:
+            total += v.charges_until()  # assignments уже предзагружены
+        charges_by_root[rid] = total
+    # Балансы: charges - paid
+    balance_by_root = {rid: charges_by_root.get(rid, Decimal(0)) - Decimal(paid_map.get(rid, 0) or 0) for rid in root_ids}
+
+    for r in latest_by_client:
+        rid = r.root_id or r.id
+        balance_raw = balance_by_root.get(rid, Decimal(0))
         balance_ui = -balance_raw  # для UI: кредит положительный, долг отрицательный
-        # Ставка из последней версии активного договора (r уже последний по дате)
         weekly_rate = r.weekly_rate
         clients_data.append({
             'client': r.client,
