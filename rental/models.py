@@ -1,5 +1,6 @@
 from __future__ import annotations
 from django.db import models
+from django.db import connection
 
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -233,9 +234,10 @@ class Payment(TimeStampedModel):
         if self.rental and self.rental.root_id and self.rental_id != self.rental.root_id:
             self.rental = self.rental.root
         super().save(*args, **kwargs)
-        # Автопостинг в журнал
+        # Автопостинг в журнал — делаем за пределами текущей транзакции админки
         try:
-            post_payment_to_ledger(self)
+            from django.db import transaction
+            transaction.on_commit(lambda: post_payment_to_ledger(self))
         except Exception:
             pass
 
@@ -350,6 +352,7 @@ def adjust_expense_account() -> Account:
 # Постинг платежей и расходов в журнал
 def post_payment_to_ledger(payment: Payment):
     # Идемпотентность: если уже есть запись — переиспользуем и перезаписываем строки
+    from django.db import transaction
     entry, created = JournalEntry.objects.get_or_create(payment=payment, defaults={
         'date': payment.date,
         'description': f"Платеж {payment.get_type_display()} по {payment.rental}",
