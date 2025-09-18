@@ -1,6 +1,7 @@
 from __future__ import annotations
 import time
 import logging
+import traceback
 from typing import Iterable
 from django.db import connection
 from django.http import HttpRequest, HttpResponse
@@ -35,6 +36,12 @@ class SqlTimingMiddleware:
             return response
         except Exception as e:  # log and re-raise
             exc = e
+            # Логируем полный traceback для диагностики 500 даже при DEBUG=False
+            tb = traceback.format_exc()
+            try:
+                self.logger.error("TRACEBACK %s\n%s", request.path, tb)
+            except Exception:
+                print("TRACEBACK ", request.path, "\n", tb)
             raise
         finally:
             total_s = time.perf_counter() - start
