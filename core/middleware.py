@@ -38,10 +38,13 @@ class SqlTimingMiddleware:
             exc = e
             # Логируем полный traceback для диагностики 500 даже при DEBUG=False
             tb = traceback.format_exc()
+            # Печатаем всегда (stdout), чтобы гарантированно попасть в Render Logs
+            print("TRACEBACK", request.path, "\n", tb)
+            # И дублируем в логгер performance
             try:
                 self.logger.error("TRACEBACK %s\n%s", request.path, tb)
             except Exception:
-                print("TRACEBACK ", request.path, "\n", tb)
+                pass
             raise
         finally:
             total_s = time.perf_counter() - start
