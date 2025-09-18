@@ -19,14 +19,17 @@ def dashboard(request):
     active_assignments_qs = RentalBatteryAssignment.objects.filter(
         start_at__lte=now
     ).filter(Q(end_at__isnull=True) | Q(end_at__gt=now)).select_related('battery')
-    active_rentals = (
+    active_rentals_qs = (
         Rental.objects
         .filter(status=Rental.Status.ACTIVE)
         .select_related('client')
         .prefetch_related(Prefetch('assignments', queryset=active_assignments_qs, to_attr='active_assignments'))
     )
-    active_clients_ids = active_rentals.values_list('client_id', flat=True).distinct()
+    active_clients_ids = active_rentals_qs.values_list('client_id', flat=True).distinct()
     active_clients_count = active_clients_ids.count()
+
+    # Материализуем один раз
+    active_rentals = list(active_rentals_qs)
 
     # Батареи у активных клиентов: соберём по предзагруженным назначениям
     batteries_by_client = {r.client_id: [a.battery for a in r.active_assignments] for r in active_rentals}
@@ -79,6 +82,7 @@ def dashboard(request):
         9: 'Сентябрь', 10: 'Октябрь', 11: 'Ноябрь', 12: 'Декабрь'
     }
     # Собираем суммы по месяцам за всю историю (тип RENT)
+    # Счёт по месяцам и по сотруднику за один проход
     pay_monthly = (
         Payment.objects
         .filter(type=Payment.PaymentType.RENT)
@@ -86,6 +90,25 @@ def dashboard(request):
         .annotate(total=Sum('amount'))
         .order_by('date__year', 'date__month')
     )
+    pay_by_user_month = (
+        Payment.objects
+        .filter(type=Payment.PaymentType.RENT)
+        .values('date__year', 'date__month', 'created_by__username', 'created_by__first_name', 'created_by__last_name')
+        .annotate(total=Sum('amount'))
+    )
+    # Группируем pay_by_user_month в память
+    from collections import defaultdict
+    by_month_users = defaultdict(list)
+    for pu in pay_by_user_month:
+        key = (pu['date__year'], pu['date__month'])
+        first = pu.get('created_by__first_name') or ''
+        last = pu.get('created_by__last_name') or ''
+        name = f"{first} {last}".strip() or pu.get('created_by__username')
+        by_month_users[key].append({'user': name, 'total': float(pu.get('total') or 0)})
+    # сортируем пользователей по сумме по убыванию для каждого месяца
+    for key in by_month_users:
+        by_month_users[key].sort(key=lambda x: x['total'], reverse=True)
+
     monthly3_rows = []
     chart_labels = []
     chart_income = []
@@ -98,20 +121,7 @@ def dashboard(request):
         income = float(row['total'] or 0)
         expense = 500.0
         profit = round(income - expense, 2)
-        # aggregate payments by user for this month
-        payments_by_user = (
-            Payment.objects
-            .filter(date__year=y, date__month=m, type=Payment.PaymentType.RENT)
-            .values('created_by__username', 'created_by__first_name', 'created_by__last_name')
-            .annotate(total=Sum('amount'))
-            .order_by('-total')
-        )
-        user_totals = []
-        for pu in payments_by_user:
-            first = pu.get('created_by__first_name') or ''
-            last = pu.get('created_by__last_name') or ''
-            name = f"{first} {last}".strip() or pu.get('created_by__username')
-            user_totals.append({'user': name, 'total': float(pu.get('total') or 0)})
+        user_totals = by_month_users.get((y, m), [])
         monthly3_rows.append({
             'label': label,
             'income': income,
@@ -143,29 +153,43 @@ def dashboard(request):
     paid_values = []
     totals_pay = {row['date']: row['total'] for row in pay_qs}
 
-    # Начисления в день считаем как сумму дневной ставки по активным назначениям
-    # Перебор по дням и подсчет активных assignments на 14:00 каждого дня
+    # Начисления в день считаем за один проход: вытащим все назначения за окно и разложим по дням в памяти
     charges_values = []
     tz = timezone.get_current_timezone()
+    # Загрузим все назначения, которые пересекают окно
+    window_start_dt = timezone.make_aware(datetime.combine(start_date, time(0, 0)), tz)
+    window_end_dt = timezone.make_aware(datetime.combine(start_date + timedelta(days=window_days), time(23, 59, 59)), tz)
+    assigns = (
+        RentalBatteryAssignment.objects
+        .filter(start_at__lte=window_end_dt)
+        .filter(models.Q(end_at__isnull=True) | models.Q(end_at__gte=window_start_dt))
+        .select_related('rental')
+    )
+    # Предподсчёт дневной ставки по ренталу
+    daily_rate_by_rental = {}
+    for a in assigns:
+        r = a.rental
+        if r_id := getattr(r, 'id', None):
+            if r_id not in daily_rate_by_rental:
+                daily_rate_by_rental[r_id] = (r.status == Rental.Status.ACTIVE, (r.weekly_rate or Decimal(0)) / Decimal(7), r.start_at, r.end_at)
+    # Для каждого дня считаем сумму
     for i in range(window_days):
         d = start_date + timedelta(days=i)
         labels.append(d.isoformat())
         paid_values.append(float(totals_pay.get(d, 0) or 0))
-        # 14:00 якорь
-        anchor = timezone.make_aware(timezone.datetime.combine(d, timezone.datetime.min.time().replace(hour=14)), tz)
-        # активные ренты, покрывающие якорь
+        anchor = timezone.make_aware(datetime.combine(d, time(14, 0)), tz)
         day_total = Decimal(0)
-        day_assigns = RentalBatteryAssignment.objects.filter(
-            start_at__lte=anchor,
-        ).filter(models.Q(end_at__isnull=True) | models.Q(end_at__gt=anchor))
-        # для каждой привязки берём недельную ставку её рентала
-        for a in day_assigns.select_related('rental'):
+        for a in assigns:
             r = a.rental
-            # учитывать только если статус активен и интервал рентала покрывает якорь
-            r_start = timezone.localtime(r.start_at, tz)
-            r_end = timezone.localtime(r.end_at, tz) if r.end_at else None
-            if r.status == Rental.Status.ACTIVE and r_start <= anchor and (r_end is None or r_end > anchor):
-                day_total += (r.weekly_rate or Decimal(0)) / Decimal(7)
+            active, drate, r_start, r_end = daily_rate_by_rental.get(r.id, (False, Decimal(0), None, None))
+            if not active:
+                continue
+            a_start = timezone.localtime(a.start_at, tz)
+            a_end = timezone.localtime(a.end_at, tz) if a.end_at else None
+            r_start_l = timezone.localtime(r_start, tz)
+            r_end_l = timezone.localtime(r_end, tz) if r_end else None
+            if a_start <= anchor and (a_end is None or a_end > anchor) and r_start_l <= anchor and (r_end_l is None or r_end_l > anchor):
+                day_total += drate
         charges_values.append(float(day_total))
 
     payments_series = {'labels': labels, 'values': paid_values}

@@ -807,6 +807,7 @@ class PaymentAdmin(SimpleHistoryAdmin):
     list_filter = ("type", "method")
     search_fields = ("rental__id", "note")
     readonly_fields = ("created_by", "updated_by")
+    list_select_related = ("rental", "rental__client", "created_by")
 
     @admin.display(ordering='created_by__username', description='Кто ввёл запись')
     def created_by_name(self, obj):
