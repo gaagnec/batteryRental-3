@@ -1,0 +1,64 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <style>
+    .dash { padding: 16px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; background:#fff; }
+    .small { font-size: 12px; color: #666; }
+    table.compact { width: 100%; font-size: 13px; }
+    table.compact td, table.compact th { padding: 4px 6px; }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="dash">
+  <h1>Dashboard</h1>
+  <div class="grid">
+    <div class="card">
+      <h3>Активные клиенты</h3>
+      <div class="value">{{ active_clients_count }}</div>
+      <div class="small">Показаны до 30 последних</div>
+    </div>
+    <div class="card">
+      <h3>Батареи</h3>
+      <div class="small">Всего: {{ battery_stats.total }} | В аренде: {{ battery_stats.rented }} | Ремонт: {{ battery_stats.in_service }} | Доступно: {{ battery_stats.available }}</div>
+    </div>
+    <div class="card">
+      <h3>30 дней</h3>
+      <div class="small">Поступления: {{ total_paid_30 }} | Начисления: {{ total_charged_30 }}</div>
+    </div>
+  </div>
+
+  <div class="grid" style="margin-top:16px">
+    <div class="card">
+      <h3>Последние платежи</h3>
+      <table class="compact">
+        <thead>
+          <tr><th>Дата</th><th>Клиент</th><th>Сумма</th><th>Кем введён</th></tr>
+        </thead>
+        <tbody>
+          {% for p in latest_payments %}
+            <tr>
+              <td>{{ p.date }}</td>
+              <td>{{ p.rental.client }}</td>
+              <td>{{ p.amount }}</td>
+              <td>{{ p.created_by.get_full_name|default:p.created_by.username }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4" class="small">Нет данных</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3>Топ должников</h3>
+      <div class="small">Всего долг: {{ overall_debt }}</div>
+      <div class="small">Количество должников: {{ top_debtors.names|length }}</div>
+      <div class="small">Пример имён: {{ top_debtors.names|slice:":5"|join:", " }}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

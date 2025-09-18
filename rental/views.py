@@ -242,11 +242,12 @@ def dashboard(request):
     payments_series = {'labels': labels, 'values': paid_values}
     charges_series = {'labels': labels, 'values': charges_values}
 
-    # Топ должников: по текущему балансу, берём 5
+    # Топ должников: по уже рассчитанным балансам без дополнительных SQL, берём 5
     debtors = []
     overall_debt = Decimal(0)
     for r in latest_by_client:
-        bal = r.group_balance()
+        rid = r.root_id or r.id
+        bal = balance_by_root.get(rid, Decimal(0))  # charges - paid
         if bal > 0:
             debtors.append((str(r.client), float(bal)))
             overall_debt += bal
