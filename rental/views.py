@@ -43,11 +43,12 @@ def dashboard(request):
 
     clients_data = []
     # Баланс считаем по root-группе последних активных ренталов клиента
-    latest_by_client = (
-        active_rentals.order_by('client_id', '-start_at')
+    latest_by_client_qs = (
+        active_rentals_qs.order_by('client_id', '-start_at')
         .distinct('client_id')
         .select_related('client')
     )
+    latest_by_client = list(latest_by_client_qs)
     for r in latest_by_client:
         balance_raw = r.group_balance()
         balance_ui = -balance_raw  # для UI: кредит положительный, долг отрицательный
