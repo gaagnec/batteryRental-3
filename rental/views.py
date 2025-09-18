@@ -48,7 +48,8 @@ def dashboard(request):
         .distinct('client_id')
         .select_related('client')
     )
-    latest_by_client = list(latest_by_client_qs)
+    # Ограничим число клиентов в виджете для производительности
+    latest_by_client = list(latest_by_client_qs[:30])
     for r in latest_by_client:
         balance_raw = r.group_balance()
         balance_ui = -balance_raw  # для UI: кредит положительный, долг отрицательный
