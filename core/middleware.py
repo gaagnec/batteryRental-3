@@ -1,0 +1,74 @@
+from __future__ import annotations
+import time
+import logging
+from typing import Iterable
+from django.db import connection
+from django.http import HttpRequest, HttpResponse
+
+
+TARGET_PREFIXES: tuple[str, ...] = (
+    "/admin/rental/client",
+    "/admin/rental/payment",
+    "/admin/dashboard/",
+)
+
+
+class SqlTimingMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+        self.logger = logging.getLogger("performance")
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        path = request.path or ""
+        should_trace = path.startswith(TARGET_PREFIXES)
+
+        if not should_trace:
+            return self.get_response(request)
+
+        prev_force = connection.force_debug_cursor
+        connection.force_debug_cursor = True
+        start = time.perf_counter()
+        try:
+            response = self.get_response(request)
+            return response
+        finally:
+            total_s = time.perf_counter() - start
+            # Sum SQL timings (in seconds) and count queries
+            queries = list(connection.queries)
+            try:
+                sql_time_s = 0.0
+                for q in queries:
+                    # Django stores time as str seconds
+                    try:
+                        sql_time_s += float(q.get("time", 0) or 0)
+                    except Exception:
+                        pass
+                sql_count = len(queries)
+                slow = total_s >= 0.3 or sql_time_s >= 0.2
+                line = (
+                    f"PERF path={path} status={getattr(response, 'status_code', '?')} "
+                    f"total={total_s:.3f}s sql_time={sql_time_s:.3f}s sql_count={sql_count} slow={slow}"
+                )
+                # Log top 3 slowest queries (>50ms)
+                slow_qs = sorted(
+                    (
+                        (float(q.get("time", 0) or 0), q.get("sql", ""))
+                        for q in queries
+                        if float(q.get("time", 0) or 0) >= 0.05
+                    ),
+                    key=lambda x: x[0],
+                    reverse=True,
+                )[:3]
+                for i, (secs, sql) in enumerate(slow_qs, 1):
+                    sql_short = " ".join(sql.split())
+                    if len(sql_short) > 300:
+                        sql_short = sql_short[:300] + "…"
+                    line += f"\n  #{i} {secs*1000:.1f}ms: {sql_short}"
+                # Ensure message reaches stdout even if logger is not configured
+                print(line)
+                try:
+                    (self.logger.warning if slow else self.logger.info)(line)
+                except Exception:
+                    pass
+            finally:
+                connection.force_debug_cursor = prev_force
