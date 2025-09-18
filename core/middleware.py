@@ -13,6 +13,24 @@ TARGET_PREFIXES: tuple[str, ...] = (
     "/admin/dashboard/",
 )
 
+class EarlyTraceMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+        self.logger = logging.getLogger("performance")
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        try:
+            return self.get_response(request)
+        except Exception:
+            tb = traceback.format_exc()
+            print("EARLY TRACEBACK", request.path, "\n", tb)
+            try:
+                self.logger.error("EARLY TRACEBACK %s\n%s", request.path, tb)
+            except Exception:
+                pass
+            raise
+
+
 
 class SqlTimingMiddleware:
     def __init__(self, get_response):
