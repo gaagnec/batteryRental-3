@@ -28,28 +28,35 @@ class SqlTimingMiddleware:
         prev_force = connection.force_debug_cursor
         connection.force_debug_cursor = True
         start = time.perf_counter()
+        response: HttpResponse | None = None
+        exc: Exception | None = None
         try:
             response = self.get_response(request)
             return response
+        except Exception as e:  # log and re-raise
+            exc = e
+            raise
         finally:
             total_s = time.perf_counter() - start
             # Sum SQL timings (in seconds) and count queries
-            queries = list(connection.queries)
+            try:
+                queries = list(connection.queries)
+            except Exception:
+                queries = []
             try:
                 sql_time_s = 0.0
                 for q in queries:
-                    # Django stores time as str seconds
                     try:
                         sql_time_s += float(q.get("time", 0) or 0)
                     except Exception:
                         pass
                 sql_count = len(queries)
                 slow = total_s >= 0.3 or sql_time_s >= 0.2
+                status = getattr(response, 'status_code', 500 if exc else 200)
                 line = (
-                    f"PERF path={path} status={getattr(response, 'status_code', '?')} "
+                    f"PERF path={path} status={status} "
                     f"total={total_s:.3f}s sql_time={sql_time_s:.3f}s sql_count={sql_count} slow={slow}"
                 )
-                # Log top 3 slowest queries (>50ms)
                 slow_qs = sorted(
                     (
                         (float(q.get("time", 0) or 0), q.get("sql", ""))
@@ -64,7 +71,6 @@ class SqlTimingMiddleware:
                     if len(sql_short) > 300:
                         sql_short = sql_short[:300] + "…"
                     line += f"\n  #{i} {secs*1000:.1f}ms: {sql_short}"
-                # Ensure message reaches stdout even if logger is not configured
                 print(line)
                 try:
                     (self.logger.warning if slow else self.logger.info)(line)
