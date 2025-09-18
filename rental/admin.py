@@ -816,31 +816,28 @@ class PaymentAdmin(SimpleHistoryAdmin):
         name = f"{user.first_name} {user.last_name}".strip()
         return name or user.username
 
+    def get_readonly_fields(self, request, obj=None):
+        ro = list(super().get_readonly_fields(request, obj))
+        if request.user.is_superuser and 'created_by' in ro:
+            ro.remove('created_by')
+        return ro
+
     def get_form(self, request, obj=None, **kwargs):
         base_form = super().get_form(request, obj, **kwargs)
         if request.user.is_superuser:
             allowed_qs = User.objects.filter(is_active=True, is_staff=True).order_by('first_name', 'username')
-            class ReceiverForm(base_form):
-                receiver = forms.ModelChoiceField(
-                    queryset=allowed_qs,
-                    required=False,
-                    label='Кто получил',
-                    help_text='Выберите модератора, получившего деньги'
-                )
+            class CreatedByForm(base_form):
                 def __init__(self2, *args, **kw):
                     super().__init__(*args, **kw)
-                    if obj and getattr(obj, 'created_by_id', None):
-                        self2.fields['receiver'].initial = obj.created_by_id
-            return ReceiverForm
+                    if 'created_by' in self2.fields:
+                        self2.fields['created_by'].queryset = allowed_qs
+                        self2.fields['created_by'].label = 'Кто получил'
+                        self2.fields['created_by'].help_text = 'Выберите модератора, получившего деньги'
+            return CreatedByForm
         return base_form
 
-
-
     def save_model(self, request, obj, form, change):
-        # Для суперпользователя позволяем приписать платеж выбранному модератору
-        if request.user.is_superuser and form and hasattr(form, 'cleaned_data') and form.cleaned_data.get('receiver'):
-            obj.created_by = form.cleaned_data['receiver']
-        elif not change and not getattr(obj, 'created_by_id', None):
+        if not change and not getattr(obj, 'created_by_id', None):
             obj.created_by = request.user
         obj.updated_by = request.user
         super().save_model(request, obj, form, change)
