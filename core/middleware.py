@@ -20,7 +20,21 @@ class EarlyTraceMiddleware:
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
         try:
-            return self.get_response(request)
+            response = self.get_response(request)
+            # Форсируем рендеринг шаблона здесь, чтобы поймать ошибки TemplateResponse
+            try:
+                render = getattr(response, 'render', None)
+                if callable(render) and not getattr(response, 'is_rendered', False):
+                    response = render()
+            except Exception:
+                tb = traceback.format_exc()
+                print("EARLY TRACEBACK (render)", request.path, "\n", tb)
+                try:
+                    self.logger.error("EARLY TRACEBACK (render) %s\n%s", request.path, tb)
+                except Exception:
+                    pass
+                raise
+            return response
         except Exception:
             tb = traceback.format_exc()
             print("EARLY TRACEBACK", request.path, "\n", tb)
