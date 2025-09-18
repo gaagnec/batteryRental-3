@@ -351,6 +351,14 @@ def adjust_expense_account() -> Account:
 
 # Постинг платежей и расходов в журнал
 def post_payment_to_ledger(payment: Payment):
+    # Если таблицы бухгалтерии ещё не созданы (миграции не применены) — выходим молча
+    existing = connection.introspection.table_names()
+    if (
+        Account._meta.db_table not in existing or
+        JournalEntry._meta.db_table not in existing or
+        JournalLine._meta.db_table not in existing
+    ):
+        return None
     # Идемпотентность: если уже есть запись — переиспользуем и перезаписываем строки
     from django.db import transaction
     entry, created = JournalEntry.objects.get_or_create(payment=payment, defaults={
