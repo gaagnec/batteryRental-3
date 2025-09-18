@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure--_$^stbr_y##gx(!ciu_3bjr2#jf&_=#$=_##y_i5#@7j92f4j'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DJANGO_DEBUG', 'False').lower() in ('1', 'true', 'yes')
 
 ALLOWED_HOSTS = ["*"]
 
@@ -55,6 +56,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'simple_history.middleware.HistoryRequestMiddleware',
+    # Place timing middleware after Authentication to avoid measuring auth/session DB connection errors
     'core.middleware.SqlTimingMiddleware',
 ]
 
@@ -90,7 +92,7 @@ DATABASES = {
         'PASSWORD': 'MXc6@qpJy&TvxF1F',
         'HOST': 'aws-1-eu-central-1.pooler.supabase.com',
         'PORT': '6543',
-        'OPTIONS': {'sslmode': 'require'},
+        'OPTIONS': {'sslmode': 'require', 'connect_timeout': 5},
     }
 }
 
