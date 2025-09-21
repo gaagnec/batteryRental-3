@@ -89,7 +89,13 @@ DATABASES = {
         'PASSWORD': 'MXc6@qpJy&TvxF1F',
         'HOST': 'aws-1-eu-central-1.pooler.supabase.com',
         'PORT': '6543',
-        'OPTIONS': {'sslmode': 'require'},
+        'CONN_MAX_AGE': 120,  # keep DB connections for 2 minutes to reduce churn
+        'CONN_HEALTH_CHECKS': True,  # validate reused connections once per request
+        'OPTIONS': {
+            'sslmode': 'require',
+            'connect_timeout': 5,
+            'options': '-c statement_timeout=20000',  # 20s per statement safety limit
+        },
     }
 }
 
