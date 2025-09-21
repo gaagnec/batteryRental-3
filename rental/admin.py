@@ -334,6 +334,7 @@ class RentalBatteryAssignmentInline(admin.TabularInline):
     form = RentalBatteryAssignmentForm
     extra = 0
     readonly_fields = ("created_by", "updated_by")
+    autocomplete_fields = ("battery",)
 
 
 class PaymentInline(admin.TabularInline):
@@ -356,11 +357,14 @@ class NewVersionActionForm(ActionForm):
 
 @admin.register(Rental)
 class RentalAdmin(SimpleHistoryAdmin):
+    autocomplete_fields = ('client',)
+
     def changelist_view(self, request, extra_context=None):
         if extra_context is None:
             extra_context = {}
         from .models import Client
-        extra_context['clients'] = Client.objects.all().order_by('name')
+        # Используем только необходимые поля, чтобы не тянуть всё
+        extra_context['clients'] = Client.objects.only('id', 'name').order_by('name')
         return super().changelist_view(request, extra_context=extra_context)
 
     def get_changelist(self, request, **kwargs):
@@ -378,9 +382,9 @@ class RentalAdmin(SimpleHistoryAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        # Предзагрузить связанные assignments, чтобы избежать N+1
+        # Предзагрузить связанные объекты, чтобы избежать N+1
         from django.db.models import Count
-        qs = qs.prefetch_related('assignments', 'assignments__battery')
+        qs = qs.select_related('client').prefetch_related('assignments', 'assignments__battery')
         qs = qs.annotate(assignments_count=Count('assignments'))
         # Добавить row_class для приглушения строк
         for obj in qs:
@@ -802,8 +806,14 @@ class RentalAdmin(SimpleHistoryAdmin):
 class PaymentAdmin(SimpleHistoryAdmin):
     list_display = ("id", "rental", "date", "amount", "type", "method", "created_by_name")
     list_filter = ("type", "method")
-    search_fields = ("rental__id", "note")
+    search_fields = ("rental__id", "note", "rental__client__name", "created_by__username")
     readonly_fields = ("created_by", "updated_by")
+    date_hierarchy = 'date'
+    list_per_page = 50
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related('rental__client', 'created_by')
     @admin.display(ordering='created_by__username', description='Кто ввёл запись')
     def created_by_name(self, obj):
         user = obj.created_by

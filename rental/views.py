@@ -143,29 +143,47 @@ def dashboard(request):
     paid_values = []
     totals_pay = {row['date']: row['total'] for row in pay_qs}
 
-    # Начисления в день считаем как сумму дневной ставки по активным назначениям
-    # Перебор по дням и подсчет активных assignments на 14:00 каждого дня
-    charges_values = []
+    # Оптимизация: загрузить все назначения, пересекающие окно, одним запросом
     tz = timezone.get_current_timezone()
+    window_start_anchor = timezone.make_aware(datetime.combine(start_date, time(14, 0)), tz)
+    window_end_anchor = timezone.make_aware(datetime.combine(timezone.localdate(), time(14, 0)), tz)
+    assigns_window = (
+        RentalBatteryAssignment.objects
+        .filter(start_at__lte=window_end_anchor)
+        .filter(models.Q(end_at__isnull=True) | models.Q(end_at__gte=window_start_anchor))
+        .select_related('rental')
+    )
+    # Подготовим список назначений с нормализованными датами
+    norm_assigns = []
+    now_tz = timezone.localtime(timezone.now(), tz)
+    for a in assigns_window:
+        r = a.rental
+        # Берём только активные ренты, чтобы не фильтровать по каждому дню
+        if r.status != Rental.Status.ACTIVE:
+            continue
+        a_start = timezone.localtime(a.start_at, tz)
+        a_end = timezone.localtime(a.end_at, tz) if a.end_at else None
+        r_start = timezone.localtime(r.start_at, tz)
+        r_end = timezone.localtime(r.end_at, tz) if r.end_at else None
+        norm_assigns.append({
+            'a_start': a_start,
+            'a_end': a_end,
+            'r_start': r_start,
+            'r_end': r_end,
+            'daily_rate': (r.weekly_rate or Decimal(0)) / Decimal(7),
+        })
+
+    charges_values = []
     for i in range(window_days):
         d = start_date + timedelta(days=i)
         labels.append(d.isoformat())
         paid_values.append(float(totals_pay.get(d, 0) or 0))
-        # 14:00 якорь
-        anchor = timezone.make_aware(timezone.datetime.combine(d, timezone.datetime.min.time().replace(hour=14)), tz)
-        # активные ренты, покрывающие якорь
+        anchor = timezone.make_aware(datetime.combine(d, time(14, 0)), tz)
         day_total = Decimal(0)
-        day_assigns = RentalBatteryAssignment.objects.filter(
-            start_at__lte=anchor,
-        ).filter(models.Q(end_at__isnull=True) | models.Q(end_at__gt=anchor))
-        # для каждой привязки берём недельную ставку её рентала
-        for a in day_assigns.select_related('rental'):
-            r = a.rental
-            # учитывать только если статус активен и интервал рентала покрывает якорь
-            r_start = timezone.localtime(r.start_at, tz)
-            r_end = timezone.localtime(r.end_at, tz) if r.end_at else None
-            if r.status == Rental.Status.ACTIVE and r_start <= anchor and (r_end is None or r_end > anchor):
-                day_total += (r.weekly_rate or Decimal(0)) / Decimal(7)
+        for na in norm_assigns:
+            if na['a_start'] <= anchor and (na['a_end'] is None or na['a_end'] > anchor):
+                if na['r_start'] <= anchor and (na['r_end'] is None or na['r_end'] > anchor):
+                    day_total += na['daily_rate']
         charges_values.append(float(day_total))
 
     payments_series = {'labels': labels, 'values': paid_values}
