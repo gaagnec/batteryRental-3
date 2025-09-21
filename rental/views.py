@@ -131,8 +131,8 @@ def dashboard(request):
         'available': available,
     }
 
-    # Последние 10 платежей
-    latest_payments = Payment.objects.select_related('rental__client', 'created_by').order_by('-date', '-id')[:10]
+    # Последние 15 платежей
+    latest_payments = Payment.objects.select_related('rental__client', 'created_by').order_by('-date', '-id')[:15]
 
     # Месячные итоги
     month_names = {
@@ -272,9 +272,65 @@ def dashboard(request):
     total_paid_30 = float(sum(paid_values))
     total_charged_30 = float(sum(charges_values))
 
+    # Недавно закрытые клиенты (по последним закрытым договорам)
+    recent_closed = (
+        Rental.objects
+        .filter(status=Rental.Status.CLOSED, end_at__isnull=False)
+        .select_related('client')
+        .order_by('-end_at')[:5]
+    )
+    closed_root_ids = list({r.root_id or r.id for r in recent_closed})
+    # Версии и платежи по закрытым рутам
+    closed_versions_qs = (
+        Rental.objects
+        .filter(root_id__in=closed_root_ids)
+        .only('id','root_id','start_at','end_at','weekly_rate','status')
+        .prefetch_related('assignments')
+    )
+    closed_versions_by_root = {}
+    for v in closed_versions_qs:
+        closed_versions_by_root.setdefault(v.root_id, []).append(v)
+    closed_paid_rows = (
+        Payment.objects
+        .filter(rental__root_id__in=closed_root_ids, type=Payment.PaymentType.RENT)
+        .values('rental__root_id')
+        .annotate(total=Sum('amount'))
+    )
+    closed_paid_by_root = {row['rental__root_id']: (row['total'] or Decimal(0)) for row in closed_paid_rows}
+    closed_charges_by_root = {}
+    for root_id in closed_root_ids:
+        total = Decimal(0)
+        for v in closed_versions_by_root.get(root_id, []):
+            v_start = timezone.localtime(v.start_at, tz)
+            v_end = timezone.localtime(v.end_at, tz) if v.end_at else timezone.localtime(now_dt, tz)
+            daily_rate = (v.weekly_rate or Decimal(0)) / Decimal(7)
+            for a in getattr(v, 'assignments', []).all():
+                a_start = timezone.localtime(a.start_at, tz)
+                a_end = timezone.localtime(a.end_at, tz) if a.end_at else timezone.localtime(now_dt, tz)
+                s = max(v_start, a_start)
+                e = min(v_end, a_end)
+                d = billable_days_interval(s, e)
+                if d:
+                    total += daily_rate * Decimal(d)
+        closed_charges_by_root[root_id] = total
+    closed_clients_data = []
+    for r in recent_closed:
+        root_id = r.root_id or r.id
+        charges = closed_charges_by_root.get(root_id, Decimal(0))
+        paid = closed_paid_by_root.get(root_id, Decimal(0))
+        balance_raw = charges - paid
+        balance_ui = -balance_raw
+        closed_clients_data.append({
+            'client': r.client,
+            'batteries': [],
+            'balance_ui': balance_ui,
+            'weekly_rate': r.weekly_rate,
+        })
+
     context = {
         'active_clients_count': active_clients_count,
         'clients_data': clients_data,
+        'closed_clients_data': closed_clients_data,
         'battery_stats': battery_stats,
         'latest_payments': latest_payments,
         'payments_series': payments_series,
