@@ -3,7 +3,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.urls import reverse
 from django.http import HttpResponseRedirect
 
-from django.db.models import Sum, Q
+from django.db.models import Sum, Q, F
 
 from django.contrib import admin, messages
 from django.contrib.admin.helpers import ActionForm
@@ -68,50 +68,146 @@ class FinanceAdjustmentAdmin(SimpleHistoryAdmin):
 
 
 # Lightweight finance overview entry under Admin Index
+
+
 class FinanceOverviewAdmin(admin.ModelAdmin):
     change_list_template = "admin/finance_overview.html"
+    CUTOFF_DATE = timezone.datetime(2025, 9, 1).date()
+
+    def _compute_period(self, request):
+        today = timezone.localdate()
+        preset = request.GET.get("preset") or "month"
+        start_param = request.GET.get("start")
+        end_param = request.GET.get("end")
+        if preset == "prev":
+            first_of_this = today.replace(day=1)
+            end = first_of_this - timezone.timedelta(days=1)
+            start = end.replace(day=1)
+        elif preset == "ytd":
+            start = today.replace(month=1, day=1)
+            end = today
+        elif preset == "custom":
+            from datetime import datetime as _dt
+            def parse_d(s):
+                try:
+                    return _dt.fromisoformat(s).date()
+                except Exception:
+                    return None
+            start = parse_d(start_param) or today.replace(day=1)
+            end = parse_d(end_param) or today
+        else:
+            start = today.replace(day=1)
+            end = today
+        if start < self.CUTOFF_DATE:
+            start = self.CUTOFF_DATE
+        return start, end
 
     def has_module_permission(self, request):
-        return request.user.is_superuser or FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.OWNER, active=True).exists()
+        # только владельцы видят раздел
+        return FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.OWNER, active=True).exists()
 
     def changelist_view(self, request, extra_context=None):
-        today = timezone.localdate()
-        first_day = today.replace(day=1)
-        start = request.GET.get("start") or first_day.isoformat()
-        end = request.GET.get("end") or today.isoformat()
-        from datetime import datetime as _dt
-        def parse_d(s):
-            try:
-                return _dt.fromisoformat(s).date()
-            except Exception:
-                return None
-        start_d = parse_d(start) or first_day
-        end_d = parse_d(end) or today
+        start_d, end_d = self._compute_period(request)
+        partners = FinancePartner.objects.filter(active=True).values("id", "user_id", "role")
+        user_to_partner = {p["user_id"]: p["id"] for p in partners}
+        partner_roles = {p["id"]: p["role"] for p in partners}
 
-        partner_user_ids = list(FinancePartner.objects.filter(active=True).values_list("user_id", flat=True))
-        from django.contrib.auth import get_user_model
-        superuser_ids = list(get_user_model().objects.filter(is_superuser=True).values_list("id", flat=True))
-        collector_ids = list(set(partner_user_ids + superuser_ids))
-
-        income_rows = (
+        income_qs = (
             Payment.objects
-            .filter(date__gte=start_d, date__lte=end_d, type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD], created_by_id__in=collector_ids)
-            .values("created_by__username")
+            .filter(date__gte=start_d, date__lte=end_d, type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD], created_by_id__in=list(user_to_partner.keys()))
+            .values("created_by_id")
             .annotate(total=Sum("amount"))
-            .order_by("created_by__username")
         )
-        income_total = sum([r["total"] or 0 for r in income_rows])
+        income_by_user = {row["created_by_id"]: row["total"] or 0 for row in income_qs}
+        income_total = sum(income_by_user.values())
+
+        mt_in = (
+            MoneyTransfer.objects
+            .filter(date__gte=start_d, date__lte=end_d, use_collected=True)
+            .values("to_partner_id")
+            .annotate(total=Sum("amount"))
+        )
+        mt_out = (
+            MoneyTransfer.objects
+            .filter(date__gte=start_d, date__lte=end_d, use_collected=True)
+            .values("from_partner_id")
+            .annotate(total=Sum("amount"))
+        )
+        incoming_by_partner = {row["to_partner_id"]: row["total"] or 0 for row in mt_in}
+        outgoing_by_partner = {row["from_partner_id"]: row["total"] or 0 for row in mt_out}
+
+        collected_by_partner = {}
+        for user_id, partner_id in user_to_partner.items():
+            inc = income_by_user.get(user_id, 0)
+            inc_in = incoming_by_partner.get(partner_id, 0)
+            out = outgoing_by_partner.get(partner_id, 0)
+            collected_by_partner[partner_id] = inc + inc_in - out
+        collected_total = sum(collected_by_partner.values())
+
+        contr_qs = (
+            OwnerContribution.objects
+            .filter(date__gte=start_d, date__lte=end_d)
+            .values("partner_id")
+            .annotate(total=Sum("amount"))
+        )
+        withdr_qs = (
+            OwnerWithdrawal.objects
+            .filter(date__gte=start_d, date__lte=end_d)
+            .values("partner_id")
+            .annotate(total=Sum("amount"))
+        )
+        contr_by_partner = {row["partner_id"]: row["total"] or 0 for row in contr_qs}
+        withdr_by_partner = {row["partner_id"]: row["total"] or 0 for row in withdr_qs}
+
+        from .models import FinanceAdjustment as FA
+        adj_rows = (
+            FA.objects
+            .filter(date__gte=start_d, date__lte=end_d)
+            .values("target")
+            .annotate(total=Sum("amount"))
+        )
+        adj_map = {row["target"]: row["total"] or 0 for row in adj_rows}
+        adj_invested = adj_map.get(FA.Target.INVESTED, 0)
+        adj_collected = adj_map.get(FA.Target.COLLECTED, 0)
+
+        invested_by_owner = {}
+        for pid, role in partner_roles.items():
+            if role != FinancePartner.Role.OWNER:
+                continue
+            invested_by_owner[pid] = (contr_by_partner.get(pid, 0) - withdr_by_partner.get(pid, 0))
+        invested_total = sum(invested_by_owner.values()) + adj_invested
+
+        from django.contrib.auth import get_user_model
+        users = get_user_model().objects.filter(id__in=list(user_to_partner.keys())).values("id", "username")
+        uid_to_username = {u["id"]: u["username"] for u in users}
+        pid_to_username = {pid: uid_to_username.get(uid, str(pid)) for uid, pid in user_to_partner.items()}
+
+        income_rows = [
+            {"created_by__username": uid_to_username.get(uid, str(uid)), "total": total}
+            for uid, total in sorted(income_by_user.items(), key=lambda kv: uid_to_username.get(kv[0], str(kv[0])))
+        ]
+        collected_rows = [
+            {"partner_id": pid, "username": pid_to_username.get(pid, str(pid)), "total": collected_by_partner.get(pid, 0)}
+            for pid in sorted(collected_by_partner.keys(), key=lambda x: pid_to_username.get(x, str(x)))
+        ]
+        invested_rows = [
+            {"partner_id": pid, "username": pid_to_username.get(pid, str(pid)), "total": invested_by_owner.get(pid, 0)}
+            for pid in sorted(invested_by_owner.keys(), key=lambda x: pid_to_username.get(x, str(x)))
+        ]
 
         if extra_context is None:
             extra_context = {}
         extra_context.update({
-            "income_rows": income_rows,
-            "income_total": income_total,
             "start": start_d,
             "end": end_d,
+            "income_rows": income_rows,
+            "income_total": income_total,
+            "collected_rows": collected_rows,
+            "collected_total": collected_total + adj_collected,
+            "invested_rows": invested_rows,
+            "invested_total": invested_total,
         })
         return super().changelist_view(request, extra_context=extra_context)
-
 
 
 # Register FinanceOverview using proxy model
