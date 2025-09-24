@@ -30,33 +30,57 @@
   </tfoot>
 </table>
 
-<h3>Собранные (delta за период с учётом переводов)</h3>
+<h3>Собранные</h3>
 <table class="admin-table">
-  <thead><tr><th>Партнёр</th><th>Сумма</th></tr></thead>
+  <thead><tr><th>Партнёр</th><th>Остаток на начало</th><th>Дельта за период</th><th>Остаток на конец</th></tr></thead>
   <tbody>
   {% for row in collected_rows %}
-    <tr><td>{{ row.username }}</td><td>{{ row.total }}</td></tr>
+    <tr><td>{{ row.username }}</td><td>{{ row.open }}</td><td>{{ row.delta }}</td><td>{{ row.close }}</td></tr>
   {% empty %}
-    <tr><td colspan="2">Нет данных</td></tr>
+    <tr><td colspan="4">Нет данных</td></tr>
   {% endfor %}
   </tbody>
   <tfoot>
-    <tr><th>Итого</th><th>{{ collected_total }}</th></tr>
+    <tr><th>Итого</th>
+      <th>{{ collected_open_total }}</th>
+      <th>{{ collected_delta_total }}</th>
+      <th>{{ collected_total }}</th>
+    </tr>
   </tfoot>
 </table>
 
-<h3>Вложено (взносы - выводы + корректировки)</h3>
+<h3>Вложено</h3>
 <table class="admin-table">
-  <thead><tr><th>Владелец</th><th>Сумма</th></tr></thead>
+  <thead><tr><th>Владелец</th><th>Остаток на начало</th><th>Дельта за период</th><th>Остаток на конец</th></tr></thead>
   <tbody>
   {% for row in invested_rows %}
-    <tr><td>{{ row.username }}</td><td>{{ row.total }}</td></tr>
+    <tr><td>{{ row.username }}</td><td>{{ row.open }}</td><td>{{ row.delta }}</td><td>{{ row.close }}</td></tr>
   {% empty %}
-    <tr><td colspan="2">Нет данных</td></tr>
+    <tr><td colspan="4">Нет данных</td></tr>
   {% endfor %}
   </tbody>
   <tfoot>
-    <tr><th>Итого</th><th>{{ invested_total }}</th></tr>
+    <tr><th>Итого</th>
+      <th>{{ invested_open_total }}</th>
+      <th>{{ invested_delta_total }}</th>
+      <th>{{ invested_total }}</th>
+    </tr>
   </tfoot>
 </table>
+
+<h3>Взаиморасчёты владельцев</h3>
+<table class="admin-table">
+  <thead><tr><th>От</th><th>Кому</th><th>Сумма</th></tr></thead>
+  <tbody>
+  {% for row in settlements_rows %}
+    <tr><td>{{ row.from }}</td><td>{{ row.to }}</td><td>{{ row.total }}</td></tr>
+  {% empty %}
+    <tr><td colspan="3">Нет данных</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr><th>Итого</th><th></th><th>{{ settlements_total }}</th></tr>
+  </tfoot>
+</table>
+<p><em>Корректировки взаиморасчётов:</em> {{ settlements_adj_total }}</p>
 {% endblock %}

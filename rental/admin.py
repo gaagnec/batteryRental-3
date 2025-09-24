@@ -112,6 +112,7 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
         user_to_partner = {p["user_id"]: p["id"] for p in partners}
         partner_roles = {p["id"]: p["role"] for p in partners}
 
+        # Income for period
         income_qs = (
             Payment.objects
             .filter(date__gte=start_d, date__lte=end_d, type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD], created_by_id__in=list(user_to_partner.keys()))
@@ -121,6 +122,7 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
         income_by_user = {row["created_by_id"]: row["total"] or 0 for row in income_qs}
         income_total = sum(income_by_user.values())
 
+        # Transfers affecting collected (period)
         mt_in = (
             MoneyTransfer.objects
             .filter(date__gte=start_d, date__lte=end_d, use_collected=True)
@@ -136,14 +138,16 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
         incoming_by_partner = {row["to_partner_id"]: row["total"] or 0 for row in mt_in}
         outgoing_by_partner = {row["from_partner_id"]: row["total"] or 0 for row in mt_out}
 
-        collected_by_partner = {}
+        # Period delta for collected
+        collected_delta_by_partner = {}
         for user_id, partner_id in user_to_partner.items():
             inc = income_by_user.get(user_id, 0)
             inc_in = incoming_by_partner.get(partner_id, 0)
             out = outgoing_by_partner.get(partner_id, 0)
-            collected_by_partner[partner_id] = inc + inc_in - out
-        collected_total = sum(collected_by_partner.values())
+            collected_delta_by_partner[partner_id] = inc + inc_in - out
+        collected_delta_total = sum(collected_delta_by_partner.values())
 
+        # Contributions/withdrawals for period (invested delta)
         contr_qs = (
             OwnerContribution.objects
             .filter(date__gte=start_d, date__lte=end_d)
@@ -169,14 +173,90 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
         adj_map = {row["target"]: row["total"] or 0 for row in adj_rows}
         adj_invested = adj_map.get(FA.Target.INVESTED, 0)
         adj_collected = adj_map.get(FA.Target.COLLECTED, 0)
+        adj_settlement = adj_map.get(FA.Target.OWNER_SETTLEMENT, 0)
 
-        invested_by_owner = {}
+        invested_delta_by_owner = {}
         for pid, role in partner_roles.items():
             if role != FinancePartner.Role.OWNER:
                 continue
-            invested_by_owner[pid] = (contr_by_partner.get(pid, 0) - withdr_by_partner.get(pid, 0))
-        invested_total = sum(invested_by_owner.values()) + adj_invested
+            invested_delta_by_owner[pid] = (contr_by_partner.get(pid, 0) - withdr_by_partner.get(pid, 0))
+        invested_delta_total = sum(invested_delta_by_owner.values()) + adj_invested
 
+        # Opening balances (up to day before start)
+        from datetime import timedelta
+        opening_available = start_d > self.CUTOFF_DATE
+        collected_open_by_partner = {}
+        invested_open_by_owner = {}
+        if opening_available:
+            open_end = start_d - timedelta(days=1)
+            inc_open_qs = (
+                Payment.objects
+                .filter(date__gte=self.CUTOFF_DATE, date__lte=open_end, type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD], created_by_id__in=list(user_to_partner.keys()))
+                .values("created_by_id")
+                .annotate(total=Sum("amount"))
+            )
+            mt_in_open = (
+                MoneyTransfer.objects
+                .filter(date__gte=self.CUTOFF_DATE, date__lte=open_end, use_collected=True)
+                .values("to_partner_id")
+                .annotate(total=Sum("amount"))
+            )
+            mt_out_open = (
+                MoneyTransfer.objects
+                .filter(date__gte=self.CUTOFF_DATE, date__lte=open_end, use_collected=True)
+                .values("from_partner_id")
+                .annotate(total=Sum("amount"))
+            )
+            inc_open_by_user = {row["created_by_id"]: row["total"] or 0 for row in inc_open_qs}
+            in_open_by_partner = {row["to_partner_id"]: row["total"] or 0 for row in mt_in_open}
+            out_open_by_partner = {row["from_partner_id"]: row["total"] or 0 for row in mt_out_open}
+
+            adj_open_rows = (
+                FA.objects
+                .filter(date__gte=self.CUTOFF_DATE, date__lte=open_end)
+                .values("target")
+                .annotate(total=Sum("amount"))
+            )
+            adj_open_map = {row["target"]: row["total"] or 0 for row in adj_open_rows}
+            adj_open_collected = adj_open_map.get(FA.Target.COLLECTED, 0)
+
+            for user_id, partner_id in user_to_partner.items():
+                inc = inc_open_by_user.get(user_id, 0)
+                inc_in = in_open_by_partner.get(partner_id, 0)
+                out = out_open_by_partner.get(partner_id, 0)
+                collected_open_by_partner[partner_id] = inc + inc_in - out
+            # Apply adjustment (global) to total collected open
+            collected_open_total = sum(collected_open_by_partner.values()) + adj_open_collected
+
+            contr_open_qs = (
+                OwnerContribution.objects
+                .filter(date__gte=self.CUTOFF_DATE, date__lte=open_end)
+                .values("partner_id")
+                .annotate(total=Sum("amount"))
+            )
+            withdr_open_qs = (
+                OwnerWithdrawal.objects
+                .filter(date__gte=self.CUTOFF_DATE, date__lte=open_end)
+                .values("partner_id")
+                .annotate(total=Sum("amount"))
+            )
+            contr_open_by_partner = {row["partner_id"]: row["total"] or 0 for row in contr_open_qs}
+            withdr_open_by_partner = {row["partner_id"]: row["total"] or 0 for row in withdr_open_qs}
+            adj_open_invested = adj_open_map.get(FA.Target.INVESTED, 0)
+            for pid, role in partner_roles.items():
+                if role != FinancePartner.Role.OWNER:
+                    continue
+                invested_open_by_owner[pid] = contr_open_by_partner.get(pid, 0) - withdr_open_by_partner.get(pid, 0)
+            invested_open_total = sum(invested_open_by_owner.values()) + adj_open_invested
+        else:
+            collected_open_total = 0
+            invested_open_total = 0
+
+        # Closing balances
+        collected_total = collected_open_total + collected_delta_total + adj_collected
+        invested_total = invested_open_total + invested_delta_total
+
+        # Per-user display prep
         from django.contrib.auth import get_user_model
         users = get_user_model().objects.filter(id__in=list(user_to_partner.keys())).values("id", "username")
         uid_to_username = {u["id"]: u["username"] for u in users}
@@ -187,13 +267,33 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
             for uid, total in sorted(income_by_user.items(), key=lambda kv: uid_to_username.get(kv[0], str(kv[0])))
         ]
         collected_rows = [
-            {"partner_id": pid, "username": pid_to_username.get(pid, str(pid)), "total": collected_by_partner.get(pid, 0)}
-            for pid in sorted(collected_by_partner.keys(), key=lambda x: pid_to_username.get(x, str(x)))
+            {"partner_id": pid, "username": pid_to_username.get(pid, str(pid)), "delta": collected_delta_by_partner.get(pid, 0), "open": collected_open_by_partner.get(pid, 0) if opening_available else 0}
+            for pid in sorted(user_to_partner.values(), key=lambda x: pid_to_username.get(x, str(x)))
         ]
+        for row in collected_rows:
+            row["close"] = row["open"] + row["delta"]
         invested_rows = [
-            {"partner_id": pid, "username": pid_to_username.get(pid, str(pid)), "total": invested_by_owner.get(pid, 0)}
-            for pid in sorted(invested_by_owner.keys(), key=lambda x: pid_to_username.get(x, str(x)))
+            {"partner_id": pid, "username": pid_to_username.get(pid, str(pid)), "delta": invested_delta_by_owner.get(pid, 0), "open": invested_open_by_owner.get(pid, 0) if opening_available else 0}
+            for pid, role in partner_roles.items() if role == FinancePartner.Role.OWNER
         ]
+        for row in invested_rows:
+            row["close"] = row["open"] + row["delta"]
+
+        # Owner settlements (owner_to_owner, use_collected=False) for the period
+        settlements_qs = (
+            MoneyTransfer.objects
+            .filter(date__gte=start_d, date__lte=end_d, purpose=MoneyTransfer.Purpose.OWNER_TO_OWNER, use_collected=False)
+            .values("from_partner_id", "to_partner_id")
+            .annotate(total=Sum("amount"))
+        )
+        settlements_rows = []
+        settlements_total = 0
+        for r in settlements_qs:
+            from_name = pid_to_username.get(r["from_partner_id"], str(r["from_partner_id"]))
+            to_name = pid_to_username.get(r["to_partner_id"], str(r["to_partner_id"]))
+            total = r["total"] or 0
+            settlements_total += total
+            settlements_rows.append({"from": from_name, "to": to_name, "total": total})
 
         if extra_context is None:
             extra_context = {}
@@ -203,9 +303,17 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
             "income_rows": income_rows,
             "income_total": income_total,
             "collected_rows": collected_rows,
-            "collected_total": collected_total + adj_collected,
+            "collected_open_total": collected_open_total,
+            "collected_delta_total": collected_delta_total,
+            "collected_total": collected_total,
             "invested_rows": invested_rows,
+            "invested_open_total": invested_open_total,
+            "invested_delta_total": invested_delta_total,
             "invested_total": invested_total,
+            "settlements_rows": settlements_rows,
+            "settlements_total": settlements_total,
+            "settlements_adj_total": adj_settlement,
+            "opening_available": opening_available,
         })
         return super().changelist_view(request, extra_context=extra_context)
 
