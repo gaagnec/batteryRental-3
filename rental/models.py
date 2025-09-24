@@ -32,9 +32,16 @@ class Client(TimeStampedModel):
 
 
 class Battery(TimeStampedModel):
+    class Status(models.TextChoices):
+        RENTED = "rented", "rented"
+        SERVICE = "service", "service"
+        SOLD = "sold", "sold"
+        AVAILABLE = "available", "available"
+
     short_code = models.CharField(max_length=32, unique=True)
     serial_number = models.CharField(max_length=64, blank=True)
     cost_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    status = models.CharField(max_length=16, choices=Status.choices, blank=True, null=True)
     note = models.TextField(blank=True)
     history = HistoricalRecords()
 
