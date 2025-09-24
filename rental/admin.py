@@ -10,6 +10,7 @@ from django.forms import inlineformset_factory, BaseInlineFormSet
 from decimal import Decimal
 from django.utils.safestring import mark_safe
 from datetime import datetime, time, timedelta
+from admin_auto_filters.filters import AutocompleteFilter
 
 # Register custom template filters
 import rental.templatetags.custom_filters
@@ -823,12 +824,21 @@ class RentalAdmin(SimpleHistoryAdmin):
 
 @admin.register(Payment)
 class PaymentAdmin(SimpleHistoryAdmin):
+    class RentalFilter(AutocompleteFilter):
+        title = 'Договор'
+        field_name = 'rental'
+
     list_display = ("id", "rental", "date", "amount", "type", "method", "created_by_name")
-    list_filter = ("type", "method")
+    list_filter = (RentalFilter, "type", "method")
     search_fields = ("rental__id", "note", "rental__client__name", "created_by__username")
     readonly_fields = ("updated_by",)
     date_hierarchy = 'date'
     list_per_page = 50
+
+    def get_search_results(self, request, queryset, search_term):
+        # Ограничение базового поиска по платежам — оставляем стандартное поведение
+        return super().get_search_results(request, queryset, search_term)
+
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)

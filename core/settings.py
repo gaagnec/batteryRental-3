@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     # third-party
     'simple_history',
     'debug_toolbar',
+    'admin_auto_filters',
     # local apps
     'rental',
 ]
