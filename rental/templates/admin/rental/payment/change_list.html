@@ -1,0 +1,54 @@
+{% extends "admin/change_list.html" %}
+{% load static %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'admin/css/autocomplete.css' %}">
+{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <script src="{% static 'admin/js/vendor/select2/select2.full.js' %}"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const $ = window.django && window.django.jQuery ? window.django.jQuery : window.jQuery;
+      const sel = document.getElementById('id_rental_filter');
+      if (sel && $) {
+        $(sel).select2({
+          ajax: {
+            url: "{% url 'admin:rental-filter-lookup' %}",
+            delay: 250,
+            dataType: 'json',
+            cache: true,
+            data: function (params) { return { q: params.term || '', page: params.page || 1 }; },
+            processResults: function (data) { return data; }
+          },
+          placeholder: 'Выберите договор',
+          allowClear: true,
+          width: 'resolve',
+        }).on('change', function(){ this.form && this.form.submit(); });
+      }
+    });
+  </script>
+{% endblock %}
+
+{% block toplinks %}
+  <form method="get" class="d-flex gap-2 align-items-center" style="padding: .25rem .5rem;">
+    <label for="id_rental_filter" class="me-2">Договор:</label>
+    <select
+      name="rental__id__exact"
+      id="id_rental_filter"
+      class="select2-autocomplete"
+      style="min-width: 320px;"
+    >
+      {% if selected_rental %}
+        <option value="{{ selected_rental.pk }}" selected>
+          {{ selected_rental.contract_code }} — {{ selected_rental.client.name }}
+        </option>
+      {% endif %}
+    </select>
+    {% if request.GET.rental__id__exact %}
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'admin:rental_payment_changelist' %}">Сбросить</a>
+    {% endif %}
+  </form>
+{% endblock %}

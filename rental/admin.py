@@ -835,6 +835,19 @@ class PaymentAdmin(SimpleHistoryAdmin):
     date_hierarchy = 'date'
     list_per_page = 50
 
+
+    def changelist_view(self, request, extra_context=None):
+        if extra_context is None:
+            extra_context = {}
+        from .models import Rental
+        rid = request.GET.get('rental__id__exact')
+        if rid:
+            try:
+                extra_context['selected_rental'] = Rental.objects.select_related('client').only('id','contract_code','client__name').get(pk=rid)
+            except Rental.DoesNotExist:
+                extra_context['selected_rental'] = None
+        return super().changelist_view(request, extra_context=extra_context)
+
     def get_search_results(self, request, queryset, search_term):
         # Ограничение базового поиска по платежам — оставляем стандартное поведение
         return super().get_search_results(request, queryset, search_term)
