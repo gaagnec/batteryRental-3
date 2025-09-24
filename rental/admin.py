@@ -341,6 +341,25 @@ class PaymentInline(admin.TabularInline):
     model = Payment
     extra = 0
 
+    def get_formset(self, request, obj=None, **kwargs):
+        formset = super().get_formset(request, obj, **kwargs)
+        try:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            field = formset.form.base_fields.get('created_by')
+            if field:
+                field.queryset = User.objects.filter(is_staff=True).order_by('username')
+                field.label = "Кто принял деньги"
+                if request.user.is_superuser:
+                    field.required = True
+                else:
+                    field.initial = request.user.pk
+                    field.disabled = True
+                    field.help_text = "Доступно только суперпользователю"
+        except Exception:
+            pass
+        return formset
+
 
 class NewVersionActionForm(ActionForm):
     new_weekly_rate = forms.DecimalField(
@@ -807,24 +826,44 @@ class PaymentAdmin(SimpleHistoryAdmin):
     list_display = ("id", "rental", "date", "amount", "type", "method", "created_by_name")
     list_filter = ("type", "method")
     search_fields = ("rental__id", "note", "rental__client__name", "created_by__username")
-    readonly_fields = ("created_by", "updated_by")
+    readonly_fields = ("updated_by",)
     date_hierarchy = 'date'
     list_per_page = 50
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.select_related('rental__client', 'created_by')
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        field = form.base_fields.get('created_by')
+        if field:
+            field.queryset = User.objects.filter(is_staff=True).order_by('username')
+            field.label = "Кто принял деньги"
+            if request.user.is_superuser:
+                field.required = True
+                field.disabled = False
+            else:
+                field.initial = request.user.pk
+                field.disabled = True
+                field.help_text = "Доступно только суперпользователю"
+        return form
+
     @admin.display(ordering='created_by__username', description='Кто ввёл запись')
     def created_by_name(self, obj):
         user = obj.created_by
         if not user:
             return ''
-        name = f"{user.first_name} {user.last_name}".strip()
-        return name or user.username
-
+        return user.username
 
     def save_model(self, request, obj, form, change):
-        if not change and not getattr(obj, 'created_by_id', None):
+        if not request.user.is_superuser:
+            # Для несуперпользователя всегда фиксируем автора как текущего
+            obj.created_by = request.user
+        elif not getattr(obj, 'created_by_id', None):
+            # Для суперпользователя, если поле не выбрано, используем текущего
             obj.created_by = request.user
         obj.updated_by = request.user
         super().save_model(request, obj, form, change)
