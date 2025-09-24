@@ -1,4 +1,10 @@
 from django import forms
+from django.contrib.admin.views.decorators import staff_member_required
+from django.urls import reverse
+from django.http import HttpResponseRedirect
+
+from django.db.models import Sum, Q
+
 from django.contrib import admin, messages
 from django.contrib.admin.helpers import ActionForm
 from django.core.exceptions import ValidationError
@@ -18,8 +24,93 @@ import rental.templatetags.custom_filters
 from simple_history.admin import SimpleHistoryAdmin
 from .models import (
     Client, Battery, Rental, RentalBatteryAssignment,
-    Payment, ExpenseCategory, Expense, Repair, BatteryStatusLog
+    Payment, ExpenseCategory, Expense, Repair, BatteryStatusLog,
+    FinancePartner, OwnerContribution, OwnerWithdrawal, MoneyTransfer, FinanceAdjustment
 )
+
+
+@admin.register(FinancePartner)
+class FinancePartnerAdmin(SimpleHistoryAdmin):
+    list_display = ("id", "user", "role", "share_percent", "active")
+    list_filter = ("role", "active")
+    search_fields = ("user__username", "user__first_name", "user__last_name")
+
+
+@admin.register(OwnerContribution)
+class OwnerContributionAdmin(SimpleHistoryAdmin):
+    list_display = ("id", "partner", "amount", "date", "source")
+    list_filter = ("source", "date")
+    autocomplete_fields = ("partner", "expense")
+    search_fields = ("note", "partner__user__username")
+
+
+@admin.register(OwnerWithdrawal)
+class OwnerWithdrawalAdmin(SimpleHistoryAdmin):
+    list_display = ("id", "partner", "amount", "date")
+    list_filter = ("date",)
+    autocomplete_fields = ("partner",)
+    search_fields = ("note", "partner__user__username")
+
+
+@admin.register(MoneyTransfer)
+class MoneyTransferAdmin(SimpleHistoryAdmin):
+    list_display = ("id", "from_partner", "to_partner", "amount", "date", "purpose", "use_collected")
+    list_filter = ("purpose", "use_collected", "date")
+    autocomplete_fields = ("from_partner", "to_partner")
+    search_fields = ("note", "from_partner__user__username", "to_partner__user__username")
+
+
+@admin.register(FinanceAdjustment)
+class FinanceAdjustmentAdmin(SimpleHistoryAdmin):
+    list_display = ("id", "target", "amount", "date")
+    list_filter = ("target", "date")
+    search_fields = ("note",)
+
+
+# Lightweight finance overview entry under Admin Index
+class FinanceOverviewAdmin(admin.ModelAdmin):
+    change_list_template = "admin/finance_overview.html"
+
+    def has_module_permission(self, request):
+        return request.user.is_superuser or FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.OWNER, active=True).exists()
+
+    def changelist_view(self, request, extra_context=None):
+        today = timezone.localdate()
+        first_day = today.replace(day=1)
+        start = request.GET.get("start") or first_day.isoformat()
+        end = request.GET.get("end") or today.isoformat()
+        from datetime import datetime as _dt
+        def parse_d(s):
+            try:
+                return _dt.fromisoformat(s).date()
+            except Exception:
+                return None
+        start_d = parse_d(start) or first_day
+        end_d = parse_d(end) or today
+
+        partner_user_ids = list(FinancePartner.objects.filter(active=True).values_list("user_id", flat=True))
+        from django.contrib.auth import get_user_model
+        superuser_ids = list(get_user_model().objects.filter(is_superuser=True).values_list("id", flat=True))
+        collector_ids = list(set(partner_user_ids + superuser_ids))
+
+        income_rows = (
+            Payment.objects
+            .filter(date__gte=start_d, date__lte=end_d, type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD], created_by_id__in=collector_ids)
+            .values("created_by__username")
+            .annotate(total=Sum("amount"))
+            .order_by("created_by__username")
+        )
+        income_total = sum([r["total"] or 0 for r in income_rows])
+
+        if extra_context is None:
+            extra_context = {}
+        extra_context.update({
+            "income_rows": income_rows,
+            "income_total": income_total,
+            "start": start_d,
+            "end": end_d,
+        })
+        return super().changelist_view(request, extra_context=extra_context)
 
 
 class ActiveRentalFilter(admin.SimpleListFilter):

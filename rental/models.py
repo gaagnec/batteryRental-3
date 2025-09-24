@@ -220,6 +220,15 @@ class Payment(TimeStampedModel):
         RETURN_DEPOSIT = "return_deposit", "Возврат депозита"
         ADJUSTMENT = "adjustment", "Корректировка"
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["type", "date"], name="idx_pay_type_date"),
+            models.Index(fields=["created_by", "date"], name="idx_pay_user_date"),
+            models.Index(fields=["date"], name="idx_pay_date"),
+            models.Index(fields=["type"], name="idx_pay_type"),
+            models.Index(fields=["created_by"], name="idx_pay_user"),
+        ]
+
     class Method(models.TextChoices):
         CASH = "cash", "Наличные"
         BLIK = "blik", "BLIK"
@@ -262,6 +271,13 @@ class Expense(TimeStampedModel):
     paid_source = models.CharField(max_length=16, choices=PaidSource.choices, blank=True)
     note = models.TextField(blank=True)
     history = HistoricalRecords()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["date"], name="idx_exp_date"),
+            models.Index(fields=["paid_source"], name="idx_exp_source"),
+            models.Index(fields=["paid_by_partner"], name="idx_exp_partner"),
+        ]
 
 
 class Repair(TimeStampedModel):
@@ -349,6 +365,17 @@ class MoneyTransfer(TimeStampedModel):
         MODERATOR_TO_OWNER = "moderator_to_owner", "От модератора владельцу"
         OWNER_TO_OWNER = "owner_to_owner", "Между владельцами"
         OTHER = "other", "Другое"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["date"], name="idx_mt_date"),
+            models.Index(fields=["purpose", "use_collected"], name="idx_mt_purpose_usecol"),
+            models.Index(fields=["from_partner"], name="idx_mt_from"),
+            models.Index(fields=["to_partner"], name="idx_mt_to"),
+            models.Index(fields=["from_partner", "purpose", "use_collected", "date"], name="idx_mt_from_pud"),
+            models.Index(fields=["to_partner", "purpose", "use_collected", "date"], name="idx_mt_to_pud"),
+        ]
+
 
     from_partner = models.ForeignKey("FinancePartner", on_delete=models.CASCADE, related_name="transfers_from")
     to_partner = models.ForeignKey("FinancePartner", on_delete=models.CASCADE, related_name="transfers_to")
