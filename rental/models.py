@@ -250,6 +250,13 @@ class Payment(TimeStampedModel):
         super().save(*args, **kwargs)
 
 
+class FinanceOverviewProxy(Payment):
+    class Meta:
+        proxy = True
+        verbose_name = "Финансы"
+        verbose_name_plural = "Финансы"
+
+
 class ExpenseCategory(TimeStampedModel):
     name = models.CharField(max_length=64, unique=True)
     history = HistoricalRecords()

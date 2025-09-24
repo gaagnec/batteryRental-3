@@ -113,6 +113,16 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
         return super().changelist_view(request, extra_context=extra_context)
 
 
+
+# Register FinanceOverview using proxy model
+from .models import FinanceOverviewProxy
+try:
+    @admin.register(FinanceOverviewProxy)
+    class FinanceOverviewProxyAdmin(FinanceOverviewAdmin):
+        pass
+except admin.sites.AlreadyRegistered:
+    pass
+
 class ActiveRentalFilter(admin.SimpleListFilter):
     title = "Активный договор"
     parameter_name = "active"
@@ -990,8 +1000,10 @@ class ExpenseCategoryAdmin(SimpleHistoryAdmin):
 
 @admin.register(Expense)
 class ExpenseAdmin(SimpleHistoryAdmin):
-    list_display = ("id", "date", "amount", "category")
-    list_filter = ("category",)
+    list_display = ("id", "date", "amount", "category", "paid_source", "paid_by_partner")
+    list_filter = ("category", "paid_source")
+    search_fields = ("note", "description")
+    autocomplete_fields = ("paid_by_partner",)
 
 
 @admin.register(Repair)

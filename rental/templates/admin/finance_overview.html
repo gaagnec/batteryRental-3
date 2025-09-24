@@ -1,0 +1,25 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+{% block content %}
+<h1>Финансы — Обзор</h1>
+<form method="get" class="form-inline" style="margin-bottom:12px">
+  <label>Период:&nbsp;</label>
+  <input type="date" name="start" value="{{ start|date:'Y-m-d' }}">
+  <input type="date" name="end" value="{{ end|date:'Y-m-d' }}">
+  <button type="submit" class="button">Показать</button>
+</form>
+<h3>Доходы (Payments type ∈ {rent, sold})</h3>
+<table class="admin-table">
+  <thead><tr><th>Пользователь</th><th>Сумма</th></tr></thead>
+  <tbody>
+  {% for row in income_rows %}
+    <tr><td>{{ row.created_by__username }}</td><td>{{ row.total }}</td></tr>
+  {% empty %}
+    <tr><td colspan="2">Нет данных</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr><th>Итого</th><th>{{ income_total }}</th></tr>
+  </tfoot>
+</table>
+{% endblock %}
