@@ -215,6 +215,7 @@ class RentalBatteryAssignment(TimeStampedModel):
 class Payment(TimeStampedModel):
     class PaymentType(models.TextChoices):
         RENT = "rent", "Аренда"
+        SOLD = "sold", "Продажа"
         DEPOSIT = "deposit", "Депозит"
         RETURN_DEPOSIT = "return_deposit", "Возврат депозита"
         ADJUSTMENT = "adjustment", "Корректировка"
@@ -253,6 +254,13 @@ class Expense(TimeStampedModel):
     date = models.DateField(default=timezone.localdate)
     category = models.ForeignKey(ExpenseCategory, on_delete=models.SET_NULL, null=True, blank=True)
     description = models.TextField(blank=True)
+    class PaidSource(models.TextChoices):
+        PERSONAL = "personal", "Оплачено из личных средств"
+        COLLECTED = "collected", "Оплачено из собранных средств"
+        OTHER = "other", "Другое"
+    paid_by_partner = models.ForeignKey('FinancePartner', null=True, blank=True, on_delete=models.SET_NULL, related_name='expenses_paid')
+    paid_source = models.CharField(max_length=16, choices=PaidSource.choices, blank=True)
+    note = models.TextField(blank=True)
     history = HistoricalRecords()
 
 
@@ -278,4 +286,99 @@ class BatteryStatusLog(TimeStampedModel):
     rental = models.ForeignKey(Rental, null=True, blank=True, on_delete=models.SET_NULL)
     repair = models.ForeignKey(Repair, null=True, blank=True, on_delete=models.SET_NULL)
     history = HistoricalRecords()
+
+
+# =========================
+# Finance models
+# =========================
+
+class FinancePartner(TimeStampedModel):
+    class Role(models.TextChoices):
+        OWNER = "owner", "Владелец"
+        MODERATOR = "moderator", "Модератор"
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="finance_partners")
+    role = models.CharField(max_length=16, choices=Role.choices)
+    share_percent = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("50.00"))
+    active = models.BooleanField(default=True)
+    note = models.TextField(blank=True)
+    history = HistoricalRecords()
+
+    def __str__(self):
+        return f"{self.user} ({self.get_role_display()})"
+
+
+class OwnerContribution(TimeStampedModel):
+    class Source(models.TextChoices):
+        MANUAL = "manual", "Взнос"
+        EXPENSE = "expense", "Расход (личные)"
+
+    partner = models.ForeignKey("FinancePartner", on_delete=models.CASCADE, related_name="contributions")
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    date = models.DateField(default=timezone.localdate)
+    source = models.CharField(max_length=16, choices=Source.choices, default=Source.MANUAL)
+    expense = models.ForeignKey("Expense", null=True, blank=True, on_delete=models.SET_NULL, related_name="as_contribution")
+    note = models.TextField(blank=True)
+    history = HistoricalRecords()
+
+    def clean(self):
+        if self.partner and self.partner.role != FinancePartner.Role.OWNER:
+            raise ValidationError("Contribution partner must be an owner")
+
+    def __str__(self):
+        return f"{self.partner}: +{self.amount} ({self.get_source_display()})"
+
+
+class OwnerWithdrawal(TimeStampedModel):
+    partner = models.ForeignKey("FinancePartner", on_delete=models.CASCADE, related_name="withdrawals")
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    date = models.DateField(default=timezone.localdate)
+    note = models.TextField(blank=True)
+    history = HistoricalRecords()
+
+    def clean(self):
+        if self.partner and self.partner.role != FinancePartner.Role.OWNER:
+            raise ValidationError("Withdrawal partner must be an owner")
+
+    def __str__(self):
+        return f"{self.partner}: -{self.amount} (withdrawal)"
+
+
+class MoneyTransfer(TimeStampedModel):
+    class Purpose(models.TextChoices):
+        MODERATOR_TO_OWNER = "moderator_to_owner", "От модератора владельцу"
+        OWNER_TO_OWNER = "owner_to_owner", "Между владельцами"
+        OTHER = "other", "Другое"
+
+    from_partner = models.ForeignKey("FinancePartner", on_delete=models.CASCADE, related_name="transfers_from")
+    to_partner = models.ForeignKey("FinancePartner", on_delete=models.CASCADE, related_name="transfers_to")
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    date = models.DateField(default=timezone.localdate)
+    purpose = models.CharField(max_length=32, choices=Purpose.choices, default=Purpose.OTHER)
+    use_collected = models.BooleanField(default=False, help_text="Списывать из собранных у отправителя и начислять получателю")
+    note = models.TextField(blank=True)
+    history = HistoricalRecords()
+
+    def clean(self):
+        if self.from_partner_id and self.to_partner_id and self.from_partner_id == self.to_partner_id:
+            raise ValidationError("from_partner and to_partner must differ")
+
+    def __str__(self):
+        return f"{self.from_partner} → {self.to_partner}: {self.amount}"
+
+
+class FinanceAdjustment(TimeStampedModel):
+    class Target(models.TextChoices):
+        COLLECTED = "collected", "Собранные"
+        OWNER_SETTLEMENT = "owner_settlement", "Взаиморасчеты владельцев"
+        INVESTED = "invested", "Вложено"
+
+    target = models.CharField(max_length=32, choices=Target.choices)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, help_text="Плюс/минус значение")
+    date = models.DateField(default=timezone.localdate)
+    note = models.TextField(blank=True)
+    history = HistoricalRecords()
+
+    def __str__(self):
+        return f"{self.get_target_display()}: {self.amount}"
 
