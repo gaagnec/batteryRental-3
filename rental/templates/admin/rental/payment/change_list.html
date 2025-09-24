@@ -9,24 +9,12 @@
 {% block extrahead %}
   {{ block.super }}
   <script src="{% static 'admin/js/vendor/select2/select2.full.js' %}"></script>
+  <script src="{% static 'admin/js/autocomplete.js' %}"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
-      const $ = window.django && window.django.jQuery ? window.django.jQuery : window.jQuery;
       const sel = document.getElementById('id_rental_filter');
-      if (sel && $) {
-        $(sel).select2({
-          ajax: {
-            url: "{% url 'admin:rental-filter-lookup' %}",
-            delay: 250,
-            dataType: 'json',
-            cache: true,
-            data: function (params) { return { q: params.term || '', page: params.page || 1 }; },
-            processResults: function (data) { return data; }
-          },
-          placeholder: 'Выберите договор',
-          allowClear: true,
-          width: 'resolve',
-        }).on('change', function(){ this.form && this.form.submit(); });
+      if (sel) {
+        sel.addEventListener('change', function(){ this.form && this.form.submit(); });
       }
     });
   </script>
@@ -38,7 +26,10 @@
     <select
       name="rental__id__exact"
       id="id_rental_filter"
-      class="select2-autocomplete"
+      class="admin-autocomplete"
+      data-app-label="rental"
+      data-model-name="payment"
+      data-field-name="rental"
       style="min-width: 320px;"
     >
       {% if selected_rental %}
