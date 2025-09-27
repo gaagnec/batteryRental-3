@@ -357,6 +357,11 @@ class OwnerWithdrawal(TimeStampedModel):
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     date = models.DateField(default=timezone.localdate)
     note = models.TextField(blank=True)
+    # Reclassification to investment (owner contribution)
+    reclassified_to_investment = models.BooleanField(default=False)
+    reclassified_contribution = models.ForeignKey(
+        "OwnerContribution", null=True, blank=True, on_delete=models.SET_NULL, related_name="from_withdrawal"
+    )
     history = HistoricalRecords()
 
     def clean(self):

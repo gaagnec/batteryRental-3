@@ -148,6 +148,7 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
         custom = [
             path("create-transfer/", self.admin_site.admin_view(self.create_transfer_view), name="finance_create_transfer"),
             path("create-withdrawal/", self.admin_site.admin_view(self.create_withdrawal_view), name="finance_create_withdrawal"),
+            path("reclassify-withdrawal/", self.admin_site.admin_view(self.reclassify_withdrawal_view), name="finance_reclassify_withdrawal"),
         ]
         return custom + urls
 
@@ -202,6 +203,50 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
             messages.error(request, f"Ошибка: {e}")
         return self._redirect_back(request)
 
+    def reclassify_withdrawal_view(self, request):
+        if request.method != "POST":
+            return HttpResponseRedirect(reverse("admin:rental_financeoverviewproxy_changelist"))
+        is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+        if not self._ensure_owner(request):
+            if is_ajax:
+                return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+            return HttpResponseForbidden()
+        try:
+            wd_id = int(request.POST.get("withdrawal_id") or 0)
+            partner_id = int(request.POST.get("partner") or 0)
+            amount_override = request.POST.get("amount")
+            if wd_id <= 0 or partner_id <= 0:
+                raise ValidationError("Некорректные данные конвертации")
+            wd = OwnerWithdrawal.objects.select_for_update().get(pk=wd_id)
+            if wd.reclassified_to_investment:
+                raise ValidationError("Выплата уже конвертирована")
+            if amount_override:
+                try:
+                    amount = Decimal(amount_override)
+                except Exception:
+                    amount = wd.amount
+            else:
+                amount = wd.amount
+            # Create contribution and mark withdrawal
+            contr = OwnerContribution.objects.create(
+                partner_id=partner_id,
+                amount=amount,
+                date=wd.date,
+                source=OwnerContribution.Source.MANUAL,
+                note=f"Создано из выплаты #{wd.id}: {wd.note}"[:500]
+            )
+            wd.reclassified_to_investment = True
+            wd.reclassified_contribution = contr
+            wd.save(update_fields=["reclassified_to_investment", "reclassified_contribution", "updated_at", "updated_by"])
+            if is_ajax:
+                return JsonResponse({"ok": True})
+            messages.success(request, "Выплата перенесена в 'Вложено'")
+        except Exception as e:
+            if is_ajax:
+                return JsonResponse({"ok": False, "error": str(e)[:300]})
+            messages.error(request, f"Ошибка: {e}")
+        return self._redirect_back(request)
+
     def create_withdrawal_view(self, request):
         if request.method != "POST":
             return HttpResponseRedirect(reverse("admin:rental_financeoverviewproxy_changelist"))
@@ -211,6 +256,7 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
                 return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
             return HttpResponseForbidden()
         try:
+            # Здесь просто создаём выплату; переквалификация выполняется отдельным эндпоинтом
             partner_id = int(request.POST.get("partner") or 0)
             amount = Decimal(request.POST.get("amount") or "0")
             note = request.POST.get("note") or ""
@@ -587,9 +633,9 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
         D_by_owner = {pid: P * Decimal(share_norm.get(pid, 0)) for pid in owners}
         D_total = sum(D_by_owner.values())
         
-        # Actually withdrawn by owners in period
+        # Actually withdrawn by owners in period (exclude reclassified to investment)
         W_by_owner = {row["partner_id"]: row["total"] or 0 for row in (
-            OwnerWithdrawal.objects.filter(date__gte=start_d, date__lte=end_d, partner_id__in=owners)
+            OwnerWithdrawal.objects.filter(date__gte=start_d, date__lte=end_d, partner_id__in=owners, reclassified_to_investment=False)
             .values("partner_id").annotate(total=Sum("amount"))
         )}
         W_total = sum(W_by_owner.values())

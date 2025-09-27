@@ -93,6 +93,33 @@ async function submitAjax(ev, form){
     <tr><td colspan="2">Нет данных</td></tr>
   {% endfor %}
   </tbody>
+<h3>Вложено</h3>
+<table class="admin-table">
+  <thead><tr><th>Владелец</th><th>а) Вложено фактически</th><th>б) Доля по ровну</th><th>в) а−б</th></tr></thead>
+  <tbody>
+  {% for row in invested_ab_rows %}
+    <tr>
+      <td>{{ row.username }}</td>
+      <td>{{ row.a }}</td>
+      <td>{{ row.b }}</td>
+      <td><span style="color: {{ row.diff|floatformat:2|add:'0'|floatformat:2 > 0|yesno:'green,red' }}">{{ row.diff }}</span></td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="4">Нет данных</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<div>
+  <em>Последние операции (вложено):</em>
+  <ul>
+    {% for op in last_invest_ops %}
+      <li>{{ op.date }}: {{ op.text }}</li>
+    {% empty %}
+      <li>Нет</li>
+    {% endfor %}
+  </ul>
+</div>
+
   <tfoot>
     <tr><th>Итого</th><th>{{ income_total }}</th></tr>
   </tfoot>
@@ -212,6 +239,19 @@ async function submitAjax(ev, form){
     {% endfor %}
   </ul>
 </div>
+      <div class="row">
+        <label>Кто вносит (владелец)</label>
+        <select id="wd-owner-name">
+          {% for row in profit_rows %}
+            <option value="{{ row.username }}">{{ row.username }}</option>
+          {% endfor %}
+        </select>
+        <div class="help">Если включен чекбокс ниже, выберите владельца, от имени которого засчитать вклад.</div>
+      </div>
+      <div class="row">
+        <label><input type="checkbox" id="wd-reclass" name="reclass_to_invest"> Переместить в вложено</label>
+      </div>
+
 
 <!-- Modals -->
 <div id="mt-modal" class="modal">
