@@ -400,6 +400,10 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
             "profit_settlements_suggest": settlements_suggest_rows,
         })
 
+        # Render directly to ensure GET params are honored and not overwritten by ChangeList
+        context = {**(extra_context or {}), "request": request}
+        return TemplateResponse(request, self.change_list_template, context)
+
         return super().changelist_view(request, extra_context=extra_context)
 
 
