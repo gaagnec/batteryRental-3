@@ -108,9 +108,10 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
 
     def changelist_view(self, request, extra_context=None):
         start_d, end_d = self._compute_period(request)
-        partners = FinancePartner.objects.filter(active=True).values("id", "user_id", "role")
+        partners = FinancePartner.objects.filter(active=True).values("id", "user_id", "role", "share_percent")
         user_to_partner = {p["user_id"]: p["id"] for p in partners}
         partner_roles = {p["id"]: p["role"] for p in partners}
+        partner_shares = {p["id"]: (p["share_percent"] or 0) for p in partners}
 
         # Income for period
         income_qs = (
@@ -315,6 +316,90 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
             "settlements_adj_total": adj_settlement,
             "opening_available": opening_available,
         })
+        # Profit share block (split by owner shares)
+        # Income I
+        I = sum(income_by_user.values())
+        
+        # Company expenses E: only paid from collected funds
+        E = Expense.objects.filter(date__gte=start_d, date__lte=end_d, paid_source=Expense.PaidSource.COLLECTED).aggregate(s=Sum("amount"))['s'] or 0
+        
+        # Adjustments to profit if needed (reuse collected/invested logic as neutral here)
+        P = I - E  # base profit without extra adj
+        
+        # Owners and their shares (normalize to 1.0)
+        owners = [pid for pid, role in partner_roles.items() if role == FinancePartner.Role.OWNER]
+        total_share = sum([float(partner_shares.get(pid, 0)) for pid in owners]) or 100.0
+        share_norm = {pid: float(partner_shares.get(pid, 0))/total_share for pid in owners}
+        
+        # Due to each owner from profit
+        D_by_owner = {pid: P * Decimal(share_norm.get(pid, 0)) for pid in owners}
+        D_total = sum(D_by_owner.values())
+        
+        # Actually withdrawn by owners in period
+        W_by_owner = {row["partner_id"]: row["total"] or 0 for row in (
+            OwnerWithdrawal.objects.filter(date__gte=start_d, date__lte=end_d, partner_id__in=owners)
+            .values("partner_id").annotate(total=Sum("amount"))
+        )}
+        W_total = sum(W_by_owner.values())
+        
+        # How issued funds should be split by shares
+        R_by_owner = {pid: Decimal(W_total) * Decimal(share_norm.get(pid, 0)) for pid in owners}
+        
+        # Suggested owner-to-owner transfer to rebalance already issued funds
+        # For two owners it's a single number; for N owners show list of imbalances
+        imbalance = {pid: Decimal(W_by_owner.get(pid, 0)) - R_by_owner.get(pid, Decimal(0)) for pid in owners}
+        # Positive -> owner received more than proportional, should pay out; Negative -> should receive
+        over = [(pid, v) for pid, v in imbalance.items() if v > 0]
+        under = [(pid, -v) for pid, v in imbalance.items() if v < 0]
+        over.sort(key=lambda x: x[1], reverse=True)
+        under.sort(key=lambda x: x[1], reverse=True)
+        settlements_suggest = []
+        i = j = 0
+        while i < len(over) and j < len(under):
+            pid_over, amt_over = over[i]
+            pid_under, amt_under = under[j]
+            tr = min(amt_over, amt_under)
+            if tr > 0:
+                settlements_suggest.append({
+                    "from": pid_over,
+                    "to": pid_under,
+                    "total": tr
+                })
+            over[i] = (pid_over, amt_over - tr)
+            under[j] = (pid_under, amt_under - tr)
+            if over[i][1] == 0:
+                i += 1
+            if under[j][1] == 0:
+                j += 1
+        
+        # Company owes to owners (not yet issued)
+        C_total = Decimal(D_total) - Decimal(W_total)
+        C_by_owner = {pid: D_by_owner.get(pid, 0) - Decimal(W_by_owner.get(pid, 0)) for pid in owners}
+        
+        # Prepare display structures
+        profit_rows = []
+        for pid in owners:
+            profit_rows.append({
+                "username": pid_to_username.get(pid, str(pid)),
+                "share": round(Decimal(share_norm.get(pid, 0)) * Decimal(100), 2),
+                "due": D_by_owner.get(pid, 0),
+                "withdrawn": Decimal(W_by_owner.get(pid, 0)),
+                "withdrawn_should": R_by_owner.get(pid, 0),
+                "company_owes": C_by_owner.get(pid, 0),
+            })
+        settlements_suggest_rows = [
+            {"from": pid_to_username.get(r["from"], str(r["from"])), "to": pid_to_username.get(r["to"], str(r["to"])), "total": r["total"]}
+            for r in settlements_suggest
+        ]
+        extra_context.update({
+            "profit_income": I,
+            "profit_expenses": E,
+            "profit_total": P,
+            "profit_rows": profit_rows,
+            "profit_company_owes_total": C_total,
+            "profit_settlements_suggest": settlements_suggest_rows,
+        })
+
         return super().changelist_view(request, extra_context=extra_context)
 
 

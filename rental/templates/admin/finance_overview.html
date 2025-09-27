@@ -83,4 +83,36 @@
   </tfoot>
 </table>
 <p><em>Корректировки взаиморасчётов:</em> {{ settlements_adj_total }}</p>
+
+<h3>Распределение прибыли</h3>
+<p>Доход: {{ profit_income }} | Расходы компании: {{ profit_expenses }} | Прибыль (P): {{ profit_total }}</p>
+<table class="admin-table">
+  <thead><tr><th>Владелец</th><th>Доля, %</th><th>Полагается (из прибыли)</th><th>Выдано</th><th>Следовало выдать из выданного</th><th>Долг компании</th></tr></thead>
+  <tbody>
+  {% for row in profit_rows %}
+    <tr>
+      <td>{{ row.username }}</td>
+      <td>{{ row.share }}</td>
+      <td>{{ row.due }}</td>
+      <td>{{ row.withdrawn }}</td>
+      <td>{{ row.withdrawn_should }}</td>
+      <td>{{ row.company_owes }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="6">Нет данных</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<h4>Рекомендуемые взаиморасчёты между владельцами (за уже выданное)</h4>
+<table class="admin-table">
+  <thead><tr><th>От</th><th>Кому</th><th>Сумма</th></tr></thead>
+  <tbody>
+  {% for row in profit_settlements_suggest %}
+    <tr><td>{{ row.from }}</td><td>{{ row.to }}</td><td>{{ row.total }}</td></tr>
+  {% empty %}
+    <tr><td colspan="3">Нет</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p><em>Невыданная часть прибыли (долг компании владельцам):</em> {{ profit_company_owes_total }}</p>
 {% endblock %}
