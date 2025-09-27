@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.admin.views.decorators import staff_member_required
 from django.urls import reverse
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, JsonResponse, HttpResponseForbidden
 
 from django.db.models import Sum, Q, F
 
@@ -91,6 +91,22 @@ class FinanceAdjustmentAdmin(SimpleHistoryAdmin):
 # Lightweight finance overview entry under Admin Index
 
 
+class FinanceTransferForm(forms.Form):
+    from_partner = forms.IntegerField()
+    to_partner = forms.IntegerField()
+    amount = forms.DecimalField(max_digits=12, decimal_places=2)
+    date = forms.DateField(required=False)
+    purpose = forms.ChoiceField(choices=MoneyTransfer.Purpose.choices)
+    use_collected = forms.BooleanField(required=False)
+    note = forms.CharField(required=False)
+
+class FinanceWithdrawalForm(forms.Form):
+    partner = forms.IntegerField()
+    amount = forms.DecimalField(max_digits=12, decimal_places=2)
+    date = forms.DateField(required=False)
+    note = forms.CharField(required=False)
+
+
 class FinanceOverviewAdmin(admin.ModelAdmin):
     change_list_template = "admin/finance_overview.html"
     CUTOFF_DATE = timezone.datetime(2025, 9, 1).date()
@@ -124,6 +140,102 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
         return start, end
 
     def has_module_permission(self, request):
+        # только владельцы видят раздел
+        return FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.OWNER, active=True).exists()
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path("create-transfer/", self.admin_site.admin_view(self.create_transfer_view), name="finance_create_transfer"),
+            path("create-withdrawal/", self.admin_site.admin_view(self.create_withdrawal_view), name="finance_create_withdrawal"),
+        ]
+        return custom + urls
+
+    def _redirect_back(self, request):
+        ret = request.POST.get("return_url") or request.META.get("HTTP_REFERER")
+        if not ret:
+            return HttpResponseRedirect(reverse("admin:rental_financeoverviewproxy_changelist"))
+        return HttpResponseRedirect(ret)
+
+    def _ensure_owner(self, request):
+        if not FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.OWNER, active=True).exists():
+            return False
+        return True
+
+    def create_transfer_view(self, request):
+        if request.method != "POST":
+            return HttpResponseRedirect(reverse("admin:rental_financeoverviewproxy_changelist"))
+        is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+        if not self._ensure_owner(request):
+            if is_ajax:
+                return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+            return HttpResponseForbidden()
+        try:
+            from_id = int(request.POST.get("from_partner") or 0)
+            to_id = int(request.POST.get("to_partner") or 0)
+            amount = Decimal(request.POST.get("amount") or "0")
+            purpose = request.POST.get("purpose") or MoneyTransfer.Purpose.OTHER
+            use_collected = (request.POST.get("use_collected") in ("1", "true", "True", "on"))
+            date_str = request.POST.get("date")
+            date_val = timezone.localdate()
+            if date_str:
+                try:
+                    date_val = timezone.datetime.fromisoformat(date_str).date()
+                except Exception:
+                    pass
+            if from_id <= 0 or to_id <= 0 or amount <= 0:
+                raise ValidationError("Некорректные данные перевода")
+            MoneyTransfer.objects.create(
+                from_partner_id=from_id,
+                to_partner_id=to_id,
+                amount=amount,
+                date=date_val,
+                purpose=purpose,
+                use_collected=use_collected,
+            )
+            if is_ajax:
+                return JsonResponse({"ok": True})
+            messages.success(request, "Перевод создан")
+        except Exception as e:
+            if is_ajax:
+                return JsonResponse({"ok": False, "error": str(e)[:300]})
+            messages.error(request, f"Ошибка: {e}")
+        return self._redirect_back(request)
+
+    def create_withdrawal_view(self, request):
+        if request.method != "POST":
+            return HttpResponseRedirect(reverse("admin:rental_financeoverviewproxy_changelist"))
+        is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+        if not self._ensure_owner(request):
+            if is_ajax:
+                return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+            return HttpResponseForbidden()
+        try:
+            partner_id = int(request.POST.get("partner") or 0)
+            amount = Decimal(request.POST.get("amount") or "0")
+            note = request.POST.get("note") or ""
+            date_str = request.POST.get("date")
+            date_val = timezone.localdate()
+            if date_str:
+                try:
+                    date_val = timezone.datetime.fromisoformat(date_str).date()
+                except Exception:
+                    pass
+            if partner_id <= 0 or amount <= 0:
+                raise ValidationError("Некорректные данные выплаты")
+            fp = FinancePartner.objects.get(pk=partner_id)
+            if fp.role != FinancePartner.Role.OWNER:
+                raise ValidationError("Выплаты доступны только владельцам")
+            OwnerWithdrawal.objects.create(partner_id=partner_id, amount=amount, date=date_val, note=note)
+            if is_ajax:
+                return JsonResponse({"ok": True})
+            messages.success(request, "Выплата создана")
+        except Exception as e:
+            if is_ajax:
+                return JsonResponse({"ok": False, "error": str(e)[:300]})
+            messages.error(request, f"Ошибка: {e}")
+        return self._redirect_back(request)
+
         # только владельцы видят раздел
         return FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.OWNER, active=True).exists()
 
@@ -338,6 +450,23 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
             "opening_available": opening_available,
         })
 
+        # Last 5 withdrawals for footer
+        last_withdrawals_qs = (
+            OwnerWithdrawal.objects
+            .order_by('-date', '-id')
+            .select_related('partner__user')[:5]
+        )
+        last_withdrawals = [
+            {
+                'date': w.date,
+                'partner': getattr(w.partner.user, 'username', str(w.partner_id)),
+                'amount': w.amount,
+            } for w in last_withdrawals_qs
+        ]
+        extra_context.update({
+            'last_withdrawals': last_withdrawals,
+        })
+
         # Suggested owner-to-owner transfers based on collected vs share (period-only)
         owners = [pid for pid, role in partner_roles.items() if role == FinancePartner.Role.OWNER]
         # Actual collected for owners in period (delta)
@@ -398,12 +527,35 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
         for uid, pid in user_to_partner.items():
             if pid in moderators:
                 income_by_partner[pid] = income_by_user.get(uid, 0)
+        # Last 5 transfers for two categories for footer blocks (show after tables)
+        last_mod_qs = (
+            MoneyTransfer.objects.filter(purpose=MoneyTransfer.Purpose.MODERATOR_TO_OWNER)
+            .order_by('-date', '-id')
+            .select_related('from_partner__user', 'to_partner__user')[:5]
+        )
+        last_owner_qs = (
+            MoneyTransfer.objects.filter(purpose=MoneyTransfer.Purpose.OWNER_TO_OWNER)
+            .order_by('-date', '-id')
+            .select_related('from_partner__user', 'to_partner__user')[:5]
+        )
+        # Outgoing transfers from moderators within period (for debt calc)
         mt_out_by_mod = (
             MoneyTransfer.objects
             .filter(date__gte=start_d, date__lte=end_d, use_collected=True, from_partner_id__in=moderators)
             .values("from_partner_id")
             .annotate(total=Sum("amount"))
         )
+        def tr_row(tr):
+            return {
+                'date': tr.date,
+                'from': getattr(tr.from_partner.user, 'username', str(tr.from_partner_id)),
+                'to': getattr(tr.to_partner.user, 'username', str(tr.to_partner_id)),
+                'amount': tr.amount,
+            }
+        extra_context.update({
+            'last_mod_to_owner': [tr_row(t) for t in last_mod_qs],
+            'last_owner_to_owner': [tr_row(t) for t in last_owner_qs],
+        })
         mt_out_by_mod_map = {row["from_partner_id"]: row["total"] or 0 for row in mt_out_by_mod}
         moderator_debts = []
         for pid in moderators:
@@ -500,8 +652,9 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
             "profit_settlements_suggest": settlements_suggest_rows,
         })
 
-        # Render directly to ensure GET params are honored and not overwritten by ChangeList
-        context = {**(extra_context or {}), "request": request}
+        # Render with admin each_context so sidebar/menus are present, honoring GET params
+        base_ctx = self.admin_site.each_context(request)
+        context = {**base_ctx, **(extra_context or {}), "request": request, "opts": self.model._meta, "title": self.model._meta.verbose_name_plural}
         return TemplateResponse(request, self.change_list_template, context)
 
         return super().changelist_view(request, extra_context=extra_context)
