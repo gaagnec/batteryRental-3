@@ -59,6 +59,27 @@ class MoneyTransferAdmin(SimpleHistoryAdmin):
     autocomplete_fields = ("from_partner", "to_partner")
     search_fields = ("note", "from_partner__user__username", "to_partner__user__username")
 
+    def get_changeform_initial_data(self, request):
+        data = super().get_changeform_initial_data(request)
+        qp = request.GET
+        if "from_partner" in qp:
+            data["from_partner"] = qp.get("from_partner")
+        if "to_partner" in qp:
+            data["to_partner"] = qp.get("to_partner")
+        if "amount" in qp:
+            try:
+                data["amount"] = qp.get("amount")
+            except Exception:
+                pass
+        if "purpose" in qp:
+            data["purpose"] = qp.get("purpose")
+        if "use_collected" in qp:
+            val = qp.get("use_collected")
+            data["use_collected"] = val in ("1", "true", "True", "on")
+        if "date" in qp:
+            data["date"] = qp.get("date")
+        return data
+
 
 @admin.register(FinanceAdjustment)
 class FinanceAdjustmentAdmin(SimpleHistoryAdmin):
@@ -316,6 +337,85 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
             "settlements_adj_total": adj_settlement,
             "opening_available": opening_available,
         })
+
+        # Suggested owner-to-owner transfers based on collected vs share (period-only)
+        owners = [pid for pid, role in partner_roles.items() if role == FinancePartner.Role.OWNER]
+        # Actual collected for owners in period (delta)
+        collected_owner_delta = {pid: collected_delta_by_partner.get(pid, 0) for pid in owners}
+        # Desired per-share from total income (period)
+        total_income_period = income_total
+        total_share = sum([float(partner_shares.get(pid, 0)) for pid in owners]) or 100.0
+        share_norm = {pid: float(partner_shares.get(pid, 0))/total_share for pid in owners}
+        desired_collected = {pid: Decimal(total_income_period) * Decimal(share_norm.get(pid, 0)) for pid in owners}
+        diff_collected = {pid: Decimal(collected_owner_delta.get(pid, 0)) - desired_collected.get(pid, Decimal(0)) for pid in owners}
+        over_c = [(pid, v) for pid, v in diff_collected.items() if v > 0]
+        under_c = [(pid, -v) for pid, v in diff_collected.items() if v < 0]
+        over_c.sort(key=lambda x: x[1], reverse=True)
+        under_c.sort(key=lambda x: x[1], reverse=True)
+        settlements_by_collected = []
+        i = j = 0
+        while i < len(over_c) and j < len(under_c):
+            pid_over, amt_over = over_c[i]
+            pid_under, amt_under = under_c[j]
+            tr = min(amt_over, amt_under)
+            if tr > 0:
+                settlements_by_collected.append({
+                    "from": pid_over,
+                    "to": pid_under,
+                    "total": tr
+                })
+            over_c[i] = (pid_over, amt_over - tr)
+            under_c[j] = (pid_under, amt_under - tr)
+            if over_c[i][1] == 0:
+                i += 1
+            if under_c[j][1] == 0:
+                j += 1
+        # Two-owners highlight
+        highlight_reco = None
+        if len(owners) == 2:
+            a, b = owners[0], owners[1]
+            a_name = pid_to_username.get(a, str(a))
+            b_name = pid_to_username.get(b, str(b))
+            # T = (C_a - C_b)/2
+            T = (Decimal(collected_owner_delta.get(a, 0)) - Decimal(collected_owner_delta.get(b, 0))) / Decimal(2)
+            if T > 0:
+                highlight_reco = {"from": a_name, "to": b_name, "total": T}
+            elif T < 0:
+                highlight_reco = {"from": b_name, "to": a_name, "total": -T}
+        extra_context.update({
+            "collected_settlements": [
+                {"from": pid_to_username.get(r["from"], str(r["from"])), "to": pid_to_username.get(r["to"], str(r["to"])), "total": r["total"], "from_id": r["from"], "to_id": r["to"]}
+                for r in settlements_by_collected
+            ],
+            "collected_settlements_highlight": highlight_reco,
+            "collected_owner_delta": {pid_to_username.get(pid, str(pid)): collected_owner_delta.get(pid, 0) for pid in owners},
+            "desired_collected": {pid_to_username.get(pid, str(pid)): desired_collected.get(pid, 0) for pid in owners},
+        })
+
+        # Moderators' debts to owners for period: income by moderator minus out transfers use_collected
+        moderators = [pid for pid, role in partner_roles.items() if role == FinancePartner.Role.MODERATOR]
+        income_by_partner = {}
+        for uid, pid in user_to_partner.items():
+            if pid in moderators:
+                income_by_partner[pid] = income_by_user.get(uid, 0)
+        mt_out_by_mod = (
+            MoneyTransfer.objects
+            .filter(date__gte=start_d, date__lte=end_d, use_collected=True, from_partner_id__in=moderators)
+            .values("from_partner_id")
+            .annotate(total=Sum("amount"))
+        )
+        mt_out_by_mod_map = {row["from_partner_id"]: row["total"] or 0 for row in mt_out_by_mod}
+        moderator_debts = []
+        for pid in moderators:
+            owed = Decimal(income_by_partner.get(pid, 0)) - Decimal(mt_out_by_mod_map.get(pid, 0))
+            if owed > 0:
+                moderator_debts.append({
+                    "partner_id": pid,
+                    "username": pid_to_username.get(pid, str(pid)),
+                    "amount": owed,
+                })
+        extra_context.update({"moderator_debts": moderator_debts})
+
         # Profit share block (split by owner shares)
         # Income I
         I = sum(income_by_user.values())

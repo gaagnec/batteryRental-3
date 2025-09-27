@@ -84,6 +84,47 @@
 </table>
 <p><em>Корректировки взаиморасчётов:</em> {{ settlements_adj_total }}</p>
 
+<h3>Долг модераторов владельцам (за период)</h3>
+<table class="admin-table">
+  <thead><tr><th>Модератор</th><th>Должен перечислить</th><th></th></tr></thead>
+  <tbody>
+  {% for row in moderator_debts %}
+    <tr>
+      <td>{{ row.username }}</td>
+      <td>{{ row.amount }}</td>
+      <td>
+        <a class="button" href="{% url 'admin:rental_moneytransfer_add' %}?from_partner={{ row.partner_id }}&purpose=moderator_to_owner&use_collected=1&amount={{ row.amount }}">Создать перевод</a>
+      </td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="3">Нет долгов</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h3>Ребаланс собранных (за период)</h3>
+<p><em>Сначала закройте долги модераторов, затем примените ребаланс.</em></p>
+{% if collected_settlements_highlight %}
+<p><strong>Рекомендация (2 владельца):</strong> {{ collected_settlements_highlight.from }} → {{ collected_settlements_highlight.to }}: {{ collected_settlements_highlight.total }}</p>
+{% endif %}
+<table class="admin-table">
+  <thead><tr><th>От</th><th>Кому</th><th>Сумма</th><th></th></tr></thead>
+  <tbody>
+  {% for row in collected_settlements %}
+    <tr>
+      <td>{{ row.from }}</td>
+      <td>{{ row.to }}</td>
+      <td>{{ row.total }}</td>
+      <td>
+        <a class="button" href="{% url 'admin:rental_moneytransfer_add' %}?from_partner={{ row.from_id }}&to_partner={{ row.to_id }}&purpose=owner_to_owner&use_collected=0&amount={{ row.total }}">Создать перевод</a>
+      </td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="4">Нет рекомендаций</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
 <h3>Распределение прибыли</h3>
 <p>Доход: {{ profit_income }} | Расходы компании: {{ profit_expenses }} | Прибыль (P): {{ profit_total }}</p>
 <table class="admin-table">
