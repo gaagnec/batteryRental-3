@@ -56,11 +56,11 @@ def assignment_delete_statuslog(sender, instance: RentalBatteryAssignment, **kwa
         start_at=instance.start_at,
     ).delete()
 
-# --- Auto create OwnerContribution for personal expenses ---
+# --- Auto create OwnerContribution for "внесение денег" ---
 @receiver(post_save, sender=Expense)
 def expense_to_contribution(sender, instance: Expense, created, **kwargs):
-    # Only when marked as paid from personal funds and a partner (owner) provided
-    if not instance.paid_source or instance.paid_source != Expense.PaidSource.PERSONAL:
+    # Only for deposit type and when a partner (owner) is provided
+    if getattr(instance, 'payment_type', None) != Expense.PaymentType.DEPOSIT:
         return
     if not instance.paid_by_partner_id:
         return
