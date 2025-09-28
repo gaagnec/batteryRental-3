@@ -93,33 +93,6 @@ async function submitAjax(ev, form){
     <tr><td colspan="2">Нет данных</td></tr>
   {% endfor %}
   </tbody>
-<h3>Вложено</h3>
-<table class="admin-table">
-  <thead><tr><th>Владелец</th><th>а) Вложено фактически</th><th>б) Доля по ровну</th><th>в) а−б</th></tr></thead>
-  <tbody>
-  {% for row in invested_ab_rows %}
-    <tr>
-      <td>{{ row.username }}</td>
-      <td>{{ row.a }}</td>
-      <td>{{ row.b }}</td>
-      <td><span style="color:{% if row.diff > 0 %}green{% else %}red{% endif %}">{{ row.diff }}</span></td>
-    </tr>
-  {% empty %}
-    <tr><td colspan="4">Нет данных</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
-<div>
-  <em>Последние операции (вложено):</em>
-  <ul>
-    {% for op in last_invest_ops %}
-      <li>{{ op.date }}: {{ op.text }}</li>
-    {% empty %}
-      <li>Нет</li>
-    {% endfor %}
-  </ul>
-</div>
-
   <tfoot>
     <tr><th>Итого</th><th>{{ income_total }}</th></tr>
   </tfoot>
@@ -146,22 +119,30 @@ async function submitAjax(ev, form){
 
 <h3>Вложено</h3>
 <table class="admin-table">
-  <thead><tr><th>Владелец</th><th>Остаток на начало</th><th>Дельта за период</th><th>Остаток на конец</th></tr></thead>
+  <thead><tr><th>Владелец</th><th>а) Вложено фактически</th><th>б) Доля по ровну</th><th>в) а−б</th></tr></thead>
   <tbody>
-  {% for row in invested_rows %}
-    <tr><td>{{ row.username }}</td><td>{{ row.open }}</td><td>{{ row.delta }}</td><td>{{ row.close }}</td></tr>
+  {% for row in invested_ab_rows %}
+    <tr>
+      <td>{{ row.username }}</td>
+      <td>{{ row.a }}</td>
+      <td>{{ row.b }}</td>
+      <td><span style="color:{% if row.diff > 0 %}green{% else %}red{% endif %}">{{ row.diff }}</span></td>
+    </tr>
   {% empty %}
     <tr><td colspan="4">Нет данных</td></tr>
   {% endfor %}
   </tbody>
-  <tfoot>
-    <tr><th>Итого</th>
-      <th>{{ invested_open_total }}</th>
-      <th>{{ invested_delta_total }}</th>
-      <th>{{ invested_total }}</th>
-    </tr>
-  </tfoot>
 </table>
+<div>
+  <em>Последние операции (вложено):</em>
+  <ul>
+    {% for op in last_invest_ops %}
+      <li>{{ op.date }}: {{ op.text }}</li>
+    {% empty %}
+      <li>Нет</li>
+    {% endfor %}
+  </ul>
+</div>
 
 <h3>Взаиморасчёты владельцев</h3>
 <table class="admin-table">

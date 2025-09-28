@@ -689,6 +689,61 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
             {"from": pid_to_username.get(r["from"], str(r["from"])), "to": pid_to_username.get(r["to"], str(r["to"])), "total": r["total"]}
             for r in settlements_suggest
         ]
+        # Lifetime Invested (A/B/(A-B))
+        owners = [pid for pid, role in partner_roles.items() if role == FinancePartner.Role.OWNER]
+        # A-source 1: Expenses paid from personal funds by owners
+        exp_personal_qs = (
+            Expense.objects
+            .filter(paid_source=Expense.PaidSource.PERSONAL, paid_by_partner_id__in=owners)
+            .values('paid_by_partner_id')
+            .annotate(total=Sum('amount'))
+        )
+        A_from_exp = {row['paid_by_partner_id']: row['total'] or 0 for row in exp_personal_qs}
+        # A-source 2: Owner contributions (manual). Skip ones tied to an expense to avoid double counting
+        oc_manual_qs = (
+            OwnerContribution.objects
+            .filter(partner_id__in=owners, source=OwnerContribution.Source.MANUAL)
+            .values('partner_id')
+            .annotate(total=Sum('amount'))
+        )
+        A_from_contr = {row['partner_id']: row['total'] or 0 for row in oc_manual_qs}
+        A_by_owner = {pid: Decimal(A_from_exp.get(pid, 0)) + Decimal(A_from_contr.get(pid, 0)) for pid in owners}
+        A_total = sum(A_by_owner.values())
+        n = len(owners) or 1
+        B_each = (Decimal(A_total) / Decimal(n)) if n else Decimal(0)
+        invested_ab_rows = []
+        for pid in owners:
+            a = Decimal(A_by_owner.get(pid, 0))
+            b = B_each
+            invested_ab_rows.append({
+                'username': pid_to_username.get(pid, str(pid)),
+                'a': a,
+                'b': b,
+                'diff': a - b,
+            })
+        # Last 5 invested operations combined: Expenses(PERSONAL) + OwnerContribution(MANUAL)
+        exp_ops = list(
+            Expense.objects.filter(paid_source=Expense.PaidSource.PERSONAL, paid_by_partner_id__in=owners)
+            .order_by('-date', '-id')
+            .select_related('paid_by_partner__user')[:5]
+        )
+        oc_ops = list(
+            OwnerContribution.objects.filter(partner_id__in=owners, source=OwnerContribution.Source.MANUAL)
+            .order_by('-date', '-id')
+            .select_related('partner__user')[:5]
+        )
+        merged = []
+        for e in exp_ops:
+            merged.append((e.date, int(getattr(e, 'id', 0)), f"Расход (личные) {getattr(e.paid_by_partner.user, 'username', e.paid_by_partner_id)}: {e.amount}"))
+        for c in oc_ops:
+            merged.append((c.date, int(getattr(c, 'id', 0)), f"Взнос {getattr(c.partner.user, 'username', c.partner_id)}: {c.amount}"))
+        merged.sort(key=lambda t: (t[0], t[1]), reverse=True)
+        last_invest_ops = [{'date': d, 'text': txt} for d, _id, txt in merged[:5]]
+        extra_context.update({
+            'invested_ab_rows': invested_ab_rows,
+            'last_invest_ops': last_invest_ops,
+        })
+
         extra_context.update({
             "profit_income": I,
             "profit_expenses": E,
