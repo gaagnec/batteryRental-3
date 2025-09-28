@@ -270,19 +270,20 @@ class Expense(TimeStampedModel):
     date = models.DateField(default=timezone.localdate)
     category = models.ForeignKey(ExpenseCategory, on_delete=models.SET_NULL, null=True, blank=True)
     description = models.TextField(blank=True)
-    class PaidSource(models.TextChoices):
-        PERSONAL = "personal", "Оплачено из личных средств"
-        COLLECTED = "collected", "Оплачено из собранных средств"
-        OTHER = "other", "Другое"
+    class PaymentType(models.TextChoices):
+        PURCHASE = "purchase", "Закупка"
+        DEPOSIT = "deposit", "Внесение денег"
+    payment_type = models.CharField(max_length=16, choices=PaymentType.choices, default=PaymentType.PURCHASE)
     paid_by_partner = models.ForeignKey('FinancePartner', null=True, blank=True, on_delete=models.SET_NULL, related_name='expenses_paid')
-    paid_source = models.CharField(max_length=16, choices=PaidSource.choices, blank=True)
     note = models.TextField(blank=True)
     history = HistoricalRecords()
 
     class Meta:
+        verbose_name = "Расход"
+        verbose_name_plural = "Расходы"
         indexes = [
             models.Index(fields=["date"], name="idx_exp_date"),
-            models.Index(fields=["paid_source"], name="idx_exp_source"),
+            models.Index(fields=["payment_type"], name="idx_exp_type"),
             models.Index(fields=["paid_by_partner"], name="idx_exp_partner"),
         ]
 

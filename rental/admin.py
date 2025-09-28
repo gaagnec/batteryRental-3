@@ -619,7 +619,8 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
         I = sum(income_by_user.values())
         
         # Company expenses E: only paid from collected funds
-        E = Expense.objects.filter(date__gte=start_d, date__lte=end_d, paid_source=Expense.PaidSource.COLLECTED).aggregate(s=Sum("amount"))['s'] or 0
+        # Company expenses from collected funds: with new Expense model semantics, treat as 0 here
+        E = Decimal(0)
         
         # Adjustments to profit if needed (reuse collected/invested logic as neutral here)
         P = I - E  # base profit without extra adj
@@ -689,28 +690,20 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
             {"from": pid_to_username.get(r["from"], str(r["from"])), "to": pid_to_username.get(r["to"], str(r["to"])), "total": r["total"]}
             for r in settlements_suggest
         ]
-        # Lifetime Invested (A/B/(A-B))
+        # Lifetime Invested (A/B/(A-B)) per new rules
         owners = [pid for pid, role in partner_roles.items() if role == FinancePartner.Role.OWNER]
-        # A-source 1: Expenses paid from personal funds by owners
-        exp_personal_qs = (
+        # A: sum of all expenses (both purchase and deposit) by owner
+        exp_all_qs = (
             Expense.objects
-            .filter(paid_source=Expense.PaidSource.PERSONAL, paid_by_partner_id__in=owners)
+            .filter(paid_by_partner_id__in=owners)
             .values('paid_by_partner_id')
             .annotate(total=Sum('amount'))
         )
-        A_from_exp = {row['paid_by_partner_id']: row['total'] or 0 for row in exp_personal_qs}
-        # A-source 2: Owner contributions (manual). Skip ones tied to an expense to avoid double counting
-        oc_manual_qs = (
-            OwnerContribution.objects
-            .filter(partner_id__in=owners, source=OwnerContribution.Source.MANUAL)
-            .values('partner_id')
-            .annotate(total=Sum('amount'))
-        )
-        A_from_contr = {row['partner_id']: row['total'] or 0 for row in oc_manual_qs}
-        A_by_owner = {pid: Decimal(A_from_exp.get(pid, 0)) + Decimal(A_from_contr.get(pid, 0)) for pid in owners}
-        A_total = sum(A_by_owner.values())
+        A_by_owner = {row['paid_by_partner_id']: row['total'] or 0 for row in exp_all_qs}
+        # B: equal share of purchases only
+        total_purchases = Expense.objects.filter(paid_by_partner_id__in=owners, payment_type=Expense.PaymentType.PURCHASE).aggregate(s=Sum('amount'))['s'] or 0
         n = len(owners) or 1
-        B_each = (Decimal(A_total) / Decimal(n)) if n else Decimal(0)
+        B_each = (Decimal(total_purchases) / Decimal(n)) if n else Decimal(0)
         invested_ab_rows = []
         for pid in owners:
             a = Decimal(A_by_owner.get(pid, 0))
@@ -721,24 +714,18 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
                 'b': b,
                 'diff': a - b,
             })
-        # Last 5 invested operations combined: Expenses(PERSONAL) + OwnerContribution(MANUAL)
+        # Last 5 invested operations: all expenses by owners (both types), newest first
         exp_ops = list(
-            Expense.objects.filter(paid_source=Expense.PaidSource.PERSONAL, paid_by_partner_id__in=owners)
+            Expense.objects.filter(paid_by_partner_id__in=owners)
             .order_by('-date', '-id')
             .select_related('paid_by_partner__user')[:5]
         )
-        oc_ops = list(
-            OwnerContribution.objects.filter(partner_id__in=owners, source=OwnerContribution.Source.MANUAL)
-            .order_by('-date', '-id')
-            .select_related('partner__user')[:5]
-        )
-        merged = []
+        last_invest_ops = []
         for e in exp_ops:
-            merged.append((e.date, int(getattr(e, 'id', 0)), f"Расход (личные) {getattr(e.paid_by_partner.user, 'username', e.paid_by_partner_id)}: {e.amount}"))
-        for c in oc_ops:
-            merged.append((c.date, int(getattr(c, 'id', 0)), f"Взнос {getattr(c.partner.user, 'username', c.partner_id)}: {c.amount}"))
-        merged.sort(key=lambda t: (t[0], t[1]), reverse=True)
-        last_invest_ops = [{'date': d, 'text': txt} for d, _id, txt in merged[:5]]
+            kind = 'Закупка' if e.payment_type == Expense.PaymentType.PURCHASE else 'Внесение денег'
+            who = getattr(getattr(e, 'paid_by_partner', None), 'user', None)
+            who_name = getattr(who, 'username', e.paid_by_partner_id)
+            last_invest_ops.append({'date': e.date, 'text': f"{kind} {who_name}: {e.amount}"})
         extra_context.update({
             'invested_ab_rows': invested_ab_rows,
             'last_invest_ops': last_invest_ops,
@@ -1647,8 +1634,8 @@ class ExpenseCategoryAdmin(SimpleHistoryAdmin):
 
 @admin.register(Expense)
 class ExpenseAdmin(SimpleHistoryAdmin):
-    list_display = ("id", "date", "amount", "category", "paid_source", "paid_by_partner")
-    list_filter = ("category", "paid_source")
+    list_display = ("id", "date", "amount", "category", "payment_type", "paid_by_partner")
+    list_filter = ("category", "payment_type")
     search_fields = ("note", "description")
     autocomplete_fields = ("paid_by_partner",)
 
