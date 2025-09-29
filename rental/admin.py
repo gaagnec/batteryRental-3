@@ -36,12 +36,22 @@ class FinancePartnerAdmin(SimpleHistoryAdmin):
     search_fields = ("user__username", "user__first_name", "user__last_name")
 
 
-@admin.register(OwnerContribution)
+# @admin.register(OwnerContribution)
 class OwnerContributionAdmin(SimpleHistoryAdmin):
     list_display = ("id", "partner", "amount", "date", "source")
     list_filter = ("source", "date")
     autocomplete_fields = ("partner", "expense")
     search_fields = ("note", "partner__user__username")
+    def has_module_permission(self, request):
+        return False
+    def has_view_permission(self, request, obj=None):
+        return False
+    def has_change_permission(self, request, obj=None):
+        return False
+    def has_add_permission(self, request):
+        return False
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(OwnerWithdrawal)
@@ -726,14 +736,14 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
             .annotate(total=Sum('amount'))
         )
         purch_by_owner = {row['paid_by_partner_id']: row['total'] or 0 for row in purch_qs}
-        # Contributions by owner (all sources)
+        # Contributions by owner (from expenses: DEPOSIT)
         contr_qs_all = (
-            OwnerContribution.objects
-            .filter(partner_id__in=owners)
-            .values('partner_id')
+            Expense.objects
+            .filter(paid_by_partner_id__in=owners, payment_type=Expense.PaymentType.DEPOSIT)
+            .values('paid_by_partner_id')
             .annotate(total=Sum('amount'))
         )
-        contr_by_owner = {row['partner_id']: row['total'] or 0 for row in contr_qs_all}
+        contr_by_owner = {row['paid_by_partner_id']: row['total'] or 0 for row in contr_qs_all}
         # Equal share of total purchases among owners
         total_purchases = Expense.objects.filter(paid_by_partner_id__in=owners, payment_type=Expense.PaymentType.PURCHASE).aggregate(s=Sum('amount'))['s'] or 0
         n = len(owners) or 1

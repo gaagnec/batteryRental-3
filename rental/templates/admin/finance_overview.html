@@ -92,7 +92,7 @@ async function submitAjax(ev, form){
 </form>
 
 
-<h3>Долг модераторов владельцам (за период)</h3>
+<h3>Долг модераторов администраторам (за период)</h3>
 <table class="admin-table">
   <thead><tr><th>Модератор</th><th>Должен перечислить</th><th></th></tr></thead>
   <tbody>
@@ -101,7 +101,7 @@ async function submitAjax(ev, form){
       <td>{{ row.username }}</td>
       <td>{{ row.amount }}</td>
       <td>
-        <a class="button" href="#" onclick='openMt({from_id:{{ row.partner_id }}, purpose:"moderator_to_owner", use_collected:true, amount:"{{ row.amount }}", hint:"Собрано модератором минус уже переведённое. Рекомендуется перечислить эту сумму владельцам."});return false;'>Создать перевод</a>
+        <a class="button" href="#" onclick='openMt({from_id:{{ row.partner_id }}, purpose:"moderator_to_owner", use_collected:true, amount:"{{ row.amount }}", hint:"Перевод модератора администратору. Рекомендуется перечислить эту сумму."});return false;'>Создать перевод</a>
       </td>
     </tr>
   {% empty %}
@@ -185,7 +185,7 @@ async function submitAjax(ev, form){
 </table>
 <p><em>Корректировки взаиморасчётов:</em> {{ settlements_adj_total }}</p>
 
-<h3>Долг модераторов владельцам (за период)</h3>
+<h3>Долг модераторов администраторам (за период)</h3>
 <table class="admin-table">
   <thead><tr><th>Модератор</th><th>Должен перечислить</th><th></th></tr></thead>
   <tbody>
@@ -194,7 +194,7 @@ async function submitAjax(ev, form){
       <td>{{ row.username }}</td>
       <td>{{ row.amount }}</td>
       <td>
-        <a class="button" href="#" onclick='openMt({from_id:{{ row.partner_id }}, purpose:"moderator_to_owner", use_collected:true, amount:"{{ row.amount }}", hint:"Собрано модератором минус уже переведённое. Рекомендуется перечислить эту сумму владельцам."});return false;'>Создать перевод</a>
+        <a class="button" href="#" onclick='openMt({from_id:{{ row.partner_id }}, purpose:"moderator_to_owner", use_collected:true, amount:"{{ row.amount }}", hint:"Перевод модератора администратору. Рекомендуется перечислить эту сумму."});return false;'>Создать перевод</a>
       </td>
     </tr>
   {% empty %}
@@ -267,13 +267,16 @@ async function submitAjax(ev, form){
       {% csrf_token %}
       <input type="hidden" name="return_url" value="{{ request.get_full_path }}">
       <div class="row">
-        <label>От (владелец)</label>
+        <label>От (модератор/владелец)</label>
         <select name="from_partner" id="mt-from">
+          {% for p in partner_choices_mods %}
+            <option value="{{ p.id }}">{{ p.username }}</option>
+          {% endfor %}
           {% for p in partner_choices_owners %}
             <option value="{{ p.id }}">{{ p.username }}</option>
           {% endfor %}
         </select>
-        <div class="help">Отправитель перевода. Для модератора → владельцу отметьте “Списывать из собранных”.</div>
+        <div class="help">Отправитель перевода. Для модератора → админу отметьте “Списывать из собранных”.</div>
       </div>
       <div class="row">
         <label>Кому (модератор/админ)</label>
