@@ -29,6 +29,7 @@ function openMt(prefill){
     if(prefill.hint){ hint.innerText=prefill.hint; } else { hint.innerText='Подсказка: сумму можно скорректировать вручную.' }
   }
   m.classList.add('open');
+  const btn=document.getElementById('mt-submit'); if(btn){ btn.disabled=false; btn.textContent='Сохранить'; }
 }
 function closeMt(){ document.getElementById('mt-modal').classList.remove('open'); }
 function openWd(prefill){
@@ -40,11 +41,14 @@ function openWd(prefill){
     if(prefill.hint){ hint.innerText=prefill.hint; } else { hint.innerText='Подсказка: сумму можно скорректировать вручную.' }
   }
   m.classList.add('open');
+  const btn=document.getElementById('wd-submit'); if(btn){ btn.disabled=false; btn.textContent='Сохранить'; }
 }
 function closeWd(){ document.getElementById('wd-modal').classList.remove('open'); }
 async function submitAjax(ev, form){
   ev.preventDefault();
   const data = new FormData(form);
+  const submitBtn = form.querySelector('button[type="submit"]');
+  if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = 'Сохранение...'; }
   const resp = await fetch(form.action, {
     method: 'POST',
     headers: {'X-Requested-With': 'XMLHttpRequest'},
@@ -60,6 +64,8 @@ async function submitAjax(ev, form){
   }
   if(ok){
     window.location.reload();
+  } else if(submitBtn){
+    submitBtn.disabled = false; submitBtn.textContent = 'Сохранить';
   }
   return false;
 }
@@ -83,20 +89,34 @@ async function submitAjax(ev, form){
   <button type="submit" class="button">Показать</button>
 </form>
 
-<h3>Доходы (Payments type ∈ {rent, sold})</h3>
+
+<h3>Долг модераторов владельцам (за период)</h3>
 <table class="admin-table">
-  <thead><tr><th>Пользователь</th><th>Сумма</th></tr></thead>
+  <thead><tr><th>Модератор</th><th>Должен перечислить</th><th></th></tr></thead>
   <tbody>
-  {% for row in income_rows %}
-    <tr><td>{{ row.created_by__username }}</td><td>{{ row.total }}</td></tr>
+  {% for row in moderator_debts %}
+    <tr>
+      <td>{{ row.username }}</td>
+      <td>{{ row.amount }}</td>
+      <td>
+        <a class="button" href="#" onclick='openMt({from_id:{{ row.partner_id }}, purpose:"moderator_to_owner", use_collected:true, amount:"{{ row.amount }}", hint:"Собрано модератором минус уже переведённое. Рекомендуется перечислить эту сумму владельцам."});return false;'>Создать перевод</a>
+      </td>
+    </tr>
   {% empty %}
-    <tr><td colspan="2">Нет данных</td></tr>
+    <tr><td colspan="3">Нет долгов</td></tr>
   {% endfor %}
   </tbody>
-  <tfoot>
-    <tr><th>Итого</th><th>{{ income_total }}</th></tr>
-  </tfoot>
 </table>
+<div>
+  <em>Последние переводы модераторов → владельцев:</em>
+  <ul>
+    {% for tr in last_mod_to_owner %}
+      <li>{{ tr.date }}: {{ tr.from }} → {{ tr.to }}: {{ tr.amount }}{% if tr.note %} — {{ tr.note }}{% endif %}</li>
+    {% empty %}
+      <li>Нет</li>
+    {% endfor %}
+  </ul>
+</div>
 
 <h3>Собранные</h3>
 <table class="admin-table">
@@ -181,7 +201,7 @@ async function submitAjax(ev, form){
   <em>Последние переводы модераторов → владельцев:</em>
   <ul>
     {% for tr in last_mod_to_owner %}
-      <li>{{ tr.date }}: {{ tr.from }} → {{ tr.to }}: {{ tr.amount }}</li>
+      <li>{{ tr.date }}: {{ tr.from }} → {{ tr.to }}: {{ tr.amount }}{% if tr.note %} — {{ tr.note }}{% endif %}</li>
     {% empty %}
       <li>Нет</li>
     {% endfor %}
@@ -214,7 +234,7 @@ async function submitAjax(ev, form){
   <em>Последние owner_to_owner переводы:</em>
   <ul>
     {% for tr in last_owner_to_owner %}
-      <li>{{ tr.date }}: {{ tr.from }} → {{ tr.to }}: {{ tr.amount }}</li>
+      <li>{{ tr.date }}: {{ tr.from }} → {{ tr.to }}: {{ tr.amount }}{% if tr.note %} — {{ tr.note }}{% endif %}</li>
     {% empty %}
       <li>Нет</li>
     {% endfor %}
@@ -242,14 +262,22 @@ async function submitAjax(ev, form){
       {% csrf_token %}
       <input type="hidden" name="return_url" value="{{ request.get_full_path }}">
       <div class="row">
-        <label>От (partner id)</label>
-        <input type="number" name="from_partner" id="mt-from">
-        <div class="help">Подсказка: выберите отправителя. Для модератора → владельцу отметьте “Списывать из собранных”.</div>
+        <label>От (владелец)</label>
+        <select name="from_partner" id="mt-from">
+          {% for p in partner_choices_owners %}
+            <option value="{{ p.id }}">{{ p.username }}</option>
+          {% endfor %}
+        </select>
+        <div class="help">Отправитель перевода. Для модератора → владельцу отметьте “Списывать из собранных”.</div>
       </div>
       <div class="row">
-        <label>Кому (partner id)</label>
-        <input type="number" name="to_partner" id="mt-to">
-        <div class="help">Подсказка: получатель перевода.</div>
+        <label>Кому (модератор/админ)</label>
+        <select name="to_partner" id="mt-to">
+          {% for p in partner_choices_mods %}
+            <option value="{{ p.id }}">{{ p.username }}</option>
+          {% endfor %}
+        </select>
+        <div class="help">Получатель перевода.</div>
       </div>
       <div class="row">
         <label>Сумма</label>
@@ -276,7 +304,7 @@ async function submitAjax(ev, form){
         <textarea name="note" rows="2"></textarea>
       </div>
       <div class="row">
-        <button type="submit" class="button">Сохранить</button>
+        <button type="submit" class="button" id="mt-submit">Сохранить</button>
         <a href="#" class="button secondary" onclick="closeMt();return false;">Отмена</a>
       </div>
     </form>
@@ -308,7 +336,7 @@ async function submitAjax(ev, form){
         <textarea name="note" rows="2"></textarea>
       </div>
       <div class="row">
-        <button type="submit" class="button">Сохранить</button>
+        <button type="submit" class="button" id="wd-submit">Сохранить</button>
         <a href="#" class="button secondary" onclick="closeWd();return false;">Отмена</a>
       </div>
     </form>

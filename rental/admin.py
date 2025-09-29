@@ -477,6 +477,13 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
 
         if extra_context is None:
             extra_context = {}
+        # Partner choice lists for modal selects
+        mods_list = [pid for pid, role in partner_roles.items() if role == FinancePartner.Role.MODERATOR]
+        owners_list = [pid for pid, role in partner_roles.items() if role == FinancePartner.Role.OWNER]
+        partner_choices_all = [{"id": pid, "username": pid_to_username.get(pid, str(pid))} for pid in sorted(partner_roles.keys(), key=lambda x: pid_to_username.get(x, str(x)))]
+        partner_choices_mods = [{"id": pid, "username": pid_to_username.get(pid, str(pid))} for pid in sorted(mods_list, key=lambda x: pid_to_username.get(x, str(x)))]
+        partner_choices_owners = [{"id": pid, "username": pid_to_username.get(pid, str(pid))} for pid in sorted(owners_list, key=lambda x: pid_to_username.get(x, str(x)))]
+
         extra_context.update({
             "start": start_d,
             "end": end_d,
@@ -494,6 +501,9 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
             "settlements_total": settlements_total,
             "settlements_adj_total": adj_settlement,
             "opening_available": opening_available,
+            "partner_choices_all": partner_choices_all,
+            "partner_choices_mods": partner_choices_mods,
+            "partner_choices_owners": partner_choices_owners,
         })
 
         # Last 5 withdrawals for footer
@@ -598,9 +608,17 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
                 'to': getattr(tr.to_partner.user, 'username', str(tr.to_partner_id)),
                 'amount': tr.amount,
             }
+        def tr_row_with_note(tr):
+            return {
+                'date': tr.date,
+                'from': getattr(tr.from_partner.user, 'username', str(tr.from_partner_id)),
+                'to': getattr(tr.to_partner.user, 'username', str(tr.to_partner_id)),
+                'amount': tr.amount,
+                'note': getattr(tr, 'note', '') or '',
+            }
         extra_context.update({
-            'last_mod_to_owner': [tr_row(t) for t in last_mod_qs],
-            'last_owner_to_owner': [tr_row(t) for t in last_owner_qs],
+            'last_mod_to_owner': [tr_row_with_note(t) for t in last_mod_qs],
+            'last_owner_to_owner': [tr_row_with_note(t) for t in last_owner_qs],
         })
         mt_out_by_mod_map = {row["from_partner_id"]: row["total"] or 0 for row in mt_out_by_mod}
         moderator_debts = []
