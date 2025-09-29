@@ -21,6 +21,8 @@ function openMt(prefill){
   const m=document.getElementById('mt-modal');
   if(prefill){
     if('from_id' in prefill) document.getElementById('mt-from').value=prefill.from_id;
+    const defAdmin=document.getElementById('default-admin-id');
+    if(!('to_id' in prefill) && defAdmin && defAdmin.value){ prefill.to_id = parseInt(defAdmin.value); }
     if('to_id' in prefill) document.getElementById('mt-to').value=prefill.to_id;
     if('amount' in prefill) document.getElementById('mt-amount').value=prefill.amount;
     if('purpose' in prefill) document.getElementById('mt-purpose').value=prefill.purpose;
@@ -110,6 +112,8 @@ async function submitAjax(ev, form){
 <div>
   <em>Последние переводы модераторов → владельцев:</em>
   <ul>
+  <input type="hidden" id="default-admin-id" value="{{ default_admin_partner_id|default:'' }}">
+
     {% for tr in last_mod_to_owner %}
       <li>{{ tr.date }}: {{ tr.from }} → {{ tr.to }}: {{ tr.amount }}{% if tr.note %} — {{ tr.note }}{% endif %}</li>
     {% empty %}
@@ -137,19 +141,20 @@ async function submitAjax(ev, form){
   </tfoot>
 </table>
 
-<h3>Вложено</h3>
+<h3>Вложено в бизнес</h3>
 <table class="admin-table">
-  <thead><tr><th>Владелец</th><th>а) Вложено фактически</th><th>б) Доля по ровну</th><th>в) а−б</th></tr></thead>
+  <thead><tr><th>Владелец</th><th>Закупки</th><th>Взносы</th><th>Доля поровну</th><th>Баланс вложений</th></tr></thead>
   <tbody>
   {% for row in invested_ab_rows %}
     <tr>
       <td>{{ row.username }}</td>
-      <td>{{ row.a }}</td>
+      <td>{{ row.purchases }}</td>
+      <td>{{ row.contribs }}</td>
       <td>{{ row.b }}</td>
-      <td><span style="color:{% if row.diff > 0 %}green{% else %}red{% endif %}">{{ row.diff }}</span></td>
+      <td><span style="color:{% if row.balance > 0 %}green{% else %}red{% endif %}">{{ row.balance }}</span></td>
     </tr>
   {% empty %}
-    <tr><td colspan="4">Нет данных</td></tr>
+    <tr><td colspan="5">Нет данных</td></tr>
   {% endfor %}
   </tbody>
 </table>
@@ -273,6 +278,9 @@ async function submitAjax(ev, form){
       <div class="row">
         <label>Кому (модератор/админ)</label>
         <select name="to_partner" id="mt-to">
+          {% for p in partner_choices_admins %}
+            <option value="{{ p.id }}">{{ p.username }} (админ)</option>
+          {% endfor %}
           {% for p in partner_choices_mods %}
             <option value="{{ p.id }}">{{ p.username }}</option>
           {% endfor %}

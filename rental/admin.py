@@ -483,6 +483,12 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
         partner_choices_all = [{"id": pid, "username": pid_to_username.get(pid, str(pid))} for pid in sorted(partner_roles.keys(), key=lambda x: pid_to_username.get(x, str(x)))]
         partner_choices_mods = [{"id": pid, "username": pid_to_username.get(pid, str(pid))} for pid in sorted(mods_list, key=lambda x: pid_to_username.get(x, str(x)))]
         partner_choices_owners = [{"id": pid, "username": pid_to_username.get(pid, str(pid))} for pid in sorted(owners_list, key=lambda x: pid_to_username.get(x, str(x)))]
+        # Admin partners (users in Django group 'Admin' that have FinancePartner)
+        from django.contrib.auth import get_user_model as _gum
+        admin_user_ids = set(_gum().objects.filter(groups__name='Admin').values_list('id', flat=True))
+        admin_partner_ids = [pid for uid, pid in user_to_partner.items() if uid in admin_user_ids]
+        partner_choices_admins = [{"id": pid, "username": pid_to_username.get(pid, str(pid))} for pid in sorted(admin_partner_ids, key=lambda x: pid_to_username.get(x, str(x)))]
+        default_admin_partner_id = partner_choices_admins[0]["id"] if partner_choices_admins else None
 
         extra_context.update({
             "start": start_d,
@@ -504,6 +510,8 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
             "partner_choices_all": partner_choices_all,
             "partner_choices_mods": partner_choices_mods,
             "partner_choices_owners": partner_choices_owners,
+            "partner_choices_admins": partner_choices_admins,
+            "default_admin_partner_id": default_admin_partner_id,
         })
 
         # Last 5 withdrawals for footer
@@ -708,29 +716,40 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
             {"from": pid_to_username.get(r["from"], str(r["from"])), "to": pid_to_username.get(r["to"], str(r["to"])), "total": r["total"]}
             for r in settlements_suggest
         ]
-        # Lifetime Invested (A/B/(A-B)) per new rules
+        # Lifetime Invested (Purchases 50% + Contributions - Equal share)
         owners = [pid for pid, role in partner_roles.items() if role == FinancePartner.Role.OWNER]
-        # A: sum of all expenses (both purchase and deposit) by owner
-        exp_all_qs = (
+        # Purchases by owner (only purchase type)
+        purch_qs = (
             Expense.objects
-            .filter(paid_by_partner_id__in=owners)
+            .filter(paid_by_partner_id__in=owners, payment_type=Expense.PaymentType.PURCHASE)
             .values('paid_by_partner_id')
             .annotate(total=Sum('amount'))
         )
-        A_by_owner = {row['paid_by_partner_id']: row['total'] or 0 for row in exp_all_qs}
-        # B: equal share of purchases only
+        purch_by_owner = {row['paid_by_partner_id']: row['total'] or 0 for row in purch_qs}
+        # Contributions by owner (all sources)
+        contr_qs_all = (
+            OwnerContribution.objects
+            .filter(partner_id__in=owners)
+            .values('partner_id')
+            .annotate(total=Sum('amount'))
+        )
+        contr_by_owner = {row['partner_id']: row['total'] or 0 for row in contr_qs_all}
+        # Equal share of total purchases among owners
         total_purchases = Expense.objects.filter(paid_by_partner_id__in=owners, payment_type=Expense.PaymentType.PURCHASE).aggregate(s=Sum('amount'))['s'] or 0
         n = len(owners) or 1
         B_each = (Decimal(total_purchases) / Decimal(n)) if n else Decimal(0)
         invested_ab_rows = []
         for pid in owners:
-            a = Decimal(A_by_owner.get(pid, 0))
+            purchases_half = Decimal(purch_by_owner.get(pid, 0)) / Decimal(2)
+            contribs = Decimal(contr_by_owner.get(pid, 0))
             b = B_each
+            balance = purchases_half + contribs - b
             invested_ab_rows.append({
                 'username': pid_to_username.get(pid, str(pid)),
-                'a': a,
+                'purchases': purchases_half,
+                'contribs': contribs,
                 'b': b,
-                'diff': a - b,
+                'balance': balance,
             })
         # Last 5 invested operations: all expenses by owners (both types), newest first
         exp_ops = list(
