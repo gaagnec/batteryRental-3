@@ -1751,11 +1751,12 @@ class PaymentAdmin(SimpleHistoryAdmin):
             return '-'
         url = reverse('admin:rental_rental_change', args=[obj.rental.id])
         client_name = obj.rental.client.name if obj.rental.client else 'N/A'
+        contract = obj.rental.contract_code or f'#{obj.rental.id}'
         return format_html(
-            '<a href="{}" title="{}">{}</a>',
+            '<a href="{}">{}<br><small class="text-muted">{}</small></a>',
             url,
             client_name,
-            obj.rental.contract_code or f'#{obj.rental.id}'
+            contract
         )
     
     @admin.display(ordering='amount', description='Сумма')

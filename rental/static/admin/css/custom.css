@@ -52,12 +52,11 @@
 
 /* Hover эффект для строк */
 #result_list tbody tr {
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease;
 }
 
 #result_list tbody tr:hover {
-  transform: scale(1.005);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  filter: brightness(0.95);
 }
 
 /* Иконки методов оплаты */
@@ -108,7 +107,7 @@
 .balance-indicator {
   padding: 1.25rem;
   border-radius: 10px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #495057;
   color: white;
   text-align: center;
 }
