@@ -27,6 +27,10 @@ class Client(TimeStampedModel):
     note = models.TextField(blank=True)
     history = HistoricalRecords()
 
+    class Meta:
+        verbose_name = "Клиент"
+        verbose_name_plural = "Клиенты"
+
     def __str__(self):
         return self.name
 
@@ -44,6 +48,10 @@ class Battery(TimeStampedModel):
     status = models.CharField(max_length=16, choices=Status.choices, blank=True, null=True)
     note = models.TextField(blank=True)
     history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "Батарея"
+        verbose_name_plural = "Батареи"
 
     def __str__(self):
         return f"{self.short_code}"
@@ -77,6 +85,8 @@ class Rental(TimeStampedModel):
     history = HistoricalRecords()
 
     class Meta:
+        verbose_name = "Аренда"
+        verbose_name_plural = "Аренды"
         constraints = [
             models.UniqueConstraint(fields=["root", "version"], name="uq_rental_root_version"),
         ]
@@ -206,6 +216,8 @@ class RentalBatteryAssignment(TimeStampedModel):
     history = HistoricalRecords()
 
     class Meta:
+        verbose_name = "Привязка батареи"
+        verbose_name_plural = "Привязки батарей"
         ordering = ["start_at", "id"]
         indexes = [
             models.Index(fields=["battery", "start_at"], name="idx_assign_batt_start"),
@@ -221,6 +233,8 @@ class Payment(TimeStampedModel):
         ADJUSTMENT = "adjustment", "Корректировка"
 
     class Meta:
+        verbose_name = "Платеж"
+        verbose_name_plural = "Платежи"
         indexes = [
             models.Index(fields=["type", "date"], name="idx_pay_type_date"),
             models.Index(fields=["created_by", "date"], name="idx_pay_user_date"),
@@ -261,6 +275,10 @@ class ExpenseCategory(TimeStampedModel):
     name = models.CharField(max_length=64, unique=True)
     history = HistoricalRecords()
 
+    class Meta:
+        verbose_name = "Категория расходов"
+        verbose_name_plural = "Категории расходов"
+
     def __str__(self):
         return self.name
 
@@ -296,6 +314,10 @@ class Repair(TimeStampedModel):
     cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     history = HistoricalRecords()
 
+    class Meta:
+        verbose_name = "Ремонт"
+        verbose_name_plural = "Ремонты"
+
 
 class BatteryStatusLog(TimeStampedModel):
     class Kind(models.TextChoices):
@@ -310,6 +332,10 @@ class BatteryStatusLog(TimeStampedModel):
     rental = models.ForeignKey(Rental, null=True, blank=True, on_delete=models.SET_NULL)
     repair = models.ForeignKey(Repair, null=True, blank=True, on_delete=models.SET_NULL)
     history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "Лог статуса батареи"
+        verbose_name_plural = "Логи статусов батарей"
 
 
 # =========================
@@ -328,6 +354,10 @@ class FinancePartner(TimeStampedModel):
     note = models.TextField(blank=True)
     history = HistoricalRecords()
 
+    class Meta:
+        verbose_name = "Финансовый партнёр"
+        verbose_name_plural = "Финансовые партнёры"
+
     def __str__(self):
         return f"{self.user} ({self.get_role_display()})"
 
@@ -344,6 +374,10 @@ class OwnerContribution(TimeStampedModel):
     expense = models.ForeignKey("Expense", null=True, blank=True, on_delete=models.SET_NULL, related_name="as_contribution")
     note = models.TextField(blank=True)
     history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "Взнос владельца"
+        verbose_name_plural = "Взносы владельцев"
 
     def clean(self):
         if self.partner and self.partner.role != FinancePartner.Role.OWNER:
@@ -365,6 +399,10 @@ class OwnerWithdrawal(TimeStampedModel):
     )
     history = HistoricalRecords()
 
+    class Meta:
+        verbose_name = "Вывод владельца"
+        verbose_name_plural = "Выводы владельцев"
+
     def clean(self):
         if self.partner and self.partner.role != FinancePartner.Role.OWNER:
             raise ValidationError("Withdrawal partner must be an owner")
@@ -380,6 +418,8 @@ class MoneyTransfer(TimeStampedModel):
         OTHER = "other", "Другое"
 
     class Meta:
+        verbose_name = "Денежный перевод"
+        verbose_name_plural = "Денежные переводы"
         indexes = [
             models.Index(fields=["date"], name="idx_mt_date"),
             models.Index(fields=["purpose", "use_collected"], name="idx_mt_purpose_usecol"),
@@ -418,6 +458,10 @@ class FinanceAdjustment(TimeStampedModel):
     date = models.DateField(default=timezone.localdate)
     note = models.TextField(blank=True)
     history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "Финансовая корректировка"
+        verbose_name_plural = "Финансовые корректировки"
 
     def __str__(self):
         return f"{self.get_target_display()}: {self.amount}"

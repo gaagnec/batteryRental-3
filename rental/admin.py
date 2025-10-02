@@ -34,6 +34,10 @@ class FinancePartnerAdmin(SimpleHistoryAdmin):
     list_display = ("id", "user", "role", "share_percent", "active")
     list_filter = ("role", "active")
     search_fields = ("user__username", "user__first_name", "user__last_name")
+    
+    def has_module_permission(self, request):
+        # Только суперпользователи видят финансовых партнёров
+        return request.user.is_superuser
 
 
 # @admin.register(OwnerContribution)
@@ -63,6 +67,10 @@ class OwnerWithdrawalAdmin(SimpleHistoryAdmin):
     list_filter = ("date",)
     autocomplete_fields = ("partner",)
     search_fields = ("note", "partner__user__username")
+    
+    def has_module_permission(self, request):
+        # Только суперпользователи видят выводы владельцев
+        return request.user.is_superuser
 
 
 @admin.register(MoneyTransfer)
@@ -71,6 +79,10 @@ class MoneyTransferAdmin(SimpleHistoryAdmin):
     list_filter = ("purpose", "use_collected", "date")
     autocomplete_fields = ("from_partner", "to_partner")
     search_fields = ("note", "from_partner__user__username", "to_partner__user__username")
+    
+    def has_module_permission(self, request):
+        # Только суперпользователи видят денежные переводы
+        return request.user.is_superuser
 
     def get_changeform_initial_data(self, request):
         data = super().get_changeform_initial_data(request)
@@ -97,6 +109,10 @@ class MoneyTransferAdmin(SimpleHistoryAdmin):
 @admin.register(FinanceAdjustment)
 class FinanceAdjustmentAdmin(SimpleHistoryAdmin):
     list_display = ("id", "target", "amount", "date")
+    
+    def has_module_permission(self, request):
+        # Только суперпользователи видят финансовые корректировки
+        return request.user.is_superuser
     list_filter = ("target", "date")
     search_fields = ("note",)
 
@@ -1681,6 +1697,10 @@ class PaymentAdmin(SimpleHistoryAdmin):
 @admin.register(ExpenseCategory)
 class ExpenseCategoryAdmin(SimpleHistoryAdmin):
     list_display = ("id", "name")
+    
+    def has_module_permission(self, request):
+        # Только суперпользователи видят категории расходов
+        return request.user.is_superuser
 
 
 @admin.register(Expense)
@@ -1689,13 +1709,25 @@ class ExpenseAdmin(SimpleHistoryAdmin):
     list_filter = ("category", "payment_type")
     search_fields = ("note", "description")
     autocomplete_fields = ("paid_by_partner",)
+    
+    def has_module_permission(self, request):
+        # Только суперпользователи видят расходы
+        return request.user.is_superuser
 
 
 @admin.register(Repair)
 class RepairAdmin(SimpleHistoryAdmin):
     list_display = ("id", "battery", "start_at", "end_at", "cost")
+    
+    def has_module_permission(self, request):
+        # Только суперпользователи видят ремонты
+        return request.user.is_superuser
 
 
 @admin.register(BatteryStatusLog)
 class BatteryStatusLogAdmin(SimpleHistoryAdmin):
     list_display = ("id", "battery", "kind", "start_at", "end_at")
+    
+    def has_module_permission(self, request):
+        # Только суперпользователи видят логи статусов батарей
+        return request.user.is_superuser
