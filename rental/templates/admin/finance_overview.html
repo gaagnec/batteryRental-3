@@ -1,0 +1,399 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block extrastyle %}
+<style>
+.modal { display:none; position:fixed; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,.4); align-items:center; justify-content:center; }
+.modal.open { display:flex; }
+.modal .box { background:white; padding:16px; width:520px; max-width:95%; border-radius:6px; }
+.modal .row { margin-bottom:8px; }
+.modal label { display:block; font-weight:600; margin-bottom:4px; }
+.modal input, .modal select, .modal textarea { width:100%; }
+.button { padding:6px 10px; border-radius:4px; background:#2b6cb0; color:#fff; text-decoration:none; }
+.button.secondary { background:#4a5568; }
+.help { color:#666; font-size:12px; }
+</style>
+{% endblock %}
+
+{% block extrahead %}
+<script>
+function openMt(prefill){
+  const m=document.getElementById('mt-modal');
+  if(prefill){
+    if('from_id' in prefill) document.getElementById('mt-from').value=prefill.from_id;
+    const defAdmin=document.getElementById('default-admin-id');
+    if(!('to_id' in prefill) && defAdmin && defAdmin.value){ prefill.to_id = parseInt(defAdmin.value); }
+    if('to_id' in prefill) document.getElementById('mt-to').value=prefill.to_id;
+    if('amount' in prefill) document.getElementById('mt-amount').value=prefill.amount;
+    if('purpose' in prefill) document.getElementById('mt-purpose').value=prefill.purpose;
+    if('use_collected' in prefill) document.getElementById('mt-use').checked=!!prefill.use_collected;
+    const hint=document.getElementById('mt-hint');
+    if(prefill.hint){ hint.innerText=prefill.hint; } else { hint.innerText='Подсказка: сумму можно скорректировать вручную.' }
+  }
+  m.classList.add('open');
+  const btn=document.getElementById('mt-submit'); if(btn){ btn.disabled=false; btn.textContent='Сохранить'; }
+}
+function closeMt(){ document.getElementById('mt-modal').classList.remove('open'); }
+function openWd(prefill){
+  const m=document.getElementById('wd-modal');
+  if(prefill){
+    if('partner' in prefill) document.getElementById('wd-partner').value=prefill.partner;
+    if('amount' in prefill) document.getElementById('wd-amount').value=prefill.amount;
+    const hint=document.getElementById('wd-hint');
+    if(prefill.hint){ hint.innerText=prefill.hint; } else { hint.innerText='Подсказка: сумму можно скорректировать вручную.' }
+  }
+  m.classList.add('open');
+  const btn=document.getElementById('wd-submit'); if(btn){ btn.disabled=false; btn.textContent='Сохранить'; }
+}
+function closeWd(){ document.getElementById('wd-modal').classList.remove('open'); }
+async function submitAjax(ev, form){
+  ev.preventDefault();
+  const data = new FormData(form);
+  const submitBtn = form.querySelector('button[type="submit"]');
+  if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = 'Сохранение...'; }
+  const resp = await fetch(form.action, {
+    method: 'POST',
+    headers: {'X-Requested-With': 'XMLHttpRequest'},
+    body: data
+  });
+  let ok = false;
+  try {
+    const json = await resp.json();
+    ok = json && json.ok;
+    if(!ok){ alert(json && json.error ? json.error : 'Ошибка'); }
+  } catch(e) {
+    ok = false;
+  }
+  if(ok){
+    window.location.reload();
+  } else if(submitBtn){
+    submitBtn.disabled = false; submitBtn.textContent = 'Сохранить';
+  }
+  return false;
+}
+</script>
+{% endblock %}
+
+{% block content %}
+{% load static %}
+
+<h1>Финансы — Обзор</h1>
+<form method="get" class="form-inline" style="margin-bottom:12px">
+  <label>Период:&nbsp;</label>
+  <select name="preset">
+    <option value="month" {% if request.GET.preset|default:'month' == 'month' %}selected{% endif %}>Текущий месяц</option>
+    <option value="prev" {% if request.GET.preset == 'prev' %}selected{% endif %}>Прошлый месяц</option>
+    <option value="ytd" {% if request.GET.preset == 'ytd' %}selected{% endif %}>С начала года</option>
+    <option value="custom" {% if request.GET.preset == 'custom' %}selected{% endif %}>Произвольный</option>
+  </select>
+  <input type="date" name="start" value="{{ start|date:'Y-m-d' }}">
+  <input type="date" name="end" value="{{ end|date:'Y-m-d' }}">
+  <button type="submit" class="button">Показать</button>
+</form>
+
+
+<h3>Долг модераторов администраторам (за период)</h3>
+<table class="admin-table">
+  <thead><tr><th>Модератор</th><th>Должен перечислить</th><th></th></tr></thead>
+  <tbody>
+  {% for row in moderator_debts %}
+    <tr>
+      <td>{{ row.username }}</td>
+      <td>{{ row.amount }}</td>
+      <td>
+        <a class="button" href="#" onclick='openMt({from_id:{{ row.partner_id }}, purpose:"moderator_to_owner", use_collected:true, amount:"{{ row.amount }}", hint:"Перевод модератора администратору. Рекомендуется перечислить эту сумму."});return false;'>Создать перевод</a>
+      </td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="3">Нет долгов</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<div>
+  <em>Последние переводы модераторов → владельцев:</em>
+  <ul>
+  <input type="hidden" id="default-admin-id" value="{{ default_admin_partner_id|default:'' }}">
+
+    {% for tr in last_mod_to_owner %}
+      <li>{{ tr.date }}: {{ tr.from }} → {{ tr.to }}: {{ tr.amount }}{% if tr.note %} — {{ tr.note }}{% endif %}</li>
+    {% empty %}
+      <li>Нет</li>
+    {% endfor %}
+  </ul>
+</div>
+
+<h3>Собранные</h3>
+<table class="admin-table">
+  <thead><tr><th>Партнёр</th><th>Остаток на начало</th><th>Дельта за период</th><th>Остаток на конец</th></tr></thead>
+  <tbody>
+  {% for row in collected_rows %}
+    <tr><td>{{ row.username }}</td><td>{{ row.open }}</td><td>{{ row.delta }}</td><td>{{ row.close }}</td></tr>
+  {% empty %}
+    <tr><td colspan="4">Нет данных</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr><th>Итого</th>
+      <th>{{ collected_open_total }}</th>
+      <th>{{ collected_delta_total }}</th>
+      <th>{{ collected_total }}</th>
+    </tr>
+  </tfoot>
+</table>
+
+<h3>Вложено в бизнес</h3>
+<table class="admin-table">
+  <thead><tr><th>Владелец</th><th>Закупки</th><th>Взносы</th><th>Доля поровну</th><th>Баланс вложений</th></tr></thead>
+  <tbody>
+  {% for row in invested_ab_rows %}
+    <tr>
+      <td>{{ row.username }}</td>
+      <td>{{ row.purchases }}</td>
+      <td>{{ row.contribs }}</td>
+      <td>{{ row.b }}</td>
+      <td><span style="color:{% if row.balance > 0 %}green{% else %}red{% endif %}">{{ row.balance }}</span></td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="5">Нет данных</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<div>
+  <em>Последние операции (вложено):</em>
+  <ul>
+    {% for op in last_invest_ops %}
+      <li>{{ op.date }}: {{ op.text }}</li>
+    {% empty %}
+      <li>Нет</li>
+    {% endfor %}
+  </ul>
+</div>
+
+<h3>Взаиморасчёты владельцев</h3>
+<table class="admin-table">
+  <thead><tr><th>От</th><th>Кому</th><th>Сумма</th></tr></thead>
+  <tbody>
+  {% for row in settlements_rows %}
+    <tr><td>{{ row.from }}</td><td>{{ row.to }}</td><td>{{ row.total }}</td></tr>
+  {% empty %}
+    <tr><td colspan="3">Нет данных</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr><th>Итого</th><th></th><th>{{ settlements_total }}</th></tr>
+  </tfoot>
+</table>
+<p><em>Корректировки взаиморасчётов:</em> {{ settlements_adj_total }}</p>
+
+<h3>Долг модераторов администраторам (за период)</h3>
+<table class="admin-table">
+  <thead><tr><th>Модератор</th><th>Должен перечислить</th><th></th></tr></thead>
+  <tbody>
+  {% for row in moderator_debts %}
+    <tr>
+      <td>{{ row.username }}</td>
+      <td>{{ row.amount }}</td>
+      <td>
+        <a class="button" href="#" onclick='openMt({from_id:{{ row.partner_id }}, purpose:"moderator_to_owner", use_collected:true, amount:"{{ row.amount }}", hint:"Перевод модератора администратору. Рекомендуется перечислить эту сумму."});return false;'>Создать перевод</a>
+      </td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="3">Нет долгов</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<div>
+  <em>Последние переводы модераторов → владельцев:</em>
+  <ul>
+    {% for tr in last_mod_to_owner %}
+      <li>{{ tr.date }}: {{ tr.from }} → {{ tr.to }}: {{ tr.amount }}{% if tr.note %} — {{ tr.note }}{% endif %}</li>
+    {% empty %}
+      <li>Нет</li>
+    {% endfor %}
+  </ul>
+</div>
+
+<h3>Ребаланс собранных (за период)</h3>
+<p><em>Сначала закройте долги модераторов, затем примените ребаланс.</em></p>
+{% if collected_settlements_highlight %}
+<p><strong>Рекомендация (2 владельца):</strong> {{ collected_settlements_highlight.from }} → {{ collected_settlements_highlight.to }}: {{ collected_settlements_highlight.total }}</p>
+{% endif %}
+<table class="admin-table">
+  <thead><tr><th>От</th><th>Кому</th><th>Сумма</th><th></th></tr></thead>
+  <tbody>
+  {% for row in collected_settlements %}
+    <tr>
+      <td>{{ row.from }}</td>
+      <td>{{ row.to }}</td>
+      <td>{{ row.total }}</td>
+      <td>
+        <a class="button" href="#" onclick='openMt({from_id:{{ row.from_id }}, to_id:{{ row.to_id }}, amount:"{{ row.total }}", purpose:"owner_to_owner", use_collected:false, hint:"Ребаланс по собранным: доводим доли до 50/50 за период."});return false;'>Создать перевод</a>
+      </td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="4">Нет рекомендаций</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<div>
+  <em>Последние owner_to_owner переводы:</em>
+  <ul>
+    {% for tr in last_owner_to_owner %}
+      <li>{{ tr.date }}: {{ tr.from }} → {{ tr.to }}: {{ tr.amount }}{% if tr.note %} — {{ tr.note }}{% endif %}</li>
+    {% empty %}
+      <li>Нет</li>
+    {% endfor %}
+  </ul>
+</div>
+      <div class="row">
+        <label>Кто вносит (владелец)</label>
+        <select id="wd-owner-name">
+          {% for row in profit_rows %}
+            <option value="{{ row.username }}">{{ row.username }}</option>
+          {% endfor %}
+        </select>
+        <div class="help">Если включен чекбокс ниже, выберите владельца, от имени которого засчитать вклад.</div>
+      </div>
+      <div class="row">
+        <label><input type="checkbox" id="wd-reclass" name="reclass_to_invest"> Переместить в вложено</label>
+      </div>
+
+
+<!-- Modals -->
+<div id="mt-modal" class="modal">
+  <div class="box">
+    <h3>Создать перевод</h3>
+    <form method="post" action="{% url 'admin:finance_create_transfer' %}" onsubmit="return submitAjax(event, this);">
+      {% csrf_token %}
+      <input type="hidden" name="return_url" value="{{ request.get_full_path }}">
+      <div class="row">
+        <label>От (модератор/владелец)</label>
+        <select name="from_partner" id="mt-from">
+          {% for p in partner_choices_mods %}
+            <option value="{{ p.id }}">{{ p.username }}</option>
+          {% endfor %}
+          {% for p in partner_choices_owners %}
+            <option value="{{ p.id }}">{{ p.username }}</option>
+          {% endfor %}
+        </select>
+        <div class="help">Отправитель перевода. Для модератора → админу отметьте “Списывать из собранных”.</div>
+      </div>
+      <div class="row">
+        <label>Кому (модератор/админ)</label>
+        <select name="to_partner" id="mt-to">
+          {% for p in partner_choices_admins %}
+            <option value="{{ p.id }}">{{ p.username }} (админ)</option>
+          {% endfor %}
+          {% for p in partner_choices_mods %}
+            <option value="{{ p.id }}">{{ p.username }}</option>
+          {% endfor %}
+        </select>
+        <div class="help">Получатель перевода.</div>
+      </div>
+      <div class="row">
+        <label>Сумма</label>
+        <input type="number" step="0.01" name="amount" id="mt-amount">
+        <div class="help" id="mt-hint"></div>
+      </div>
+      <div class="row">
+        <label>Назначение</label>
+        <select name="purpose" id="mt-purpose">
+          <option value="moderator_to_owner">От модератора владельцу</option>
+          <option value="owner_to_owner">Между владельцами</option>
+          <option value="other">Другое</option>
+        </select>
+      </div>
+      <div class="row">
+        <label><input type="checkbox" name="use_collected" id="mt-use"> Списывать из собранных</label>
+      </div>
+      <div class="row">
+        <label>Дата</label>
+        <input type="date" name="date" value="{{ end|date:'Y-m-d' }}">
+      </div>
+      <div class="row">
+        <label>Комментарий</label>
+        <textarea name="note" rows="2"></textarea>
+      </div>
+      <div class="row">
+        <button type="submit" class="button" id="mt-submit">Сохранить</button>
+        <a href="#" class="button secondary" onclick="closeMt();return false;">Отмена</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="wd-modal" class="modal">
+  <div class="box">
+    <h3>Создать выплату владельцу</h3>
+    <form method="post" action="{% url 'admin:finance_create_withdrawal' %}" onsubmit="return submitAjax(event, this);">
+      {% csrf_token %}
+      <input type="hidden" name="return_url" value="{{ request.get_full_path }}">
+      <div class="row">
+        <label>Владелец (partner id)</label>
+        <input type="number" name="partner" id="wd-partner">
+        <div class="help">Подсказка: выплаты доступны только владельцам.</div>
+      </div>
+      <div class="row">
+        <label>Сумма</label>
+        <input type="number" step="0.01" name="amount" id="wd-amount">
+        <div class="help" id="wd-hint"></div>
+      </div>
+      <div class="row">
+        <label>Дата</label>
+        <input type="date" name="date" value="{{ end|date:'Y-m-d' }}">
+      </div>
+      <div class="row">
+        <label>Комментарий</label>
+        <textarea name="note" rows="2"></textarea>
+      </div>
+      <div class="row">
+        <button type="submit" class="button" id="wd-submit">Сохранить</button>
+        <a href="#" class="button secondary" onclick="closeWd();return false;">Отмена</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<h3>Распределение прибыли <a href="#" class="button" onclick='openWd({hint:"Введите сумму выплаты владельцу (PLN)"});return false;'>Выплата владельцу</a></h3>
+<p>Доход: {{ profit_income }} | Расходы компании: {{ profit_expenses }} | Прибыль (P): {{ profit_total }}</p>
+<table class="admin-table">
+  <thead><tr><th>Владелец</th><th>Доля, %</th><th>Полагается (из прибыли)</th><th>Выдано</th><th>Следовало выдать из выданного</th><th>Долг компании</th></tr></thead>
+  <tbody>
+  {% for row in profit_rows %}
+    <tr>
+      <td>{{ row.username }}</td>
+      <td>{{ row.share }}</td>
+      <td>{{ row.due }}</td>
+      <td>{{ row.withdrawn }}</td>
+      <td>{{ row.withdrawn_should }}</td>
+      <td>{{ row.company_owes }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="6">Нет данных</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<h4>Рекомендуемые взаиморасчёты между владельцами (за уже выданное)</h4>
+<table class="admin-table">
+  <thead><tr><th>От</th><th>Кому</th><th>Сумма</th></tr></thead>
+  <tbody>
+  {% for row in profit_settlements_suggest %}
+    <tr><td>{{ row.from }}</td><td>{{ row.to }}</td><td>{{ row.total }}</td></tr>
+  {% empty %}
+    <tr><td colspan="3">Нет</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p><em>Невыданная часть прибыли (долг компании владельцам):</em> {{ profit_company_owes_total }}</p>
+<div>
+  <em>Последние выплаты владельцам:</em>
+  <ul>
+    {% for w in last_withdrawals %}
+      <li>{{ w.date }}: {{ w.partner }} — {{ w.amount }}</li>
+    {% empty %}
+      <li>Нет</li>
+    {% endfor %}
+  </ul>
+</div>
+
+{% endblock %}

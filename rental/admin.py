@@ -1,4 +1,10 @@
 from django import forms
+from django.contrib.admin.views.decorators import staff_member_required
+from django.urls import reverse
+from django.http import HttpResponseRedirect, JsonResponse, HttpResponseForbidden
+
+from django.db.models import Sum, Q, F
+
 from django.contrib import admin, messages
 from django.contrib.admin.helpers import ActionForm
 from django.core.exceptions import ValidationError
@@ -10,6 +16,7 @@ from django.forms import inlineformset_factory, BaseInlineFormSet
 from decimal import Decimal
 from django.utils.safestring import mark_safe
 from datetime import datetime, time, timedelta
+from admin_auto_filters.filters import AutocompleteFilter
 
 # Register custom template filters
 import rental.templatetags.custom_filters
@@ -17,9 +24,785 @@ import rental.templatetags.custom_filters
 from simple_history.admin import SimpleHistoryAdmin
 from .models import (
     Client, Battery, Rental, RentalBatteryAssignment,
-    Payment, ExpenseCategory, Expense, Repair, BatteryStatusLog
+    Payment, ExpenseCategory, Expense, Repair, BatteryStatusLog,
+    FinancePartner, OwnerContribution, OwnerWithdrawal, MoneyTransfer, FinanceAdjustment
 )
 
+
+@admin.register(FinancePartner)
+class FinancePartnerAdmin(SimpleHistoryAdmin):
+    list_display = ("id", "user", "role", "share_percent", "active")
+    list_filter = ("role", "active")
+    search_fields = ("user__username", "user__first_name", "user__last_name")
+
+
+# @admin.register(OwnerContribution)
+class OwnerContributionAdmin(SimpleHistoryAdmin):
+    list_display = ("id", "partner", "amount", "date", "source")
+    list_filter = ("source", "date")
+    autocomplete_fields = ("partner", "expense")
+    search_fields = ("note", "partner__user__username")
+    def has_module_permission(self, request):
+        return False
+    def has_view_permission(self, request, obj=None):
+        return False
+    def has_change_permission(self, request, obj=None):
+        return False
+    def has_add_permission(self, request):
+        return False
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(OwnerWithdrawal)
+class OwnerWithdrawalAdmin(SimpleHistoryAdmin):
+    list_display = ("id", "partner", "amount", "date")
+    list_filter = ("date",)
+    autocomplete_fields = ("partner",)
+    search_fields = ("note", "partner__user__username")
+
+
+@admin.register(MoneyTransfer)
+class MoneyTransferAdmin(SimpleHistoryAdmin):
+    list_display = ("id", "from_partner", "to_partner", "amount", "date", "purpose", "use_collected")
+    list_filter = ("purpose", "use_collected", "date")
+    autocomplete_fields = ("from_partner", "to_partner")
+    search_fields = ("note", "from_partner__user__username", "to_partner__user__username")
+
+    def get_changeform_initial_data(self, request):
+        data = super().get_changeform_initial_data(request)
+        qp = request.GET
+        if "from_partner" in qp:
+            data["from_partner"] = qp.get("from_partner")
+        if "to_partner" in qp:
+            data["to_partner"] = qp.get("to_partner")
+        if "amount" in qp:
+            try:
+                data["amount"] = qp.get("amount")
+            except Exception:
+                pass
+        if "purpose" in qp:
+            data["purpose"] = qp.get("purpose")
+        if "use_collected" in qp:
+            val = qp.get("use_collected")
+            data["use_collected"] = val in ("1", "true", "True", "on")
+        if "date" in qp:
+            data["date"] = qp.get("date")
+        return data
+
+
+@admin.register(FinanceAdjustment)
+class FinanceAdjustmentAdmin(SimpleHistoryAdmin):
+    list_display = ("id", "target", "amount", "date")
+    list_filter = ("target", "date")
+    search_fields = ("note",)
+
+
+# Lightweight finance overview entry under Admin Index
+
+
+class FinanceTransferForm(forms.Form):
+    from_partner = forms.IntegerField()
+    to_partner = forms.IntegerField()
+    amount = forms.DecimalField(max_digits=12, decimal_places=2)
+    date = forms.DateField(required=False)
+    purpose = forms.ChoiceField(choices=MoneyTransfer.Purpose.choices)
+    use_collected = forms.BooleanField(required=False)
+    note = forms.CharField(required=False)
+
+class FinanceWithdrawalForm(forms.Form):
+    partner = forms.IntegerField()
+    amount = forms.DecimalField(max_digits=12, decimal_places=2)
+    date = forms.DateField(required=False)
+    note = forms.CharField(required=False)
+
+
+class FinanceOverviewAdmin(admin.ModelAdmin):
+    change_list_template = "admin/finance_overview.html"
+    CUTOFF_DATE = timezone.datetime(2025, 9, 1).date()
+
+    def _compute_period(self, request):
+        today = timezone.localdate()
+        preset = request.GET.get("preset") or "month"
+        start_param = request.GET.get("start")
+        end_param = request.GET.get("end")
+        if preset == "prev":
+            first_of_this = today.replace(day=1)
+            end = first_of_this - timezone.timedelta(days=1)
+            start = end.replace(day=1)
+        elif preset == "ytd":
+            start = today.replace(month=1, day=1)
+            end = today
+        elif preset == "custom":
+            from datetime import datetime as _dt
+            def parse_d(s):
+                try:
+                    return _dt.fromisoformat(s).date()
+                except Exception:
+                    return None
+            start = parse_d(start_param) or today.replace(day=1)
+            end = parse_d(end_param) or today
+        else:
+            start = today.replace(day=1)
+            end = today
+        if start < self.CUTOFF_DATE:
+            start = self.CUTOFF_DATE
+        return start, end
+
+    def has_module_permission(self, request):
+        # только владельцы видят раздел
+        return FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.OWNER, active=True).exists()
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path("create-transfer/", self.admin_site.admin_view(self.create_transfer_view), name="finance_create_transfer"),
+            path("create-withdrawal/", self.admin_site.admin_view(self.create_withdrawal_view), name="finance_create_withdrawal"),
+            path("reclassify-withdrawal/", self.admin_site.admin_view(self.reclassify_withdrawal_view), name="finance_reclassify_withdrawal"),
+        ]
+        return custom + urls
+
+    def _redirect_back(self, request):
+        ret = request.POST.get("return_url") or request.META.get("HTTP_REFERER")
+        if not ret:
+            return HttpResponseRedirect(reverse("admin:rental_financeoverviewproxy_changelist"))
+        return HttpResponseRedirect(ret)
+
+    def _ensure_owner(self, request):
+        if not FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.OWNER, active=True).exists():
+            return False
+        return True
+
+    def create_transfer_view(self, request):
+        if request.method != "POST":
+            return HttpResponseRedirect(reverse("admin:rental_financeoverviewproxy_changelist"))
+        is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+        if not self._ensure_owner(request):
+            if is_ajax:
+                return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+            return HttpResponseForbidden()
+        try:
+            from_id = int(request.POST.get("from_partner") or 0)
+            to_id = int(request.POST.get("to_partner") or 0)
+            amount = Decimal(request.POST.get("amount") or "0")
+            purpose = request.POST.get("purpose") or MoneyTransfer.Purpose.OTHER
+            use_collected = (request.POST.get("use_collected") in ("1", "true", "True", "on"))
+            date_str = request.POST.get("date")
+            date_val = timezone.localdate()
+            if date_str:
+                try:
+                    date_val = timezone.datetime.fromisoformat(date_str).date()
+                except Exception:
+                    pass
+            if from_id <= 0 or to_id <= 0 or amount <= 0:
+                raise ValidationError("Некорректные данные перевода")
+            MoneyTransfer.objects.create(
+                from_partner_id=from_id,
+                to_partner_id=to_id,
+                amount=amount,
+                date=date_val,
+                purpose=purpose,
+                use_collected=use_collected,
+            )
+            if is_ajax:
+                return JsonResponse({"ok": True})
+            messages.success(request, "Перевод создан")
+        except Exception as e:
+            if is_ajax:
+                return JsonResponse({"ok": False, "error": str(e)[:300]})
+            messages.error(request, f"Ошибка: {e}")
+        return self._redirect_back(request)
+
+    def reclassify_withdrawal_view(self, request):
+        if request.method != "POST":
+            return HttpResponseRedirect(reverse("admin:rental_financeoverviewproxy_changelist"))
+        is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+        if not self._ensure_owner(request):
+            if is_ajax:
+                return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+            return HttpResponseForbidden()
+        try:
+            wd_id = int(request.POST.get("withdrawal_id") or 0)
+            partner_id = int(request.POST.get("partner") or 0)
+            amount_override = request.POST.get("amount")
+            if wd_id <= 0 or partner_id <= 0:
+                raise ValidationError("Некорректные данные конвертации")
+            wd = OwnerWithdrawal.objects.select_for_update().get(pk=wd_id)
+            if wd.reclassified_to_investment:
+                raise ValidationError("Выплата уже конвертирована")
+            if amount_override:
+                try:
+                    amount = Decimal(amount_override)
+                except Exception:
+                    amount = wd.amount
+            else:
+                amount = wd.amount
+            # Create contribution and mark withdrawal
+            contr = OwnerContribution.objects.create(
+                partner_id=partner_id,
+                amount=amount,
+                date=wd.date,
+                source=OwnerContribution.Source.MANUAL,
+                note=f"Создано из выплаты #{wd.id}: {wd.note}"[:500]
+            )
+            wd.reclassified_to_investment = True
+            wd.reclassified_contribution = contr
+            wd.save(update_fields=["reclassified_to_investment", "reclassified_contribution", "updated_at", "updated_by"])
+            if is_ajax:
+                return JsonResponse({"ok": True})
+            messages.success(request, "Выплата перенесена в 'Вложено'")
+        except Exception as e:
+            if is_ajax:
+                return JsonResponse({"ok": False, "error": str(e)[:300]})
+            messages.error(request, f"Ошибка: {e}")
+        return self._redirect_back(request)
+
+    def create_withdrawal_view(self, request):
+        if request.method != "POST":
+            return HttpResponseRedirect(reverse("admin:rental_financeoverviewproxy_changelist"))
+        is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+        if not self._ensure_owner(request):
+            if is_ajax:
+                return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+            return HttpResponseForbidden()
+        try:
+            # Здесь просто создаём выплату; переквалификация выполняется отдельным эндпоинтом
+            partner_id = int(request.POST.get("partner") or 0)
+            amount = Decimal(request.POST.get("amount") or "0")
+            note = request.POST.get("note") or ""
+            date_str = request.POST.get("date")
+            date_val = timezone.localdate()
+            if date_str:
+                try:
+                    date_val = timezone.datetime.fromisoformat(date_str).date()
+                except Exception:
+                    pass
+            if partner_id <= 0 or amount <= 0:
+                raise ValidationError("Некорректные данные выплаты")
+            fp = FinancePartner.objects.get(pk=partner_id)
+            if fp.role != FinancePartner.Role.OWNER:
+                raise ValidationError("Выплаты доступны только владельцам")
+            OwnerWithdrawal.objects.create(partner_id=partner_id, amount=amount, date=date_val, note=note)
+            if is_ajax:
+                return JsonResponse({"ok": True})
+            messages.success(request, "Выплата создана")
+        except Exception as e:
+            if is_ajax:
+                return JsonResponse({"ok": False, "error": str(e)[:300]})
+            messages.error(request, f"Ошибка: {e}")
+        return self._redirect_back(request)
+
+        # только владельцы видят раздел
+        return FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.OWNER, active=True).exists()
+
+    def changelist_view(self, request, extra_context=None):
+        start_d, end_d = self._compute_period(request)
+        partners = FinancePartner.objects.filter(active=True).values("id", "user_id", "role", "share_percent")
+        user_to_partner = {p["user_id"]: p["id"] for p in partners}
+        partner_roles = {p["id"]: p["role"] for p in partners}
+        partner_shares = {p["id"]: (p["share_percent"] or 0) for p in partners}
+
+        # Income for period
+        income_qs = (
+            Payment.objects
+            .filter(date__gte=start_d, date__lte=end_d, type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD], created_by_id__in=list(user_to_partner.keys()))
+            .values("created_by_id")
+            .annotate(total=Sum("amount"))
+        )
+        income_by_user = {row["created_by_id"]: row["total"] or 0 for row in income_qs}
+        income_total = sum(income_by_user.values())
+
+        # Transfers affecting collected (period)
+        mt_in = (
+            MoneyTransfer.objects
+            .filter(date__gte=start_d, date__lte=end_d, use_collected=True)
+            .values("to_partner_id")
+            .annotate(total=Sum("amount"))
+        )
+        mt_out = (
+            MoneyTransfer.objects
+            .filter(date__gte=start_d, date__lte=end_d, use_collected=True)
+            .values("from_partner_id")
+            .annotate(total=Sum("amount"))
+        )
+        incoming_by_partner = {row["to_partner_id"]: row["total"] or 0 for row in mt_in}
+        outgoing_by_partner = {row["from_partner_id"]: row["total"] or 0 for row in mt_out}
+
+        # Period delta for collected
+        collected_delta_by_partner = {}
+        for user_id, partner_id in user_to_partner.items():
+            inc = income_by_user.get(user_id, 0)
+            inc_in = incoming_by_partner.get(partner_id, 0)
+            out = outgoing_by_partner.get(partner_id, 0)
+            collected_delta_by_partner[partner_id] = inc + inc_in - out
+        collected_delta_total = sum(collected_delta_by_partner.values())
+
+        # Contributions/withdrawals for period (invested delta)
+        contr_qs = (
+            OwnerContribution.objects
+            .filter(date__gte=start_d, date__lte=end_d)
+            .values("partner_id")
+            .annotate(total=Sum("amount"))
+        )
+        withdr_qs = (
+            OwnerWithdrawal.objects
+            .filter(date__gte=start_d, date__lte=end_d)
+            .values("partner_id")
+            .annotate(total=Sum("amount"))
+        )
+        contr_by_partner = {row["partner_id"]: row["total"] or 0 for row in contr_qs}
+        withdr_by_partner = {row["partner_id"]: row["total"] or 0 for row in withdr_qs}
+
+        from .models import FinanceAdjustment as FA
+        adj_rows = (
+            FA.objects
+            .filter(date__gte=start_d, date__lte=end_d)
+            .values("target")
+            .annotate(total=Sum("amount"))
+        )
+        adj_map = {row["target"]: row["total"] or 0 for row in adj_rows}
+        adj_invested = adj_map.get(FA.Target.INVESTED, 0)
+        adj_collected = adj_map.get(FA.Target.COLLECTED, 0)
+        adj_settlement = adj_map.get(FA.Target.OWNER_SETTLEMENT, 0)
+
+        invested_delta_by_owner = {}
+        for pid, role in partner_roles.items():
+            if role != FinancePartner.Role.OWNER:
+                continue
+            invested_delta_by_owner[pid] = (contr_by_partner.get(pid, 0) - withdr_by_partner.get(pid, 0))
+        invested_delta_total = sum(invested_delta_by_owner.values()) + adj_invested
+
+        # Opening balances (up to day before start)
+        from datetime import timedelta
+        opening_available = start_d > self.CUTOFF_DATE
+        collected_open_by_partner = {}
+        invested_open_by_owner = {}
+        if opening_available:
+            open_end = start_d - timedelta(days=1)
+            inc_open_qs = (
+                Payment.objects
+                .filter(date__gte=self.CUTOFF_DATE, date__lte=open_end, type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD], created_by_id__in=list(user_to_partner.keys()))
+                .values("created_by_id")
+                .annotate(total=Sum("amount"))
+            )
+            mt_in_open = (
+                MoneyTransfer.objects
+                .filter(date__gte=self.CUTOFF_DATE, date__lte=open_end, use_collected=True)
+                .values("to_partner_id")
+                .annotate(total=Sum("amount"))
+            )
+            mt_out_open = (
+                MoneyTransfer.objects
+                .filter(date__gte=self.CUTOFF_DATE, date__lte=open_end, use_collected=True)
+                .values("from_partner_id")
+                .annotate(total=Sum("amount"))
+            )
+            inc_open_by_user = {row["created_by_id"]: row["total"] or 0 for row in inc_open_qs}
+            in_open_by_partner = {row["to_partner_id"]: row["total"] or 0 for row in mt_in_open}
+            out_open_by_partner = {row["from_partner_id"]: row["total"] or 0 for row in mt_out_open}
+
+            adj_open_rows = (
+                FA.objects
+                .filter(date__gte=self.CUTOFF_DATE, date__lte=open_end)
+                .values("target")
+                .annotate(total=Sum("amount"))
+            )
+            adj_open_map = {row["target"]: row["total"] or 0 for row in adj_open_rows}
+            adj_open_collected = adj_open_map.get(FA.Target.COLLECTED, 0)
+
+            for user_id, partner_id in user_to_partner.items():
+                inc = inc_open_by_user.get(user_id, 0)
+                inc_in = in_open_by_partner.get(partner_id, 0)
+                out = out_open_by_partner.get(partner_id, 0)
+                collected_open_by_partner[partner_id] = inc + inc_in - out
+            # Apply adjustment (global) to total collected open
+            collected_open_total = sum(collected_open_by_partner.values()) + adj_open_collected
+
+            contr_open_qs = (
+                OwnerContribution.objects
+                .filter(date__gte=self.CUTOFF_DATE, date__lte=open_end)
+                .values("partner_id")
+                .annotate(total=Sum("amount"))
+            )
+            withdr_open_qs = (
+                OwnerWithdrawal.objects
+                .filter(date__gte=self.CUTOFF_DATE, date__lte=open_end)
+                .values("partner_id")
+                .annotate(total=Sum("amount"))
+            )
+            contr_open_by_partner = {row["partner_id"]: row["total"] or 0 for row in contr_open_qs}
+            withdr_open_by_partner = {row["partner_id"]: row["total"] or 0 for row in withdr_open_qs}
+            adj_open_invested = adj_open_map.get(FA.Target.INVESTED, 0)
+            for pid, role in partner_roles.items():
+                if role != FinancePartner.Role.OWNER:
+                    continue
+                invested_open_by_owner[pid] = contr_open_by_partner.get(pid, 0) - withdr_open_by_partner.get(pid, 0)
+            invested_open_total = sum(invested_open_by_owner.values()) + adj_open_invested
+        else:
+            collected_open_total = 0
+            invested_open_total = 0
+
+        # Closing balances
+        collected_total = collected_open_total + collected_delta_total + adj_collected
+        invested_total = invested_open_total + invested_delta_total
+
+        # Per-user display prep
+        from django.contrib.auth import get_user_model
+        users = get_user_model().objects.filter(id__in=list(user_to_partner.keys())).values("id", "username")
+        uid_to_username = {u["id"]: u["username"] for u in users}
+        pid_to_username = {pid: uid_to_username.get(uid, str(pid)) for uid, pid in user_to_partner.items()}
+
+        income_rows = [
+            {"created_by__username": uid_to_username.get(uid, str(uid)), "total": total}
+            for uid, total in sorted(income_by_user.items(), key=lambda kv: uid_to_username.get(kv[0], str(kv[0])))
+        ]
+        collected_rows = [
+            {"partner_id": pid, "username": pid_to_username.get(pid, str(pid)), "delta": collected_delta_by_partner.get(pid, 0), "open": collected_open_by_partner.get(pid, 0) if opening_available else 0}
+            for pid in sorted(user_to_partner.values(), key=lambda x: pid_to_username.get(x, str(x)))
+        ]
+        for row in collected_rows:
+            row["close"] = row["open"] + row["delta"]
+        invested_rows = [
+            {"partner_id": pid, "username": pid_to_username.get(pid, str(pid)), "delta": invested_delta_by_owner.get(pid, 0), "open": invested_open_by_owner.get(pid, 0) if opening_available else 0}
+            for pid, role in partner_roles.items() if role == FinancePartner.Role.OWNER
+        ]
+        for row in invested_rows:
+            row["close"] = row["open"] + row["delta"]
+
+        # Owner settlements (owner_to_owner, use_collected=False) for the period
+        settlements_qs = (
+            MoneyTransfer.objects
+            .filter(date__gte=start_d, date__lte=end_d, purpose=MoneyTransfer.Purpose.OWNER_TO_OWNER, use_collected=False)
+            .values("from_partner_id", "to_partner_id")
+            .annotate(total=Sum("amount"))
+        )
+        settlements_rows = []
+        settlements_total = 0
+        for r in settlements_qs:
+            from_name = pid_to_username.get(r["from_partner_id"], str(r["from_partner_id"]))
+            to_name = pid_to_username.get(r["to_partner_id"], str(r["to_partner_id"]))
+            total = r["total"] or 0
+            settlements_total += total
+            settlements_rows.append({"from": from_name, "to": to_name, "total": total})
+
+        if extra_context is None:
+            extra_context = {}
+        # Partner choice lists for modal selects
+        mods_list = [pid for pid, role in partner_roles.items() if role == FinancePartner.Role.MODERATOR]
+        owners_list = [pid for pid, role in partner_roles.items() if role == FinancePartner.Role.OWNER]
+        partner_choices_all = [{"id": pid, "username": pid_to_username.get(pid, str(pid))} for pid in sorted(partner_roles.keys(), key=lambda x: pid_to_username.get(x, str(x)))]
+        partner_choices_mods = [{"id": pid, "username": pid_to_username.get(pid, str(pid))} for pid in sorted(mods_list, key=lambda x: pid_to_username.get(x, str(x)))]
+        partner_choices_owners = [{"id": pid, "username": pid_to_username.get(pid, str(pid))} for pid in sorted(owners_list, key=lambda x: pid_to_username.get(x, str(x)))]
+        # Admin partners (users in Django group 'Admin' that have FinancePartner)
+        from django.contrib.auth import get_user_model as _gum
+        admin_user_ids = set(_gum().objects.filter(groups__name='Admin').values_list('id', flat=True))
+        admin_partner_ids = [pid for uid, pid in user_to_partner.items() if uid in admin_user_ids]
+        partner_choices_admins = [{"id": pid, "username": pid_to_username.get(pid, str(pid))} for pid in sorted(admin_partner_ids, key=lambda x: pid_to_username.get(x, str(x)))]
+        default_admin_partner_id = partner_choices_admins[0]["id"] if partner_choices_admins else None
+
+        extra_context.update({
+            "start": start_d,
+            "end": end_d,
+            "income_rows": income_rows,
+            "income_total": income_total,
+            "collected_rows": collected_rows,
+            "collected_open_total": collected_open_total,
+            "collected_delta_total": collected_delta_total,
+            "collected_total": collected_total,
+            "invested_rows": invested_rows,
+            "invested_open_total": invested_open_total,
+            "invested_delta_total": invested_delta_total,
+            "invested_total": invested_total,
+            "settlements_rows": settlements_rows,
+            "settlements_total": settlements_total,
+            "settlements_adj_total": adj_settlement,
+            "opening_available": opening_available,
+            "partner_choices_all": partner_choices_all,
+            "partner_choices_mods": partner_choices_mods,
+            "partner_choices_owners": partner_choices_owners,
+            "partner_choices_admins": partner_choices_admins,
+            "default_admin_partner_id": default_admin_partner_id,
+        })
+
+        # Last 5 withdrawals for footer
+        last_withdrawals_qs = (
+            OwnerWithdrawal.objects
+            .order_by('-date', '-id')
+            .select_related('partner__user')[:5]
+        )
+        last_withdrawals = [
+            {
+                'date': w.date,
+                'partner': getattr(w.partner.user, 'username', str(w.partner_id)),
+                'amount': w.amount,
+            } for w in last_withdrawals_qs
+        ]
+        extra_context.update({
+            'last_withdrawals': last_withdrawals,
+        })
+
+        # Suggested owner-to-owner transfers based on collected vs share (period-only)
+        owners = [pid for pid, role in partner_roles.items() if role == FinancePartner.Role.OWNER]
+        # Actual collected for owners in period (delta)
+        collected_owner_delta = {pid: collected_delta_by_partner.get(pid, 0) for pid in owners}
+        # Desired per-share from total income (period)
+        total_income_period = income_total
+        total_share = sum([float(partner_shares.get(pid, 0)) for pid in owners]) or 100.0
+        share_norm = {pid: float(partner_shares.get(pid, 0))/total_share for pid in owners}
+        desired_collected = {pid: Decimal(total_income_period) * Decimal(share_norm.get(pid, 0)) for pid in owners}
+        diff_collected = {pid: Decimal(collected_owner_delta.get(pid, 0)) - desired_collected.get(pid, Decimal(0)) for pid in owners}
+        over_c = [(pid, v) for pid, v in diff_collected.items() if v > 0]
+        under_c = [(pid, -v) for pid, v in diff_collected.items() if v < 0]
+        over_c.sort(key=lambda x: x[1], reverse=True)
+        under_c.sort(key=lambda x: x[1], reverse=True)
+        settlements_by_collected = []
+        i = j = 0
+        while i < len(over_c) and j < len(under_c):
+            pid_over, amt_over = over_c[i]
+            pid_under, amt_under = under_c[j]
+            tr = min(amt_over, amt_under)
+            if tr > 0:
+                settlements_by_collected.append({
+                    "from": pid_over,
+                    "to": pid_under,
+                    "total": tr
+                })
+            over_c[i] = (pid_over, amt_over - tr)
+            under_c[j] = (pid_under, amt_under - tr)
+            if over_c[i][1] == 0:
+                i += 1
+            if under_c[j][1] == 0:
+                j += 1
+        # Two-owners highlight
+        highlight_reco = None
+        if len(owners) == 2:
+            a, b = owners[0], owners[1]
+            a_name = pid_to_username.get(a, str(a))
+            b_name = pid_to_username.get(b, str(b))
+            # T = (C_a - C_b)/2
+            T = (Decimal(collected_owner_delta.get(a, 0)) - Decimal(collected_owner_delta.get(b, 0))) / Decimal(2)
+            if T > 0:
+                highlight_reco = {"from": a_name, "to": b_name, "total": T}
+            elif T < 0:
+                highlight_reco = {"from": b_name, "to": a_name, "total": -T}
+        extra_context.update({
+            "collected_settlements": [
+                {"from": pid_to_username.get(r["from"], str(r["from"])), "to": pid_to_username.get(r["to"], str(r["to"])), "total": r["total"], "from_id": r["from"], "to_id": r["to"]}
+                for r in settlements_by_collected
+            ],
+            "collected_settlements_highlight": highlight_reco,
+            "collected_owner_delta": {pid_to_username.get(pid, str(pid)): collected_owner_delta.get(pid, 0) for pid in owners},
+            "desired_collected": {pid_to_username.get(pid, str(pid)): desired_collected.get(pid, 0) for pid in owners},
+        })
+
+        # Moderators' debts to owners for period: income by moderator minus out transfers use_collected
+        moderators = [pid for pid, role in partner_roles.items() if role == FinancePartner.Role.MODERATOR]
+        income_by_partner = {}
+        for uid, pid in user_to_partner.items():
+            if pid in moderators:
+                income_by_partner[pid] = income_by_user.get(uid, 0)
+        # Last 5 transfers for two categories for footer blocks (show after tables)
+        last_mod_qs = (
+            MoneyTransfer.objects.filter(purpose=MoneyTransfer.Purpose.MODERATOR_TO_OWNER)
+            .order_by('-date', '-id')
+            .select_related('from_partner__user', 'to_partner__user')[:5]
+        )
+        last_owner_qs = (
+            MoneyTransfer.objects.filter(purpose=MoneyTransfer.Purpose.OWNER_TO_OWNER)
+            .order_by('-date', '-id')
+            .select_related('from_partner__user', 'to_partner__user')[:5]
+        )
+        # Outgoing transfers from moderators within period (for debt calc)
+        mt_out_by_mod = (
+            MoneyTransfer.objects
+            .filter(date__gte=start_d, date__lte=end_d, use_collected=True, from_partner_id__in=moderators)
+            .values("from_partner_id")
+            .annotate(total=Sum("amount"))
+        )
+        def tr_row(tr):
+            return {
+                'date': tr.date,
+                'from': getattr(tr.from_partner.user, 'username', str(tr.from_partner_id)),
+                'to': getattr(tr.to_partner.user, 'username', str(tr.to_partner_id)),
+                'amount': tr.amount,
+            }
+        def tr_row_with_note(tr):
+            return {
+                'date': tr.date,
+                'from': getattr(tr.from_partner.user, 'username', str(tr.from_partner_id)),
+                'to': getattr(tr.to_partner.user, 'username', str(tr.to_partner_id)),
+                'amount': tr.amount,
+                'note': getattr(tr, 'note', '') or '',
+            }
+        extra_context.update({
+            'last_mod_to_owner': [tr_row_with_note(t) for t in last_mod_qs],
+            'last_owner_to_owner': [tr_row_with_note(t) for t in last_owner_qs],
+        })
+        mt_out_by_mod_map = {row["from_partner_id"]: row["total"] or 0 for row in mt_out_by_mod}
+        moderator_debts = []
+        for pid in moderators:
+            owed = Decimal(income_by_partner.get(pid, 0)) - Decimal(mt_out_by_mod_map.get(pid, 0))
+            if owed > 0:
+                moderator_debts.append({
+                    "partner_id": pid,
+                    "username": pid_to_username.get(pid, str(pid)),
+                    "amount": owed,
+                })
+        extra_context.update({"moderator_debts": moderator_debts})
+
+        # Profit share block (split by owner shares)
+        # Income I
+        I = sum(income_by_user.values())
+        
+        # Company expenses E: only paid from collected funds
+        # Company expenses from collected funds: with new Expense model semantics, treat as 0 here
+        E = Decimal(0)
+        
+        # Adjustments to profit if needed (reuse collected/invested logic as neutral here)
+        P = I - E  # base profit without extra adj
+        
+        # Owners and their shares (normalize to 1.0)
+        owners = [pid for pid, role in partner_roles.items() if role == FinancePartner.Role.OWNER]
+        total_share = sum([float(partner_shares.get(pid, 0)) for pid in owners]) or 100.0
+        share_norm = {pid: float(partner_shares.get(pid, 0))/total_share for pid in owners}
+        
+        # Due to each owner from profit
+        D_by_owner = {pid: P * Decimal(share_norm.get(pid, 0)) for pid in owners}
+        D_total = sum(D_by_owner.values())
+        
+        # Actually withdrawn by owners in period (exclude reclassified to investment)
+        W_by_owner = {row["partner_id"]: row["total"] or 0 for row in (
+            OwnerWithdrawal.objects.filter(date__gte=start_d, date__lte=end_d, partner_id__in=owners, reclassified_to_investment=False)
+            .values("partner_id").annotate(total=Sum("amount"))
+        )}
+        W_total = sum(W_by_owner.values())
+        
+        # How issued funds should be split by shares
+        R_by_owner = {pid: Decimal(W_total) * Decimal(share_norm.get(pid, 0)) for pid in owners}
+        
+        # Suggested owner-to-owner transfer to rebalance already issued funds
+        # For two owners it's a single number; for N owners show list of imbalances
+        imbalance = {pid: Decimal(W_by_owner.get(pid, 0)) - R_by_owner.get(pid, Decimal(0)) for pid in owners}
+        # Positive -> owner received more than proportional, should pay out; Negative -> should receive
+        over = [(pid, v) for pid, v in imbalance.items() if v > 0]
+        under = [(pid, -v) for pid, v in imbalance.items() if v < 0]
+        over.sort(key=lambda x: x[1], reverse=True)
+        under.sort(key=lambda x: x[1], reverse=True)
+        settlements_suggest = []
+        i = j = 0
+        while i < len(over) and j < len(under):
+            pid_over, amt_over = over[i]
+            pid_under, amt_under = under[j]
+            tr = min(amt_over, amt_under)
+            if tr > 0:
+                settlements_suggest.append({
+                    "from": pid_over,
+                    "to": pid_under,
+                    "total": tr
+                })
+            over[i] = (pid_over, amt_over - tr)
+            under[j] = (pid_under, amt_under - tr)
+            if over[i][1] == 0:
+                i += 1
+            if under[j][1] == 0:
+                j += 1
+        
+        # Company owes to owners (not yet issued)
+        C_total = Decimal(D_total) - Decimal(W_total)
+        C_by_owner = {pid: D_by_owner.get(pid, 0) - Decimal(W_by_owner.get(pid, 0)) for pid in owners}
+        
+        # Prepare display structures
+        profit_rows = []
+        for pid in owners:
+            profit_rows.append({
+                "username": pid_to_username.get(pid, str(pid)),
+                "share": round(Decimal(share_norm.get(pid, 0)) * Decimal(100), 2),
+                "due": D_by_owner.get(pid, 0),
+                "withdrawn": Decimal(W_by_owner.get(pid, 0)),
+                "withdrawn_should": R_by_owner.get(pid, 0),
+                "company_owes": C_by_owner.get(pid, 0),
+            })
+        settlements_suggest_rows = [
+            {"from": pid_to_username.get(r["from"], str(r["from"])), "to": pid_to_username.get(r["to"], str(r["to"])), "total": r["total"]}
+            for r in settlements_suggest
+        ]
+        # Lifetime Invested (Purchases 50% + Contributions - Equal share)
+        owners = [pid for pid, role in partner_roles.items() if role == FinancePartner.Role.OWNER]
+        # Purchases by owner (only purchase type)
+        purch_qs = (
+            Expense.objects
+            .filter(paid_by_partner_id__in=owners, payment_type=Expense.PaymentType.PURCHASE)
+            .values('paid_by_partner_id')
+            .annotate(total=Sum('amount'))
+        )
+        purch_by_owner = {row['paid_by_partner_id']: row['total'] or 0 for row in purch_qs}
+        # Contributions by owner (from expenses: DEPOSIT)
+        contr_qs_all = (
+            Expense.objects
+            .filter(paid_by_partner_id__in=owners, payment_type=Expense.PaymentType.DEPOSIT)
+            .values('paid_by_partner_id')
+            .annotate(total=Sum('amount'))
+        )
+        contr_by_owner = {row['paid_by_partner_id']: row['total'] or 0 for row in contr_qs_all}
+        # Equal share of total purchases among owners
+        total_purchases = Expense.objects.filter(paid_by_partner_id__in=owners, payment_type=Expense.PaymentType.PURCHASE).aggregate(s=Sum('amount'))['s'] or 0
+        n = len(owners) or 1
+        B_each = (Decimal(total_purchases) / Decimal(n)) if n else Decimal(0)
+        invested_ab_rows = []
+        for pid in owners:
+            purchases_half = Decimal(purch_by_owner.get(pid, 0)) / Decimal(2)
+            contribs = Decimal(contr_by_owner.get(pid, 0))
+            b = B_each
+            balance = purchases_half + contribs - b
+            invested_ab_rows.append({
+                'username': pid_to_username.get(pid, str(pid)),
+                'purchases': purchases_half,
+                'contribs': contribs,
+                'b': b,
+                'balance': balance,
+            })
+        # Last 5 invested operations: all expenses by owners (both types), newest first
+        exp_ops = list(
+            Expense.objects.filter(paid_by_partner_id__in=owners)
+            .order_by('-date', '-id')
+            .select_related('paid_by_partner__user')[:5]
+        )
+        last_invest_ops = []
+        for e in exp_ops:
+            kind = 'Закупка' if e.payment_type == Expense.PaymentType.PURCHASE else 'Внесение денег'
+            who = getattr(getattr(e, 'paid_by_partner', None), 'user', None)
+            who_name = getattr(who, 'username', e.paid_by_partner_id)
+            last_invest_ops.append({'date': e.date, 'text': f"{kind} {who_name}: {e.amount}"})
+        extra_context.update({
+            'invested_ab_rows': invested_ab_rows,
+            'last_invest_ops': last_invest_ops,
+        })
+
+        extra_context.update({
+            "profit_income": I,
+            "profit_expenses": E,
+            "profit_total": P,
+            "profit_rows": profit_rows,
+            "profit_company_owes_total": C_total,
+            "profit_settlements_suggest": settlements_suggest_rows,
+        })
+
+        # Render with admin each_context so sidebar/menus are present, honoring GET params
+        base_ctx = self.admin_site.each_context(request)
+        context = {**base_ctx, **(extra_context or {}), "request": request, "opts": self.model._meta, "title": self.model._meta.verbose_name_plural}
+        return TemplateResponse(request, self.change_list_template, context)
+
+        return super().changelist_view(request, extra_context=extra_context)
+
+
+# Register FinanceOverview using proxy model
+from .models import FinanceOverviewProxy
+try:
+    @admin.register(FinanceOverviewProxy)
+    class FinanceOverviewProxyAdmin(FinanceOverviewAdmin):
+        pass
+except admin.sites.AlreadyRegistered:
+    pass
 
 class ActiveRentalFilter(admin.SimpleListFilter):
     title = "Активный договор"
@@ -334,11 +1117,31 @@ class RentalBatteryAssignmentInline(admin.TabularInline):
     form = RentalBatteryAssignmentForm
     extra = 0
     readonly_fields = ("created_by", "updated_by")
+    autocomplete_fields = ("battery",)
 
 
 class PaymentInline(admin.TabularInline):
     model = Payment
     extra = 0
+
+    def get_formset(self, request, obj=None, **kwargs):
+        formset = super().get_formset(request, obj, **kwargs)
+        try:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            field = formset.form.base_fields.get('created_by')
+            if field:
+                field.queryset = User.objects.filter(is_staff=True).order_by('username')
+                field.label = "Кто принял деньги"
+                if request.user.is_superuser:
+                    field.required = True
+                else:
+                    field.initial = request.user.pk
+                    field.disabled = True
+                    field.help_text = "Доступно только суперпользователю"
+        except Exception:
+            pass
+        return formset
 
 
 class NewVersionActionForm(ActionForm):
@@ -356,11 +1159,14 @@ class NewVersionActionForm(ActionForm):
 
 @admin.register(Rental)
 class RentalAdmin(SimpleHistoryAdmin):
+    autocomplete_fields = ('client',)
+
     def changelist_view(self, request, extra_context=None):
         if extra_context is None:
             extra_context = {}
         from .models import Client
-        extra_context['clients'] = Client.objects.all().order_by('name')
+        # Используем только необходимые поля, чтобы не тянуть всё
+        extra_context['clients'] = Client.objects.only('id', 'name').order_by('name')
         return super().changelist_view(request, extra_context=extra_context)
 
     def get_changelist(self, request, **kwargs):
@@ -378,9 +1184,9 @@ class RentalAdmin(SimpleHistoryAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        # Предзагрузить связанные assignments, чтобы избежать N+1
+        # Предзагрузить связанные объекты, чтобы избежать N+1
         from django.db.models import Count
-        qs = qs.prefetch_related('assignments', 'assignments__battery')
+        qs = qs.select_related('client').prefetch_related('assignments', 'assignments__battery')
         qs = qs.annotate(assignments_count=Count('assignments'))
         # Добавить row_class для приглушения строк
         for obj in qs:
@@ -800,21 +1606,69 @@ class RentalAdmin(SimpleHistoryAdmin):
 
 @admin.register(Payment)
 class PaymentAdmin(SimpleHistoryAdmin):
+    class RentalFilter(AutocompleteFilter):
+        title = 'Договор'
+        field_name = 'rental'
+
     list_display = ("id", "rental", "date", "amount", "type", "method", "created_by_name")
-    list_filter = ("type", "method")
-    search_fields = ("rental__id", "note")
-    readonly_fields = ("created_by", "updated_by")
+    list_filter = (RentalFilter, "type", "method")
+    search_fields = ("rental__id", "note", "rental__client__name", "created_by__username")
+    readonly_fields = ("updated_by",)
+    date_hierarchy = 'date'
+    list_per_page = 50
+
+
+    def changelist_view(self, request, extra_context=None):
+        if extra_context is None:
+            extra_context = {}
+        from .models import Rental
+        rid = request.GET.get('rental__id__exact')
+        if rid:
+            try:
+                extra_context['selected_rental'] = Rental.objects.select_related('client').only('id','contract_code','client__name').get(pk=rid)
+            except Rental.DoesNotExist:
+                extra_context['selected_rental'] = None
+        return super().changelist_view(request, extra_context=extra_context)
+
+    def get_search_results(self, request, queryset, search_term):
+        # Ограничение базового поиска по платежам — оставляем стандартное поведение
+        return super().get_search_results(request, queryset, search_term)
+
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related('rental__client', 'created_by')
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        field = form.base_fields.get('created_by')
+        if field:
+            field.queryset = User.objects.filter(is_staff=True).order_by('username')
+            field.label = "Кто принял деньги"
+            if request.user.is_superuser:
+                field.required = True
+                field.disabled = False
+            else:
+                field.initial = request.user.pk
+                field.disabled = True
+                field.help_text = "Доступно только суперпользователю"
+        return form
+
     @admin.display(ordering='created_by__username', description='Кто ввёл запись')
     def created_by_name(self, obj):
         user = obj.created_by
         if not user:
             return ''
-        name = f"{user.first_name} {user.last_name}".strip()
-        return name or user.username
-
+        return user.username
 
     def save_model(self, request, obj, form, change):
-        if not change and not getattr(obj, 'created_by_id', None):
+        if not request.user.is_superuser:
+            # Для несуперпользователя всегда фиксируем автора как текущего
+            obj.created_by = request.user
+        elif not getattr(obj, 'created_by_id', None):
+            # Для суперпользователя, если поле не выбрано, используем текущего
             obj.created_by = request.user
         obj.updated_by = request.user
         super().save_model(request, obj, form, change)
@@ -827,8 +1681,10 @@ class ExpenseCategoryAdmin(SimpleHistoryAdmin):
 
 @admin.register(Expense)
 class ExpenseAdmin(SimpleHistoryAdmin):
-    list_display = ("id", "date", "amount", "category")
-    list_filter = ("category",)
+    list_display = ("id", "date", "amount", "category", "payment_type", "paid_by_partner")
+    list_filter = ("category", "payment_type")
+    search_fields = ("note", "description")
+    autocomplete_fields = ("paid_by_partner",)
 
 
 @admin.register(Repair)

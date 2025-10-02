@@ -10,6 +10,13 @@
   </style>
 {% endblock %}
 
+{% block nav-breadcrumbs %}
+  <nav class="toplinks" aria-label="Top links" style="padding: .25rem .5rem;">
+    {% block toplinks %}{% endblock %}
+  </nav>
+  {{ block.super }}
+{% endblock %}
+
 
 {% block extrastyle %}
   {{ block.super }}

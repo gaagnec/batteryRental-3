@@ -1,0 +1,45 @@
+{% extends "admin/change_list.html" %}
+{% load static %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'admin/css/autocomplete.css' %}">
+{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <script src="{% static 'admin/js/vendor/select2/select2.full.js' %}"></script>
+  <script src="{% static 'admin/js/autocomplete.js' %}"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const sel = document.getElementById('id_rental_filter');
+      if (sel) {
+        sel.addEventListener('change', function(){ this.form && this.form.submit(); });
+      }
+    });
+  </script>
+{% endblock %}
+
+{% block toplinks %}
+  <form method="get" class="d-flex gap-2 align-items-center" style="padding: .25rem .5rem;">
+    <label for="id_rental_filter" class="me-2">Договор:</label>
+    <select
+      name="rental__id__exact"
+      id="id_rental_filter"
+      class="admin-autocomplete"
+      data-app-label="rental"
+      data-model-name="payment"
+      data-field-name="rental"
+      style="min-width: 320px;"
+    >
+      {% if selected_rental %}
+        <option value="{{ selected_rental.pk }}" selected>
+          {{ selected_rental.contract_code }} — {{ selected_rental.client.name }}
+        </option>
+      {% endif %}
+    </select>
+    {% if request.GET.rental__id__exact %}
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'admin:rental_payment_changelist' %}">Сбросить</a>
+    {% endif %}
+  </form>
+{% endblock %}

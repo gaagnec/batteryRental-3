@@ -52,7 +52,7 @@
       </div>
     </div>
 
-    <!-- Средняя колонка: Активные клиенты -->
+    <!-- Средняя колонка: Активные клиенты и недавно закрытые -->
     <div class="col-lg-4 col-md-6">
       <div class="card shadow-sm h-100">
         <div class="card-header">Активные клиенты: батареи и баланс</div>
@@ -102,6 +102,33 @@
               {% empty %}
                 <tr><td colspan="3" class="text-center text-muted py-3">Нет активных клиентов</td></tr>
               {% endfor %}
+              {% if closed_clients_data %}
+                <tr class="table-secondary"><td colspan="4" class="small text-muted">Недавно закрытые</td></tr>
+                {% for row in closed_clients_data %}
+                  <tr class="table-secondary">
+                    <td>{{ row.client.name }}</td>
+                    <td><span class="text-muted">—</span></td>
+                    <td class="text-end">
+                      {% with val=row.balance_ui %}
+                        {% if val > 0 %}
+                          <span class="text-success">+{{ val|floatformat:2 }}</span>
+                        {% elif val < 0 %}
+                          <span class="text-danger">{{ val|floatformat:2 }}</span>
+                        {% else %}
+                          {{ val|floatformat:2 }}
+                        {% endif %}
+                      {% endwith %}
+                    </td>
+                    <td class="text-end">
+                      {% if row.weekly_rate is not None %}
+                        {{ row.weekly_rate|floatformat:2 }}
+                      {% else %}
+                        <span class="text-muted">—</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              {% endif %}
               </tbody>
             </table>
           </div>

@@ -3,6 +3,10 @@ psycopg==3.1.18
 django-simple-history==3.7.0
 python-dotenv==1.0.1
 
+django-debug-toolbar==4.4.6
+
+django-admin-autocomplete-filter==0.7.1
+
 # WSGI server
 gunicorn==23.0.0
 

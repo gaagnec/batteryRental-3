@@ -1,9 +1,12 @@
 from django.db.models.signals import post_migrate, post_save, post_delete
+from django.conf import settings
+from django.utils import timezone
+
 from django.dispatch import receiver
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 
-from .models import RentalBatteryAssignment, Repair, BatteryStatusLog
+from .models import RentalBatteryAssignment, Repair, BatteryStatusLog, Expense, OwnerContribution, FinancePartner
 
 
 @receiver(post_migrate)
@@ -52,6 +55,35 @@ def assignment_delete_statuslog(sender, instance: RentalBatteryAssignment, **kwa
         rental=instance.rental,
         start_at=instance.start_at,
     ).delete()
+
+# --- Auto create OwnerContribution for "внесение денег" ---
+@receiver(post_save, sender=Expense)
+def expense_to_contribution(sender, instance: Expense, created, **kwargs):
+    # Only for deposit type and when a partner (owner) is provided
+    if getattr(instance, 'payment_type', None) != Expense.PaymentType.DEPOSIT:
+        return
+    if not instance.paid_by_partner_id:
+        return
+    try:
+        partner = FinancePartner.objects.get(pk=instance.paid_by_partner_id)
+    except FinancePartner.DoesNotExist:
+        return
+    if partner.role != FinancePartner.Role.OWNER:
+        return
+    # Idempotency: link via expense FK
+    exists = OwnerContribution.objects.filter(expense=instance).exists()
+    if exists:
+        return
+    OwnerContribution.objects.create(
+        partner=partner,
+        amount=instance.amount,
+        date=instance.date or timezone.localdate(),
+        source=OwnerContribution.Source.EXPENSE,
+        expense=instance,
+        note=(instance.note or "")[:500],
+        created_by=getattr(instance, 'created_by', None),
+        updated_by=getattr(instance, 'updated_by', None),
+    )
 
 
 @receiver(post_save, sender=Repair)

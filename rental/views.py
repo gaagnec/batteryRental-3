@@ -45,10 +45,72 @@ def dashboard(request):
         .distinct('client_id')
         .select_related('client')
     )
-    for r in latest_by_client:
-        balance_raw = r.group_balance()
+    # Предрассчёт балансов без N+1 и без посуточных циклов
+    tz = timezone.get_current_timezone()
+    now_dt = timezone.now()
+    # Собираем root_ids для последних активных договоров клиентов
+    root_ids = []
+    latest_by_client_list = list(latest_by_client)
+    for r in latest_by_client_list:
+        root_ids.append(r.root_id or r.id)
+    root_ids = list(set(root_ids))
+    # Версии по этим root + назначенные батареи одним заходом
+    versions_qs = (
+        Rental.objects
+        .filter(root_id__in=root_ids)
+        .only('id','root_id','start_at','end_at','weekly_rate','status')
+        .prefetch_related('assignments')
+    )
+    versions_by_root = {}
+    for v in versions_qs:
+        versions_by_root.setdefault(v.root_id, []).append(v)
+    # Платежи по root за всё время (тип RENT)
+    paid_rows = (
+        Payment.objects
+        .filter(rental__root_id__in=root_ids, type=Payment.PaymentType.RENT)
+        .values('rental__root_id')
+        .annotate(total=Sum('amount'))
+    )
+    paid_by_root = {row['rental__root_id']: (row['total'] or Decimal(0)) for row in paid_rows}
+
+    def billable_days_interval(start, end):
+        start = timezone.localtime(start, tz)
+        end = timezone.localtime(end, tz)
+        if end <= start:
+            return 0
+        days = (end.date() - start.date()).days
+        if start.hour < 14 or (start.hour == 14 and start.minute == 0 and start.second == 0):
+            days += 1
+        if end.hour < 14 or (end.hour == 14 and end.minute == 0 and end.second == 0):
+            days -= 1
+        return max(days, 0)
+
+    # Посчитаем charges для каждого root без посуточных циклов
+    charges_by_root = {}
+    for root_id in root_ids:
+        total = Decimal(0)
+        for v in versions_by_root.get(root_id, []):
+            v_start = timezone.localtime(v.start_at, tz)
+            v_end = timezone.localtime(v.end_at, tz) if v.end_at else timezone.localtime(now_dt, tz)
+            daily_rate = (v.weekly_rate or Decimal(0)) / Decimal(7)
+            # Для каждой привязки этой версии считаем дни пересечения интервалов (с 14:00 cut-off)
+            for a in getattr(v, 'assignments', []).all():
+                a_start = timezone.localtime(a.start_at, tz)
+                a_end = timezone.localtime(a.end_at, tz) if a.end_at else timezone.localtime(now_dt, tz)
+                # Пересечение [max(start), min(end)]
+                s = max(v_start, a_start)
+                e = min(v_end, a_end)
+                d = billable_days_interval(s, e)
+                if d:
+                    total += daily_rate * Decimal(d)
+        charges_by_root[root_id] = total
+
+    for r in latest_by_client_list:
+        root_id = r.root_id or r.id
+        charges = charges_by_root.get(root_id, Decimal(0))
+        paid = paid_by_root.get(root_id, Decimal(0))
+        balance_raw = charges - paid
         balance_ui = -balance_raw  # для UI: кредит положительный, долг отрицательный
-        # Ставка из последней версии активного договора (r уже последний по дате)
         weekly_rate = r.weekly_rate
         clients_data.append({
             'client': r.client,
@@ -69,8 +131,8 @@ def dashboard(request):
         'available': available,
     }
 
-    # Последние 10 платежей
-    latest_payments = Payment.objects.select_related('rental__client', 'created_by').order_by('-date', '-id')[:10]
+    # Последние 15 платежей
+    latest_payments = Payment.objects.select_related('rental__client', 'created_by').order_by('-date', '-id')[:15]
 
     # Месячные итоги
     month_names = {
@@ -86,6 +148,22 @@ def dashboard(request):
         .annotate(total=Sum('amount'))
         .order_by('date__year', 'date__month')
     )
+    # За один проход подготовим и разрез по пользователям
+    pay_monthly_by_user = (
+        Payment.objects
+        .filter(type=Payment.PaymentType.RENT)
+        .values('date__year', 'date__month', 'created_by__username', 'created_by__first_name', 'created_by__last_name')
+        .annotate(total=Sum('amount'))
+        .order_by('date__year', 'date__month', '-total')
+    )
+    users_map = {}
+    for pu in pay_monthly_by_user:
+        key = (pu['date__year'], pu['date__month'])
+        first = pu.get('created_by__first_name') or ''
+        last = pu.get('created_by__last_name') or ''
+        name = f"{first} {last}".strip() or pu.get('created_by__username')
+        users_map.setdefault(key, []).append({'user': name, 'total': float(pu.get('total') or 0)})
+
     monthly3_rows = []
     chart_labels = []
     chart_income = []
@@ -98,20 +176,7 @@ def dashboard(request):
         income = float(row['total'] or 0)
         expense = 500.0
         profit = round(income - expense, 2)
-        # aggregate payments by user for this month
-        payments_by_user = (
-            Payment.objects
-            .filter(date__year=y, date__month=m, type=Payment.PaymentType.RENT)
-            .values('created_by__username', 'created_by__first_name', 'created_by__last_name')
-            .annotate(total=Sum('amount'))
-            .order_by('-total')
-        )
-        user_totals = []
-        for pu in payments_by_user:
-            first = pu.get('created_by__first_name') or ''
-            last = pu.get('created_by__last_name') or ''
-            name = f"{first} {last}".strip() or pu.get('created_by__username')
-            user_totals.append({'user': name, 'total': float(pu.get('total') or 0)})
+        user_totals = users_map.get((y, m), [])
         monthly3_rows.append({
             'label': label,
             'income': income,
@@ -143,29 +208,47 @@ def dashboard(request):
     paid_values = []
     totals_pay = {row['date']: row['total'] for row in pay_qs}
 
-    # Начисления в день считаем как сумму дневной ставки по активным назначениям
-    # Перебор по дням и подсчет активных assignments на 14:00 каждого дня
-    charges_values = []
+    # Оптимизация: загрузить все назначения, пересекающие окно, одним запросом
     tz = timezone.get_current_timezone()
+    window_start_anchor = timezone.make_aware(datetime.combine(start_date, time(14, 0)), tz)
+    window_end_anchor = timezone.make_aware(datetime.combine(timezone.localdate(), time(14, 0)), tz)
+    assigns_window = (
+        RentalBatteryAssignment.objects
+        .filter(start_at__lte=window_end_anchor)
+        .filter(models.Q(end_at__isnull=True) | models.Q(end_at__gte=window_start_anchor))
+        .select_related('rental')
+    )
+    # Подготовим список назначений с нормализованными датами
+    norm_assigns = []
+    now_tz = timezone.localtime(timezone.now(), tz)
+    for a in assigns_window:
+        r = a.rental
+        # Берём только активные ренты, чтобы не фильтровать по каждому дню
+        if r.status != Rental.Status.ACTIVE:
+            continue
+        a_start = timezone.localtime(a.start_at, tz)
+        a_end = timezone.localtime(a.end_at, tz) if a.end_at else None
+        r_start = timezone.localtime(r.start_at, tz)
+        r_end = timezone.localtime(r.end_at, tz) if r.end_at else None
+        norm_assigns.append({
+            'a_start': a_start,
+            'a_end': a_end,
+            'r_start': r_start,
+            'r_end': r_end,
+            'daily_rate': (r.weekly_rate or Decimal(0)) / Decimal(7),
+        })
+
+    charges_values = []
     for i in range(window_days):
         d = start_date + timedelta(days=i)
         labels.append(d.isoformat())
         paid_values.append(float(totals_pay.get(d, 0) or 0))
-        # 14:00 якорь
-        anchor = timezone.make_aware(timezone.datetime.combine(d, timezone.datetime.min.time().replace(hour=14)), tz)
-        # активные ренты, покрывающие якорь
+        anchor = timezone.make_aware(datetime.combine(d, time(14, 0)), tz)
         day_total = Decimal(0)
-        day_assigns = RentalBatteryAssignment.objects.filter(
-            start_at__lte=anchor,
-        ).filter(models.Q(end_at__isnull=True) | models.Q(end_at__gt=anchor))
-        # для каждой привязки берём недельную ставку её рентала
-        for a in day_assigns.select_related('rental'):
-            r = a.rental
-            # учитывать только если статус активен и интервал рентала покрывает якорь
-            r_start = timezone.localtime(r.start_at, tz)
-            r_end = timezone.localtime(r.end_at, tz) if r.end_at else None
-            if r.status == Rental.Status.ACTIVE and r_start <= anchor and (r_end is None or r_end > anchor):
-                day_total += (r.weekly_rate or Decimal(0)) / Decimal(7)
+        for na in norm_assigns:
+            if na['a_start'] <= anchor and (na['a_end'] is None or na['a_end'] > anchor):
+                if na['r_start'] <= anchor and (na['r_end'] is None or na['r_end'] > anchor):
+                    day_total += na['daily_rate']
         charges_values.append(float(day_total))
 
     payments_series = {'labels': labels, 'values': paid_values}
@@ -189,9 +272,65 @@ def dashboard(request):
     total_paid_30 = float(sum(paid_values))
     total_charged_30 = float(sum(charges_values))
 
+    # Недавно закрытые клиенты (по последним закрытым договорам)
+    recent_closed = (
+        Rental.objects
+        .filter(status=Rental.Status.CLOSED, end_at__isnull=False)
+        .select_related('client')
+        .order_by('-end_at')[:5]
+    )
+    closed_root_ids = list({r.root_id or r.id for r in recent_closed})
+    # Версии и платежи по закрытым рутам
+    closed_versions_qs = (
+        Rental.objects
+        .filter(root_id__in=closed_root_ids)
+        .only('id','root_id','start_at','end_at','weekly_rate','status')
+        .prefetch_related('assignments')
+    )
+    closed_versions_by_root = {}
+    for v in closed_versions_qs:
+        closed_versions_by_root.setdefault(v.root_id, []).append(v)
+    closed_paid_rows = (
+        Payment.objects
+        .filter(rental__root_id__in=closed_root_ids, type=Payment.PaymentType.RENT)
+        .values('rental__root_id')
+        .annotate(total=Sum('amount'))
+    )
+    closed_paid_by_root = {row['rental__root_id']: (row['total'] or Decimal(0)) for row in closed_paid_rows}
+    closed_charges_by_root = {}
+    for root_id in closed_root_ids:
+        total = Decimal(0)
+        for v in closed_versions_by_root.get(root_id, []):
+            v_start = timezone.localtime(v.start_at, tz)
+            v_end = timezone.localtime(v.end_at, tz) if v.end_at else timezone.localtime(now_dt, tz)
+            daily_rate = (v.weekly_rate or Decimal(0)) / Decimal(7)
+            for a in getattr(v, 'assignments', []).all():
+                a_start = timezone.localtime(a.start_at, tz)
+                a_end = timezone.localtime(a.end_at, tz) if a.end_at else timezone.localtime(now_dt, tz)
+                s = max(v_start, a_start)
+                e = min(v_end, a_end)
+                d = billable_days_interval(s, e)
+                if d:
+                    total += daily_rate * Decimal(d)
+        closed_charges_by_root[root_id] = total
+    closed_clients_data = []
+    for r in recent_closed:
+        root_id = r.root_id or r.id
+        charges = closed_charges_by_root.get(root_id, Decimal(0))
+        paid = closed_paid_by_root.get(root_id, Decimal(0))
+        balance_raw = charges - paid
+        balance_ui = -balance_raw
+        closed_clients_data.append({
+            'client': r.client,
+            'batteries': [],
+            'balance_ui': balance_ui,
+            'weekly_rate': r.weekly_rate,
+        })
+
     context = {
         'active_clients_count': active_clients_count,
         'clients_data': clients_data,
+        'closed_clients_data': closed_clients_data,
         'battery_stats': battery_stats,
         'latest_payments': latest_payments,
         'payments_series': payments_series,

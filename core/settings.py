@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # third-party
     'simple_history',
+    'debug_toolbar',
+    'admin_auto_filters',
     # local apps
     'rental',
 ]
@@ -49,6 +51,7 @@ MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django_htmx.middleware.HtmxMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -89,7 +92,13 @@ DATABASES = {
         'PASSWORD': 'MXc6@qpJy&TvxF1F',
         'HOST': 'aws-1-eu-central-1.pooler.supabase.com',
         'PORT': '6543',
-        'OPTIONS': {'sslmode': 'require'},
+        'CONN_MAX_AGE': 120,  # keep DB connections for 2 minutes to reduce churn
+        'CONN_HEALTH_CHECKS': True,  # validate reused connections once per request
+        'OPTIONS': {
+            'sslmode': 'require',
+            'connect_timeout': 5,
+            'options': '-c statement_timeout=20000',  # 20s per statement safety limit
+        },
     }
 }
 
@@ -142,4 +151,37 @@ STORAGES = {
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
+# django-debug-toolbar internal IPs (dev only)
+INTERNAL_IPS = [
+    '127.0.0.1',
+    'localhost',
+]
+
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# SQL timing logs (dev): log each DB query with duration to console
+# Note: very verbose; enable during diagnostics, disable in production
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django.db.backends': {
+            'handlers': ['console'],
+            'level': 'DEBUG',  # shows SQL and duration
+            'propagate': False,
+        },
+    },
+}
+
