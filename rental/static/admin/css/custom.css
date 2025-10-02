@@ -1,3 +1,214 @@
 .opacity-80 {
   opacity: 0.8 !important;
 }
+
+/* ========== Payment List Styles ========== */
+
+/* Статистическая панель */
+.stats-panel {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border: 1px solid #e3e6e8;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+}
+
+.stats-panel h4 {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+/* Карточка выбранного договора */
+.selected-rental-card {
+  border-left: 4px solid #0d6efd;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  border-radius: 6px;
+}
+
+.selected-rental-card h6 {
+  font-size: 1.1rem;
+  color: #2c3e50;
+}
+
+/* Row highlighting по типам платежей */
+.payment-type-rent {
+  background-color: #d1e7dd !important;
+}
+
+.payment-type-deposit {
+  background-color: #cfe2ff !important;
+}
+
+.payment-type-return {
+  background-color: #fff3cd !important;
+}
+
+.payment-type-sold {
+  background-color: #d1ecf1 !important;
+}
+
+.payment-type-adjustment {
+  background-color: #e2e3e5 !important;
+}
+
+/* Hover эффект для строк */
+#result_list tbody tr {
+  transition: all 0.2s ease;
+}
+
+#result_list tbody tr:hover {
+  transform: scale(1.005);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Иконки методов оплаты */
+.method-icon {
+  font-size: 1.2em;
+  margin-right: 0.25em;
+  display: inline-block;
+}
+
+/* Badges */
+.badge {
+  font-size: 0.875em;
+  padding: 0.4em 0.75em;
+  font-weight: 500;
+  border-radius: 6px;
+}
+
+/* Transitions для кнопок */
+.btn {
+  transition: all 0.3s ease;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* ========== Payment Form Styles ========== */
+
+/* Rental Info Card */
+#rental-info-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.balance-indicator {
+  padding: 1.25rem;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  text-align: center;
+}
+
+.balance-indicator h4 {
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  opacity: 0.9;
+}
+
+.balance-indicator h2 {
+  font-size: 2rem;
+  font-weight: bold;
+  margin: 0;
+}
+
+/* Quick amount buttons */
+.quick-amounts {
+  margin: 1rem 0;
+}
+
+.quick-amounts .btn {
+  margin-right: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Balance preview */
+#balance-preview {
+  border-left: 4px solid #0dcaf0;
+  background-color: #d1ecf1;
+  border-color: #bee5eb;
+}
+
+/* Fieldset styling */
+.form-row fieldset {
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background-color: #f8f9fa;
+}
+
+.form-row fieldset legend {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #495057;
+  padding: 0 0.5rem;
+  width: auto;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .stats-panel .row > div {
+    margin-bottom: 1rem;
+  }
+  
+  .selected-rental-card .d-flex {
+    flex-direction: column;
+  }
+  
+  .selected-rental-card .text-end {
+    text-align: left !important;
+    margin-top: 1rem;
+  }
+  
+  .quick-amounts {
+    display: flex;
+    flex-wrap: wrap;
+  }
+}
+
+/* Tooltips enhancement */
+[data-bs-toggle="tooltip"] {
+  cursor: help;
+  border-bottom: 1px dotted #6c757d;
+}
+
+/* Recent payments list */
+#recent-payments {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+#recent-payments .list-group-item {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+}
+
+/* Loading state */
+.loading-spinner {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #0d6efd;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

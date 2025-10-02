@@ -1630,25 +1630,90 @@ class PaymentAdmin(SimpleHistoryAdmin):
         title = 'Договор'
         field_name = 'rental'
 
-    list_display = ("id", "rental", "date", "amount", "type", "method", "created_by_name")
+    list_display = ("id", "rental_link", "date", "amount_display", "type_display", "method_display", "created_by_name")
     list_filter = (RentalFilter, "type", "method")
     search_fields = ("rental__id", "note", "rental__client__name", "created_by__username")
     readonly_fields = ("updated_by",)
     date_hierarchy = 'date'
     list_per_page = 50
-
+    
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('rental', 'amount', 'date', 'type')
+        }),
+        ('Детали платежа', {
+            'fields': ('method', 'note')
+        }),
+        ('Служебная информация', {
+            'fields': ('created_by', 'updated_by'),
+            'classes': ('collapse',)
+        }),
+    )
 
     def changelist_view(self, request, extra_context=None):
         if extra_context is None:
             extra_context = {}
         from .models import Rental
+        from django.db.models import Avg, Count
+        
+        # Получаем filtered queryset для статистики
+        response = super().changelist_view(request, extra_context=extra_context)
+        
+        try:
+            qs = response.context_data['cl'].queryset
+            
+            # Агрегированная статистика
+            stats = qs.aggregate(
+                total_amount=Sum('amount'),
+                avg_amount=Avg('amount'),
+                count=Count('id')
+            )
+            extra_context['stats'] = {
+                'total_amount': stats['total_amount'] or Decimal('0'),
+                'avg_amount': stats['avg_amount'] or Decimal('0'),
+                'count': stats['count'] or 0
+            }
+            
+            # Статистика по типам
+            type_stats = qs.values('type').annotate(
+                total=Sum('amount'),
+                count=Count('id')
+            ).order_by('-total')
+            extra_context['type_stats'] = type_stats
+            
+        except (AttributeError, KeyError):
+            pass
+        
+        # Информация о выбранном договоре
         rid = request.GET.get('rental__id__exact')
         if rid:
             try:
-                extra_context['selected_rental'] = Rental.objects.select_related('client').only('id','contract_code','client__name').get(pk=rid)
+                rental = Rental.objects.select_related('client').only('id','contract_code','client__name','status').get(pk=rid)
+                extra_context['selected_rental'] = rental
+                
+                # Расчет баланса для выбранного договора
+                from .views import calculate_balances_for_rentals
+                from django.utils import timezone
+                tz = timezone.get_current_timezone()
+                now_dt = timezone.now()
+                
+                charges_dict, paid_dict, _ = calculate_balances_for_rentals([rental], tz, now_dt)
+                root_id = rental.root_id or rental.id
+                
+                charges = charges_dict.get(root_id, Decimal('0'))
+                paid = paid_dict.get(root_id, Decimal('0'))
+                balance = charges - paid
+                
+                extra_context['rental_balance'] = {
+                    'charges': charges,
+                    'paid': paid,
+                    'balance': balance,
+                    'color': 'success' if balance <= 0 else ('warning' if balance <= 100 else 'danger')
+                }
             except Rental.DoesNotExist:
                 extra_context['selected_rental'] = None
-        return super().changelist_view(request, extra_context=extra_context)
+        
+        return response
 
     def get_search_results(self, request, queryset, search_term):
         # Ограничение базового поиска по платежам — оставляем стандартное поведение
@@ -1676,6 +1741,57 @@ class PaymentAdmin(SimpleHistoryAdmin):
                 field.help_text = "Доступно только суперпользователю"
         return form
 
+    @admin.display(ordering='rental', description='Договор')
+    def rental_link(self, obj):
+        if not obj.rental:
+            return '-'
+        url = reverse('admin:rental_rental_change', args=[obj.rental.id])
+        client_name = obj.rental.client.name if obj.rental.client else 'N/A'
+        return format_html(
+            '<a href="{}" title="{}">{}</a>',
+            url,
+            client_name,
+            obj.rental.contract_code or f'#{obj.rental.id}'
+        )
+    
+    @admin.display(ordering='amount', description='Сумма')
+    def amount_display(self, obj):
+        return format_html(
+            '<strong style="font-size: 1.05em;">{}</strong> <small class="text-muted">PLN</small>',
+            obj.amount
+        )
+    
+    @admin.display(ordering='type', description='Тип')
+    def type_display(self, obj):
+        colors = {
+            'rent': 'success',
+            'deposit': 'primary',
+            'return_deposit': 'warning',
+            'sold': 'info',
+            'adjustment': 'secondary'
+        }
+        color = colors.get(obj.type, 'secondary')
+        return format_html(
+            '<span class="badge bg-{}">{}</span>',
+            color,
+            obj.get_type_display()
+        )
+    
+    @admin.display(ordering='method', description='Метод')
+    def method_display(self, obj):
+        icons = {
+            'cash': '💵',
+            'blik': '📱',
+            'revolut': '💳',
+            'other': '❓'
+        }
+        icon = icons.get(obj.method, '❓')
+        return format_html(
+            '<span class="method-icon">{}</span> {}',
+            icon,
+            obj.get_method_display()
+        )
+
     @admin.display(ordering='created_by__username', description='Кто ввёл запись')
     def created_by_name(self, obj):
         user = obj.created_by
@@ -1692,6 +1808,65 @@ class PaymentAdmin(SimpleHistoryAdmin):
             obj.created_by = request.user
         obj.updated_by = request.user
         super().save_model(request, obj, form, change)
+    
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('get-rental-info/', self.admin_site.admin_view(self.get_rental_info_view), name='payment_get_rental_info'),
+        ]
+        return custom_urls + urls
+    
+    def get_rental_info_view(self, request):
+        """AJAX endpoint для получения информации о договоре"""
+        rental_id = request.GET.get('rental_id')
+        
+        if not rental_id:
+            return JsonResponse({'success': False, 'error': 'No rental_id provided'})
+        
+        try:
+            from .models import Rental
+            from .views import calculate_balances_for_rentals
+            
+            rental = Rental.objects.select_related('client').get(pk=rental_id)
+            
+            # Расчет баланса
+            tz = timezone.get_current_timezone()
+            now_dt = timezone.now()
+            charges_dict, paid_dict, _ = calculate_balances_for_rentals([rental], tz, now_dt)
+            root_id = rental.root_id or rental.id
+            
+            charges = charges_dict.get(root_id, Decimal('0'))
+            paid = paid_dict.get(root_id, Decimal('0'))
+            balance = charges - paid
+            
+            # Последние 5 платежей
+            recent_payments = rental.payments.order_by('-date', '-id')[:5]
+            recent_payments_data = [
+                {
+                    'date': p.date.strftime('%d.%m.%Y'),
+                    'amount': str(p.amount),
+                    'type_display': p.get_type_display(),
+                    'method_display': p.get_method_display(),
+                }
+                for p in recent_payments
+            ]
+            
+            return JsonResponse({
+                'success': True,
+                'client_name': rental.client.name if rental.client else '-',
+                'contract_code': rental.contract_code or f'#{rental.id}',
+                'status': rental.status,
+                'status_display': rental.get_status_display(),
+                'balance': str(balance),
+                'charges': str(charges),
+                'paid': str(paid),
+                'recent_payments': recent_payments_data,
+            })
+            
+        except Rental.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Rental not found'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
 
 
 @admin.register(ExpenseCategory)
