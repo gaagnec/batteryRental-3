@@ -255,13 +255,16 @@ def dashboard(request):
     charges_series = {'labels': labels, 'values': charges_values}
 
     # Топ должников: по текущему балансу, берём 5
+    # Используем уже рассчитанные балансы из clients_data вместо N+1 запросов
     debtors = []
     overall_debt = Decimal(0)
-    for r in latest_by_client:
-        bal = r.group_balance()
-        if bal > 0:
-            debtors.append((str(r.client), float(bal)))
-            overall_debt += bal
+    for cd in clients_data:
+        # balance_ui отображает кредит клиента как положительное, долг как отрицательное
+        # balance_raw = charges - paid, поэтому нужно инвертировать
+        balance_raw = -cd['balance_ui']
+        if balance_raw > 0:  # Клиент должен нам
+            debtors.append((str(cd['client']), float(balance_raw)))
+            overall_debt += balance_raw
     debtors.sort(key=lambda x: x[1], reverse=True)
     debtors = debtors[:5]
     top_debtors = {
