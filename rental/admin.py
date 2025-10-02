@@ -154,6 +154,8 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
 
     def has_module_permission(self, request):
         # только владельцы видят раздел
+        if not request.user.is_authenticated:
+            return False
         return FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.OWNER, active=True).exists()
 
     def get_urls(self):
@@ -172,6 +174,8 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
         return HttpResponseRedirect(ret)
 
     def _ensure_owner(self, request):
+        if not request.user.is_authenticated:
+            return False
         if not FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.OWNER, active=True).exists():
             return False
         return True
@@ -294,9 +298,6 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
                 return JsonResponse({"ok": False, "error": str(e)[:300]})
             messages.error(request, f"Ошибка: {e}")
         return self._redirect_back(request)
-
-        # только владельцы видят раздел
-        return FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.OWNER, active=True).exists()
 
     def changelist_view(self, request, extra_context=None):
         start_d, end_d = self._compute_period(request)
