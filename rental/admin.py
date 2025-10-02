@@ -1642,10 +1642,10 @@ class PaymentAdmin(SimpleHistoryAdmin):
             'fields': ('rental', 'amount', 'date', 'type')
         }),
         ('Детали платежа', {
-            'fields': ('method', 'note')
+            'fields': ('method', 'note', 'created_by')
         }),
         ('Служебная информация', {
-            'fields': ('created_by', 'updated_by'),
+            'fields': ('updated_by',),
             'classes': ('collapse',)
         }),
     )
@@ -1727,19 +1727,35 @@ class PaymentAdmin(SimpleHistoryAdmin):
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
         from django.contrib.auth import get_user_model
+        from .models import FinancePartner
+        
         User = get_user_model()
         field = form.base_fields.get('created_by')
         if field:
             field.queryset = User.objects.filter(is_staff=True).order_by('username')
             field.label = "Кто принял деньги"
-            # Для суперпользователей и админов (is_staff) - можно выбирать
-            if request.user.is_superuser or request.user.is_staff:
+            
+            # Проверяем права доступа: суперпользователь, владелец, или пользователь 'admin'
+            is_owner = FinancePartner.objects.filter(
+                user=request.user, 
+                role=FinancePartner.Role.OWNER,
+                active=True
+            ).exists()
+            
+            can_choose = (
+                request.user.is_superuser or 
+                is_owner or 
+                request.user.username == 'admin'
+            )
+            
+            # Для суперпользователей, владельцев и admin - можно выбирать
+            if can_choose:
                 field.required = False
                 field.disabled = False
                 field.initial = request.user.pk
                 field.help_text = "Выберите сотрудника, который принял деньги (по умолчанию - вы)"
             else:
-                # Для остальных - автоматически
+                # Для остальных (модераторов и т.д.) - автоматически
                 field.initial = request.user.pk
                 field.disabled = True
                 field.required = False
