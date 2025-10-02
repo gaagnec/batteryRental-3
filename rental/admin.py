@@ -43,6 +43,9 @@ class OwnerContributionAdmin(SimpleHistoryAdmin):
     autocomplete_fields = ("partner", "expense")
     search_fields = ("note", "partner__user__username")
     def has_module_permission(self, request):
+        # только владельцы видят раздел; для неаутентифицированных — скрываем
+        if not getattr(request.user, 'is_authenticated', False):
+            return False
         return False
     def has_view_permission(self, request, obj=None):
         return False
