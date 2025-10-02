@@ -49,10 +49,14 @@
     <div class="card-body">
       <h6 class="card-title">⚡ Быстрый выбор суммы</h6>
       <div class="quick-amounts btn-group-sm" role="group">
-        <button type="button" class="btn btn-outline-secondary" data-amount="50">50 PLN</button>
+        <button type="button" class="btn btn-outline-secondary" data-amount="80">80 PLN</button>
+        <button type="button" class="btn btn-outline-secondary" data-amount="90">90 PLN</button>
         <button type="button" class="btn btn-outline-secondary" data-amount="100">100 PLN</button>
+        <button type="button" class="btn btn-outline-secondary" data-amount="110">110 PLN</button>
+        <button type="button" class="btn btn-outline-secondary" data-amount="160">160 PLN</button>
+        <button type="button" class="btn btn-outline-secondary" data-amount="180">180 PLN</button>
         <button type="button" class="btn btn-outline-secondary" data-amount="200">200 PLN</button>
-        <button type="button" class="btn btn-outline-secondary" data-amount="500">500 PLN</button>
+        <button type="button" class="btn btn-outline-secondary" data-amount="220">220 PLN</button>
         <button type="button" class="btn btn-outline-primary" id="fill-debt" style="display:none;">💰 Погасить долг</button>
       </div>
     </div>
@@ -169,8 +173,14 @@
               'X-Requested-With': 'XMLHttpRequest'
             }
           })
-          .then(response => response.json())
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+          })
           .then(data => {
+            console.log('AJAX Response:', data);
             if (data.success) {
               // Заполняем данные
               document.getElementById('client-name').textContent = data.client_name || '-';
@@ -222,12 +232,40 @@
               updateBalancePreview();
             } else {
               rentalInfoCard.style.display = 'none';
-              console.error('Error loading rental info:', data.error);
+              console.error('Error loading rental info:', data);
+              
+              let errorMsg = 'Ошибка загрузки данных договора:\n\n';
+              errorMsg += 'Тип ошибки: ' + (data.error_type || 'Unknown') + '\n';
+              errorMsg += 'Сообщение: ' + (data.error || 'Неизвестная ошибка') + '\n';
+              
+              if (data.traceback) {
+                errorMsg += '\n--- Traceback (для отладки) ---\n' + data.traceback;
+                console.error('Server Traceback:', data.traceback);
+              }
+              
+              alert(errorMsg);
+              
+              document.getElementById('recent-payments').innerHTML = 
+                '<li class="list-group-item text-danger"><strong>Ошибка загрузки</strong><br>' +
+                '<small>Тип: ' + (data.error_type || 'Unknown') + '</small><br>' +
+                '<small>' + (data.error || 'Неизвестная ошибка') + '</small></li>';
             }
           })
           .catch(error => {
             console.error('AJAX Error:', error);
-            document.getElementById('recent-payments').innerHTML = '<li class="list-group-item text-danger">Ошибка загрузки данных</li>';
+            const errorMsg = error.message || error.toString();
+            
+            document.getElementById('recent-payments').innerHTML = 
+              '<li class="list-group-item text-danger"><strong>Ошибка сети/соединения</strong><br>' +
+              '<small>' + errorMsg + '</small></li>';
+            
+            alert('Ошибка при загрузке информации о договоре:\n\n' + 
+                  'Тип: Network/Connection Error\n' +
+                  'Сообщение: ' + errorMsg + '\n\n' +
+                  'Проверьте:\n' +
+                  '1. Соединение с сервером\n' +
+                  '2. Консоль браузера (F12) для подробностей\n' +
+                  '3. Логи сервера');
           });
         });
         

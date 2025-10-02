@@ -1733,12 +1733,16 @@ class PaymentAdmin(SimpleHistoryAdmin):
             field.queryset = User.objects.filter(is_staff=True).order_by('username')
             field.label = "Кто принял деньги"
             if request.user.is_superuser:
-                field.required = True
+                # Для суперпользователя делаем поле опциональным, но по умолчанию текущий юзер
+                field.required = False
                 field.disabled = False
+                field.initial = request.user.pk
+                field.help_text = "Оставьте пустым для автоматического заполнения текущим пользователем"
             else:
                 field.initial = request.user.pk
                 field.disabled = True
-                field.help_text = "Доступно только суперпользователю"
+                field.required = False
+                field.help_text = "Автоматически заполняется текущим пользователем"
         return form
 
     @admin.display(ordering='rental', description='Договор')
@@ -1818,10 +1822,17 @@ class PaymentAdmin(SimpleHistoryAdmin):
     
     def get_rental_info_view(self, request):
         """AJAX endpoint для получения информации о договоре"""
+        import traceback
+        import sys
+        
         rental_id = request.GET.get('rental_id')
         
         if not rental_id:
-            return JsonResponse({'success': False, 'error': 'No rental_id provided'})
+            return JsonResponse({
+                'success': False, 
+                'error': 'Rental ID не указан',
+                'error_type': 'ValidationError'
+            })
         
         try:
             from .models import Rental
@@ -1864,9 +1875,26 @@ class PaymentAdmin(SimpleHistoryAdmin):
             })
             
         except Rental.DoesNotExist:
-            return JsonResponse({'success': False, 'error': 'Rental not found'})
+            return JsonResponse({
+                'success': False, 
+                'error': f'Договор с ID {rental_id} не найден',
+                'error_type': 'DoesNotExist'
+            })
         except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)})
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            tb_lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
+            tb_text = ''.join(tb_lines)
+            
+            # Логируем ошибку на сервере
+            print(f"ERROR in get_rental_info_view: {e}")
+            print(tb_text)
+            
+            return JsonResponse({
+                'success': False, 
+                'error': str(e),
+                'error_type': type(e).__name__,
+                'traceback': tb_text if request.user.is_superuser else None  # Только для суперпользователей
+            })
 
 
 @admin.register(ExpenseCategory)
