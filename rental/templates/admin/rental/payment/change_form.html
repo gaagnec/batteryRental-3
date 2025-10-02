@@ -142,8 +142,10 @@
         
         const newBalanceElem = document.getElementById('new-balance');
         if (newBalanceElem) {
-          newBalanceElem.textContent = newBalance.toFixed(2) + ' PLN';
-          newBalanceElem.className = 'fs-5 ' + (newBalance > 0 ? 'text-danger' : 'text-success');
+          // Инвертируем знак для отображения
+          const displayNewBalance = -newBalance;
+          newBalanceElem.textContent = (displayNewBalance >= 0 ? '+' : '') + displayNewBalance.toFixed(2) + ' PLN';
+          newBalanceElem.className = 'fs-5 ' + (displayNewBalance < 0 ? 'text-danger' : 'text-success');
         }
         
         if (paymentAmount > 0) {
@@ -198,9 +200,12 @@
               currentBalance = balance;
               currentCharges = charges;
               
+              // Инвертируем знак для отображения: отрицательный баланс = клиент должен (красный)
+              const displayBalance = -balance;
+              
               const balanceElem = document.getElementById('current-balance');
-              balanceElem.textContent = balance.toFixed(2) + ' PLN';
-              balanceElem.className = balance > 0 ? 'mb-1 text-danger' : 'mb-1 text-success';
+              balanceElem.textContent = (displayBalance >= 0 ? '+' : '') + displayBalance.toFixed(2) + ' PLN';
+              balanceElem.className = displayBalance < 0 ? 'mb-1 text-danger' : 'mb-1 text-success';
               
               document.getElementById('charges').textContent = charges.toFixed(2);
               document.getElementById('paid').textContent = paid.toFixed(2);

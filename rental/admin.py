@@ -1732,13 +1732,14 @@ class PaymentAdmin(SimpleHistoryAdmin):
         if field:
             field.queryset = User.objects.filter(is_staff=True).order_by('username')
             field.label = "Кто принял деньги"
-            if request.user.is_superuser:
-                # Для суперпользователя делаем поле опциональным, но по умолчанию текущий юзер
+            # Для суперпользователей и админов (is_staff) - можно выбирать
+            if request.user.is_superuser or request.user.is_staff:
                 field.required = False
                 field.disabled = False
                 field.initial = request.user.pk
-                field.help_text = "Оставьте пустым для автоматического заполнения текущим пользователем"
+                field.help_text = "Выберите сотрудника, который принял деньги (по умолчанию - вы)"
             else:
+                # Для остальных - автоматически
                 field.initial = request.user.pk
                 field.disabled = True
                 field.required = False
