@@ -1,0 +1,290 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'admin/css/custom.css' %}">
+{% endblock %}
+
+{% block field_sets %}
+  <!-- AJAX-карточка с информацией о договоре -->
+  <div id="rental-info-card" class="card mb-3" style="display:none;">
+    <div class="card-header bg-primary text-white">
+      <h5 class="mb-0">📋 Информация о договоре</h5>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-6">
+          <p class="mb-2"><strong>Клиент:</strong> <span id="client-name" class="text-muted">-</span></p>
+          <p class="mb-2"><strong>Договор:</strong> <span id="contract-code" class="text-muted">-</span></p>
+          <p class="mb-2"><strong>Статус:</strong> <span id="rental-status" class="badge bg-secondary">-</span></p>
+        </div>
+        <div class="col-md-6">
+          <div class="balance-indicator">
+            <h4>Текущий баланс</h4>
+            <h2 id="current-balance" class="mb-1">0.00 PLN</h2>
+            <small style="opacity: 0.9;">
+              Должен: <span id="charges">0.00</span> PLN | 
+              Оплачено: <span id="paid">0.00</span> PLN
+            </small>
+          </div>
+        </div>
+      </div>
+      
+      <hr class="my-3">
+      
+      <div class="row">
+        <div class="col-12">
+          <h6>📊 Последние платежи:</h6>
+          <ul id="recent-payments" class="list-group list-group-flush">
+            <li class="list-group-item text-muted">Выберите договор для загрузки...</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Быстрые кнопки для типичных сумм -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <h6 class="card-title">⚡ Быстрый выбор суммы</h6>
+      <div class="quick-amounts btn-group-sm" role="group">
+        <button type="button" class="btn btn-outline-secondary" data-amount="80">80 PLN</button>
+        <button type="button" class="btn btn-outline-secondary" data-amount="90">90 PLN</button>
+        <button type="button" class="btn btn-outline-secondary" data-amount="100">100 PLN</button>
+        <button type="button" class="btn btn-outline-secondary" data-amount="110">110 PLN</button>
+        <button type="button" class="btn btn-outline-secondary" data-amount="160">160 PLN</button>
+        <button type="button" class="btn btn-outline-secondary" data-amount="180">180 PLN</button>
+        <button type="button" class="btn btn-outline-secondary" data-amount="200">200 PLN</button>
+        <button type="button" class="btn btn-outline-secondary" data-amount="220">220 PLN</button>
+        <button type="button" class="btn btn-outline-primary" id="fill-debt" style="display:none;">💰 Погасить долг</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preview нового баланса -->
+  <div class="alert alert-info" id="balance-preview" style="display:none;">
+    <strong>📊 Предпросмотр:</strong>
+    <p class="mb-0">После платежа баланс станет: <strong id="new-balance" class="fs-5">0.00 PLN</strong></p>
+  </div>
+
+  {{ block.super }}
+{% endblock %}
+
+{% block after_field_sets %}
+  {{ block.super }}
+{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const rentalField = document.getElementById('id_rental');
+      const amountField = document.getElementById('id_amount');
+      const typeField = document.getElementById('id_type');
+      const rentalInfoCard = document.getElementById('rental-info-card');
+      const balancePreview = document.getElementById('balance-preview');
+      const fillDebtBtn = document.getElementById('fill-debt');
+      
+      let currentBalance = 0;
+      let currentCharges = 0;
+      
+      // Быстрые кнопки для сумм
+      document.querySelectorAll('[data-amount]').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          amountField.value = this.dataset.amount;
+          updateBalancePreview();
+        });
+      });
+      
+      // Кнопка "Погасить долг"
+      if (fillDebtBtn) {
+        fillDebtBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          if (currentBalance > 0) {
+            amountField.value = currentBalance.toFixed(2);
+            updateBalancePreview();
+          }
+        });
+      }
+      
+      // Обновление preview при изменении суммы
+      if (amountField) {
+        amountField.addEventListener('input', updateBalancePreview);
+      }
+      
+      // Изменение типа платежа также влияет на баланс
+      if (typeField) {
+        typeField.addEventListener('change', updateBalancePreview);
+      }
+      
+      function updateBalancePreview() {
+        if (!amountField || !balancePreview) return;
+        
+        const paymentAmount = parseFloat(amountField.value) || 0;
+        const paymentType = typeField ? typeField.value : 'rent';
+        
+        let newBalance = currentBalance;
+        
+        // Расчет нового баланса в зависимости от типа
+        if (paymentType === 'rent' || paymentType === 'sold') {
+          newBalance = currentBalance - paymentAmount;
+        } else if (paymentType === 'deposit') {
+          // Депозит не меняет баланс аренды
+          newBalance = currentBalance;
+        } else if (paymentType === 'return_deposit') {
+          // Возврат депозита тоже не меняет баланс аренды
+          newBalance = currentBalance;
+        } else if (paymentType === 'adjustment') {
+          newBalance = currentBalance - paymentAmount;
+        }
+        
+        const newBalanceElem = document.getElementById('new-balance');
+        if (newBalanceElem) {
+          // Инвертируем знак для отображения
+          const displayNewBalance = -newBalance;
+          newBalanceElem.textContent = (displayNewBalance >= 0 ? '+' : '') + displayNewBalance.toFixed(2) + ' PLN';
+          newBalanceElem.className = 'fs-5 ' + (displayNewBalance < 0 ? 'text-danger' : 'text-success');
+        }
+        
+        if (paymentAmount > 0) {
+          balancePreview.style.display = 'block';
+        } else {
+          balancePreview.style.display = 'none';
+        }
+      }
+      
+      // AJAX загрузка информации о договоре
+      if (rentalField) {
+        rentalField.addEventListener('change', function() {
+          const rentalId = this.value;
+          
+          if (!rentalId) {
+            rentalInfoCard.style.display = 'none';
+            return;
+          }
+          
+          // Показываем карточку со спиннером
+          rentalInfoCard.style.display = 'block';
+          document.getElementById('recent-payments').innerHTML = '<li class="list-group-item"><span class="loading-spinner me-2"></span>Загрузка...</li>';
+          
+          // AJAX запрос
+          fetch(`/admin/rental/payment/get-rental-info/?rental_id=${rentalId}`, {
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest'
+            }
+          })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+          })
+          .then(data => {
+            console.log('AJAX Response:', data);
+            if (data.success) {
+              // Заполняем данные
+              document.getElementById('client-name').textContent = data.client_name || '-';
+              document.getElementById('contract-code').textContent = data.contract_code || '-';
+              
+              const statusBadge = document.getElementById('rental-status');
+              statusBadge.textContent = data.status_display || '-';
+              statusBadge.className = 'badge bg-' + (data.status === 'active' ? 'success' : 'secondary');
+              
+              // Баланс
+              const balance = parseFloat(data.balance) || 0;
+              const charges = parseFloat(data.charges) || 0;
+              const paid = parseFloat(data.paid) || 0;
+              
+              currentBalance = balance;
+              currentCharges = charges;
+              
+              // Инвертируем знак для отображения: отрицательный баланс = клиент должен (красный)
+              const displayBalance = -balance;
+              
+              const balanceElem = document.getElementById('current-balance');
+              balanceElem.textContent = (displayBalance >= 0 ? '+' : '') + displayBalance.toFixed(2) + ' PLN';
+              balanceElem.className = displayBalance < 0 ? 'mb-1 text-danger' : 'mb-1 text-success';
+              
+              document.getElementById('charges').textContent = charges.toFixed(2);
+              document.getElementById('paid').textContent = paid.toFixed(2);
+              
+              // Показываем/скрываем кнопку "Погасить долг"
+              if (balance > 0 && fillDebtBtn) {
+                fillDebtBtn.style.display = 'inline-block';
+                fillDebtBtn.dataset.amount = balance.toFixed(2);
+              } else if (fillDebtBtn) {
+                fillDebtBtn.style.display = 'none';
+              }
+              
+              // Последние платежи
+              const recentPaymentsList = document.getElementById('recent-payments');
+              if (data.recent_payments && data.recent_payments.length > 0) {
+                recentPaymentsList.innerHTML = data.recent_payments.map(p => `
+                  <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                      <small class="text-muted">${p.date}</small>
+                      <span class="ms-2">${p.type_display}</span>
+                    </div>
+                    <strong>${p.amount} PLN</strong>
+                  </li>
+                `).join('');
+              } else {
+                recentPaymentsList.innerHTML = '<li class="list-group-item text-muted">Платежей пока нет</li>';
+              }
+              
+              updateBalancePreview();
+            } else {
+              rentalInfoCard.style.display = 'none';
+              console.error('Error loading rental info:', data);
+              
+              let errorMsg = 'Ошибка загрузки данных договора:\n\n';
+              errorMsg += 'Тип ошибки: ' + (data.error_type || 'Unknown') + '\n';
+              errorMsg += 'Сообщение: ' + (data.error || 'Неизвестная ошибка') + '\n';
+              
+              if (data.traceback) {
+                errorMsg += '\n--- Traceback (для отладки) ---\n' + data.traceback;
+                console.error('Server Traceback:', data.traceback);
+              }
+              
+              alert(errorMsg);
+              
+              document.getElementById('recent-payments').innerHTML = 
+                '<li class="list-group-item text-danger"><strong>Ошибка загрузки</strong><br>' +
+                '<small>Тип: ' + (data.error_type || 'Unknown') + '</small><br>' +
+                '<small>' + (data.error || 'Неизвестная ошибка') + '</small></li>';
+            }
+          })
+          .catch(error => {
+            console.error('AJAX Error:', error);
+            const errorMsg = error.message || error.toString();
+            
+            document.getElementById('recent-payments').innerHTML = 
+              '<li class="list-group-item text-danger"><strong>Ошибка сети/соединения</strong><br>' +
+              '<small>' + errorMsg + '</small></li>';
+            
+            alert('Ошибка при загрузке информации о договоре:\n\n' + 
+                  'Тип: Network/Connection Error\n' +
+                  'Сообщение: ' + errorMsg + '\n\n' +
+                  'Проверьте:\n' +
+                  '1. Соединение с сервером\n' +
+                  '2. Консоль браузера (F12) для подробностей\n' +
+                  '3. Логи сервера');
+          });
+        });
+        
+        // Если редактируем существующий платеж, загрузим данные
+        if (rentalField.value) {
+          rentalField.dispatchEvent(new Event('change'));
+        }
+      }
+      
+      // Initialize Bootstrap tooltips
+      const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+      tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+      });
+    });
+  </script>
+{% endblock %}
