@@ -824,6 +824,391 @@ try:
 except admin.sites.AlreadyRegistered:
     pass
 
+
+# ===================================
+# Finance Overview v2 (Бухучёт)
+# ===================================
+
+class FinanceOverviewAdmin2(admin.ModelAdmin):
+    change_list_template = "admin/finance_overview_v2.html"
+    CUTOFF_DATE = timezone.datetime(2025, 9, 1).date()
+
+    def has_module_permission(self, request):
+        # Только владельцы видят раздел
+        if not request.user.is_authenticated:
+            return False
+        return FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.OWNER, active=True).exists()
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path("create-transfer-v2/", self.admin_site.admin_view(self.create_transfer_view), name="finance_v2_create_transfer"),
+        ]
+        return custom + urls
+
+    def create_transfer_view(self, request):
+        """AJAX endpoint для создания перевода"""
+        if request.method != "POST":
+            return JsonResponse({"ok": False, "error": "Only POST allowed"}, status=405)
+        
+        if not request.user.is_authenticated:
+            return JsonResponse({"ok": False, "error": "Unauthorized"}, status=403)
+        
+        # Проверка прав (только владельцы)
+        if not FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.OWNER, active=True).exists():
+            return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
+        
+        try:
+            from_id = int(request.POST.get("from_partner") or 0)
+            to_id = int(request.POST.get("to_partner") or 0)
+            amount = Decimal(request.POST.get("amount") or "0")
+            purpose = request.POST.get("purpose") or MoneyTransfer.Purpose.OTHER
+            use_collected = (request.POST.get("use_collected") == "true")
+            date_str = request.POST.get("date") or ""
+            note = request.POST.get("note") or ""
+            
+            # Парсинг даты
+            date_val = timezone.localdate()
+            if date_str:
+                try:
+                    date_val = timezone.datetime.fromisoformat(date_str).date()
+                except Exception:
+                    pass
+            
+            # Валидация
+            if from_id <= 0 or to_id <= 0:
+                return JsonResponse({"ok": False, "error": "Некорректные партнёры"})
+            
+            if amount <= 0:
+                return JsonResponse({"ok": False, "error": "Сумма должна быть больше 0"})
+            
+            if from_id == to_id:
+                return JsonResponse({"ok": False, "error": "Нельзя перевести самому себе"})
+            
+            # Создание перевода
+            MoneyTransfer.objects.create(
+                from_partner_id=from_id,
+                to_partner_id=to_id,
+                amount=amount,
+                date=date_val,
+                purpose=purpose,
+                use_collected=use_collected,
+                note=note,
+            )
+            
+            return JsonResponse({"ok": True, "message": "Перевод создан успешно"})
+            
+        except ValueError as e:
+            return JsonResponse({"ok": False, "error": f"Ошибка данных: {str(e)}"})
+        except Exception as e:
+            return JsonResponse({"ok": False, "error": f"Ошибка: {str(e)[:200]}"})
+
+    def changelist_view(self, request, extra_context=None):
+        from django.db.models import Sum, Q
+        from django.db.models.functions import TruncMonth
+        
+        cutoff = self.CUTOFF_DATE
+        
+        # Получаем всех партнёров
+        partners = FinancePartner.objects.filter(active=True).select_related('user')
+        partners_dict = {p.id: p for p in partners}
+        
+        # Разделяем на владельцев и модераторов
+        owners = [p for p in partners if p.role == FinancePartner.Role.OWNER]
+        moderators = [p for p in partners if p.role == FinancePartner.Role.MODERATOR]
+        
+        owner_ids = [p.id for p in owners]
+        moderator_ids = [p.id for p in moderators]
+        
+        user_to_partner = {p.user_id: p.id for p in partners}
+        partner_to_user = {p.id: p.user_id for p in partners}
+        
+        # ========================================
+        # 1. ДОХОДЫ (накопленный итог)
+        # ========================================
+        
+        # Payments (RENT + SOLD) с cutoff даты
+        payments_by_user = dict(
+            Payment.objects
+            .filter(date__gte=cutoff, type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD])
+            .values('created_by_id')
+            .annotate(total=Sum('amount'))
+            .values_list('created_by_id', 'total')
+        )
+        
+        # Входящие переводы ОТ модераторов К владельцам
+        incoming_from_mods = dict(
+            MoneyTransfer.objects
+            .filter(date__gte=cutoff, purpose=MoneyTransfer.Purpose.MODERATOR_TO_OWNER, use_collected=True)
+            .values('to_partner_id')
+            .annotate(total=Sum('amount'))
+            .values_list('to_partner_id', 'total')
+        )
+        
+        # Входящие переводы между владельцами (TO)
+        incoming_from_owners = dict(
+            MoneyTransfer.objects
+            .filter(date__gte=cutoff, purpose=MoneyTransfer.Purpose.OWNER_TO_OWNER, use_collected=False)
+            .values('to_partner_id')
+            .annotate(total=Sum('amount'))
+            .values_list('to_partner_id', 'total')
+        )
+        
+        # Исходящие переводы между владельцами (FROM)
+        outgoing_to_owners = dict(
+            MoneyTransfer.objects
+            .filter(date__gte=cutoff, purpose=MoneyTransfer.Purpose.OWNER_TO_OWNER, use_collected=False)
+            .values('from_partner_id')
+            .annotate(total=Sum('amount'))
+            .values_list('from_partner_id', 'total')
+        )
+        
+        # Исходящие переводы модераторов владельцам
+        outgoing_from_mods = dict(
+            MoneyTransfer.objects
+            .filter(date__gte=cutoff, purpose=MoneyTransfer.Purpose.MODERATOR_TO_OWNER, use_collected=True)
+            .values('from_partner_id')
+            .annotate(total=Sum('amount'))
+            .values_list('from_partner_id', 'total')
+        )
+        
+        # Расчёт балансов владельцев (доходы)
+        owner_balances = {}
+        for owner in owners:
+            pid = owner.id
+            uid = owner.user_id
+            
+            # Вариант B: Получил = Payments + От модераторов + От других владельцев
+            received_payments = Decimal(payments_by_user.get(uid, 0))
+            received_from_mods = Decimal(incoming_from_mods.get(pid, 0))
+            received_from_owners = Decimal(incoming_from_owners.get(pid, 0))
+            
+            sent_to_owners = Decimal(outgoing_to_owners.get(pid, 0))
+            
+            # Чистый баланс = Получил всего - Перевёл другим владельцам
+            net_balance = received_payments + received_from_mods + received_from_owners - sent_to_owners
+            
+            owner_balances[pid] = {
+                'partner': owner,
+                'received_payments': received_payments,
+                'received_from_mods': received_from_mods,
+                'received_from_owners': received_from_owners,
+                'total_received': received_payments + received_from_mods + received_from_owners,
+                'sent_to_owners': sent_to_owners,
+                'net_balance': net_balance,
+            }
+        
+        # Справедливое распределение доходов (50/50)
+        total_income_all_owners = sum(ob['net_balance'] for ob in owner_balances.values())
+        fair_share_income = total_income_all_owners / Decimal(len(owners)) if owners else Decimal(0)
+        
+        # Дисбаланс доходов
+        income_imbalance = {}
+        for pid, data in owner_balances.items():
+            data['fair_share'] = fair_share_income
+            data['imbalance'] = data['net_balance'] - fair_share_income
+            income_imbalance[pid] = data['imbalance']
+        
+        # ========================================
+        # 2. ДОЛГИ МОДЕРАТОРОВ
+        # ========================================
+        
+        moderator_debts = []
+        for mod in moderators:
+            uid = mod.user_id
+            pid = mod.id
+            
+            collected = Decimal(payments_by_user.get(uid, 0))
+            transferred = Decimal(outgoing_from_mods.get(pid, 0))
+            debt = collected - transferred
+            
+            moderator_debts.append({
+                'partner': mod,
+                'collected': collected,
+                'transferred': transferred,
+                'debt': debt,
+            })
+        
+        # ========================================
+        # 3. ВЛОЖЕНИЯ В БИЗНЕС
+        # ========================================
+        
+        # Закупки (PURCHASE)
+        purchases_by_partner = dict(
+            Expense.objects
+            .filter(date__gte=cutoff, payment_type=Expense.PaymentType.PURCHASE, paid_by_partner_id__in=owner_ids)
+            .values('paid_by_partner_id')
+            .annotate(total=Sum('amount'))
+            .values_list('paid_by_partner_id', 'total')
+        )
+        
+        # Взносы (DEPOSIT)
+        deposits_by_partner = dict(
+            Expense.objects
+            .filter(date__gte=cutoff, payment_type=Expense.PaymentType.DEPOSIT, paid_by_partner_id__in=owner_ids)
+            .values('paid_by_partner_id')
+            .annotate(total=Sum('amount'))
+            .values_list('paid_by_partner_id', 'total')
+        )
+        
+        # Расчёт балансов вложений
+        total_purchases = sum(purchases_by_partner.values())
+        total_deposits = sum(deposits_by_partner.values())
+        total_investments = total_purchases + total_deposits
+        fair_share_investments = total_investments / Decimal(len(owners)) if owners else Decimal(0)
+        
+        investment_balances = {}
+        for owner in owners:
+            pid = owner.id
+            
+            purchases = Decimal(purchases_by_partner.get(pid, 0))
+            deposits = Decimal(deposits_by_partner.get(pid, 0))
+            total_invested = purchases + deposits
+            balance = total_invested - fair_share_investments
+            
+            investment_balances[pid] = {
+                'partner': owner,
+                'purchases': purchases,
+                'deposits': deposits,
+                'total_invested': total_invested,
+                'fair_share': fair_share_investments,
+                'balance': balance,
+            }
+        
+        # ========================================
+        # 4. ИТОГОВЫЙ ДОЛГ
+        # ========================================
+        
+        # Для 2 владельцев: простой расчёт
+        total_debt_between_owners = None
+        if len(owners) == 2:
+            owner1, owner2 = owners[0], owners[1]
+            pid1, pid2 = owner1.id, owner2.id
+            
+            # По доходам
+            income_diff = income_imbalance.get(pid1, 0) - income_imbalance.get(pid2, 0)
+            income_transfer = income_diff / Decimal(2)  # Кто должен кому
+            
+            # По вложениям
+            investment_diff = investment_balances[pid1]['balance'] - investment_balances[pid2]['balance']
+            investment_transfer = investment_diff / Decimal(2)
+            
+            # Итого
+            total_transfer = income_transfer + investment_transfer
+            
+            total_debt_between_owners = {
+                'owner1': owner1,
+                'owner2': owner2,
+                'income_transfer': income_transfer,  # + значит owner2 должен owner1
+                'investment_transfer': investment_transfer,
+                'total_transfer': total_transfer,
+            }
+        
+        # ========================================
+        # 5. ПО МЕСЯЦАМ
+        # ========================================
+        
+        # Payments по месяцам
+        payments_by_month = (
+            Payment.objects
+            .filter(date__gte=cutoff, type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD])
+            .annotate(month=TruncMonth('date'))
+            .values('month', 'created_by_id')
+            .annotate(total=Sum('amount'))
+            .order_by('month')
+        )
+        
+        # Группируем по месяцам
+        from collections import defaultdict
+        months_data = defaultdict(lambda: defaultdict(Decimal))
+        
+        for row in payments_by_month:
+            month = row['month']
+            user_id = row['created_by_id']
+            total = row['total'] or Decimal(0)
+            
+            partner_id = user_to_partner.get(user_id)
+            if partner_id:
+                months_data[month][partner_id] = total
+        
+        # Формируем список месяцев
+        months_list = []
+        for month in sorted(months_data.keys()):
+            month_row = {
+                'month': month,
+                'by_partner': {},
+                'total': Decimal(0),
+            }
+            
+            for pid, total in months_data[month].items():
+                month_row['by_partner'][pid] = total
+                month_row['total'] += total
+            
+            months_list.append(month_row)
+        
+        # ========================================
+        # 6. ИСТОРИЯ ПЕРЕВОДОВ
+        # ========================================
+        
+        transfers_history = (
+            MoneyTransfer.objects
+            .filter(date__gte=cutoff)
+            .select_related('from_partner__user', 'to_partner__user')
+            .order_by('-date', '-id')[:50]
+        )
+        
+        # ========================================
+        # CONTEXT
+        # ========================================
+        
+        context = {
+            'title': 'Бухучёт',
+            'cutoff_date': cutoff,
+            'owners': owners,
+            'moderators': moderators,
+            'partners_dict': partners_dict,
+            
+            # Долги модераторов
+            'moderator_debts': moderator_debts,
+            
+            # Балансы владельцев (доходы)
+            'owner_balances': owner_balances,
+            'fair_share_income': fair_share_income,
+            'total_income_all_owners': total_income_all_owners,
+            
+            # Вложения
+            'investment_balances': investment_balances,
+            'fair_share_investments': fair_share_investments,
+            'total_investments': total_investments,
+            
+            # Итоговый долг
+            'total_debt': total_debt_between_owners,
+            
+            # По месяцам
+            'months_list': months_list,
+            
+            # История
+            'transfers_history': transfers_history,
+            
+            # Для форм
+            'partner_choices': [{'id': p.id, 'name': p.user.username, 'role': p.role} for p in partners],
+            'today': timezone.localdate(),
+        }
+        
+        base_ctx = self.admin_site.each_context(request)
+        context = {**base_ctx, **context}
+        
+        return TemplateResponse(request, self.change_list_template, context)
+
+
+from .models import FinanceOverviewProxy2
+try:
+    @admin.register(FinanceOverviewProxy2)
+    class FinanceOverviewProxy2Admin(FinanceOverviewAdmin2):
+        pass
+except admin.sites.AlreadyRegistered:
+    pass
+
 class ActiveRentalFilter(admin.SimpleListFilter):
     title = "Активный договор"
     parameter_name = "active"
