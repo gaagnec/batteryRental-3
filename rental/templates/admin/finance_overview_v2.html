@@ -443,7 +443,7 @@
                         {% if data.imbalance > 0 %}
                             <p><strong>{{ data.partner.user.username }}</strong> получил на <strong class="amount-positive">{{ data.imbalance|floatformat:2 }} PLN</strong> больше справедливой доли.</p>
                         {% elif data.imbalance < 0 %}
-                            <p><strong>{{ data.partner.user.username }}</strong> получил на <strong class="amount-negative">{{ data.imbalance|abs|floatformat:2 }} PLN</strong> меньше справедливой доли.</p>
+                            <p><strong>{{ data.partner.user.username }}</strong> получил на <strong class="amount-negative">{{ data.imbalance|abs_value|floatformat:2 }} PLN</strong> меньше справедливой доли.</p>
                         {% endif %}
                     {% endfor %}
                 </div>
@@ -505,7 +505,7 @@
                 {% if total_debt.income_transfer > 0 %}
                     <p>{{ total_debt.owner2.user.username }} получил больше → должен {{ total_debt.owner1.user.username }}: <strong>{{ total_debt.income_transfer|floatformat:2 }} PLN</strong></p>
                 {% elif total_debt.income_transfer < 0 %}
-                    <p>{{ total_debt.owner1.user.username }} получил больше → должен {{ total_debt.owner2.user.username }}: <strong>{{ total_debt.income_transfer|abs|floatformat:2 }} PLN</strong></p>
+                    <p>{{ total_debt.owner1.user.username }} получил больше → должен {{ total_debt.owner2.user.username }}: <strong>{{ total_debt.income_transfer|abs_value|floatformat:2 }} PLN</strong></p>
                 {% else %}
                     <p>✅ Доходы сбалансированы</p>
                 {% endif %}
@@ -514,7 +514,7 @@
                 {% if total_debt.investment_transfer > 0 %}
                     <p>{{ total_debt.owner2.user.username }} вложил меньше → должен {{ total_debt.owner1.user.username }}: <strong>{{ total_debt.investment_transfer|floatformat:2 }} PLN</strong></p>
                 {% elif total_debt.investment_transfer < 0 %}
-                    <p>{{ total_debt.owner1.user.username }} вложил меньше → должен {{ total_debt.owner2.user.username }}: <strong>{{ total_debt.investment_transfer|abs|floatformat:2 }} PLN</strong></p>
+                    <p>{{ total_debt.owner1.user.username }} вложил меньше → должен {{ total_debt.owner2.user.username }}: <strong>{{ total_debt.investment_transfer|abs_value|floatformat:2 }} PLN</strong></p>
                 {% else %}
                     <p>✅ Вложения сбалансированы</p>
                 {% endif %}
@@ -528,8 +528,8 @@
                         🎯 Создать перевод {{ total_debt.owner2.user.username }} → {{ total_debt.owner1.user.username }}
                     </button>
                 {% elif total_debt.total_transfer < 0 %}
-                    <p style="font-size:24px"><strong>{{ total_debt.owner1.user.username }} → {{ total_debt.owner2.user.username }}: {{ total_debt.total_transfer|abs|floatformat:2 }} PLN</strong></p>
-                    <button class="btn-primary" style="margin-top:15px" onclick="openTransferForm('{{ total_debt.owner1.id }}', '{{ total_debt.owner2.id }}', '{{ total_debt.total_transfer|abs|floatformat:2 }}', 'owner_to_owner', false)">
+                    <p style="font-size:24px"><strong>{{ total_debt.owner1.user.username }} → {{ total_debt.owner2.user.username }}: {{ total_debt.total_transfer|abs_value|floatformat:2 }} PLN</strong></p>
+                    <button class="btn-primary" style="margin-top:15px" onclick="openTransferForm('{{ total_debt.owner1.id }}', '{{ total_debt.owner2.id }}', '{{ total_debt.total_transfer|abs_value|floatformat:2 }}', 'owner_to_owner', false)">
                         🎯 Создать перевод {{ total_debt.owner1.user.username }} → {{ total_debt.owner2.user.username }}
                     </button>
                 {% else %}

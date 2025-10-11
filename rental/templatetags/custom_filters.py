@@ -30,3 +30,12 @@ def get_item_by_partner(list_of_dicts, partner_id):
         if item.get('partner') and item['partner'].id == partner_id:
             return item
     return {}
+
+
+@register.filter
+def abs_value(value):
+    """Return absolute value of number"""
+    try:
+        return abs(float(value))
+    except (ValueError, TypeError):
+        return value
