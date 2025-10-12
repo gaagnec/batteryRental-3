@@ -864,6 +864,7 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             amount = Decimal(request.POST.get("amount") or "0")
             purpose = request.POST.get("purpose") or MoneyTransfer.Purpose.OTHER
             use_collected = (request.POST.get("use_collected") == "true")
+            add_to_deposits = (request.POST.get("add_to_deposits") == "true")
             date_str = request.POST.get("date") or ""
             note = request.POST.get("note") or ""
             
@@ -895,6 +896,20 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
                 use_collected=use_collected,
                 note=note,
             )
+            
+            # Если галочка "Добавить в взносы" активна
+            if add_to_deposits and purpose == MoneyTransfer.Purpose.OWNER_TO_OWNER:
+                from_partner = FinancePartner.objects.get(id=from_id)
+                to_partner = FinancePartner.objects.get(id=to_id)
+                
+                # Создаём расход типа DEPOSIT для отправителя
+                Expense.objects.create(
+                    paid_by_partner_id=from_id,
+                    payment_type=Expense.PaymentType.DEPOSIT,
+                    amount=amount,
+                    date=date_val,
+                    description=f"Взнос через перевод владельцу {to_partner.user.username}",
+                )
             
             return JsonResponse({"ok": True, "message": "Перевод создан успешно"})
             
@@ -1051,11 +1066,11 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             .values_list('paid_by_partner_id', 'total')
         )
         
-        # Расчёт балансов вложений
+        # Расчёт балансов вложений (НОВАЯ ФОРМУЛА)
+        # Справедливая доля = (Все закупки / 2) + (Все взносы / 2)
         total_purchases = sum(purchases_by_partner.values())
         total_deposits = sum(deposits_by_partner.values())
-        total_investments = total_purchases + total_deposits
-        fair_share_investments = total_investments / Decimal(len(owners)) if owners else Decimal(0)
+        fair_share_investments = (total_purchases / Decimal(2)) + (total_deposits / Decimal(2))
         
         investment_balances = {}
         for owner in owners:
@@ -1063,7 +1078,9 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             
             purchases = Decimal(purchases_by_partner.get(pid, 0))
             deposits = Decimal(deposits_by_partner.get(pid, 0))
+            # Всего вложил = Закупки + Взносы
             total_invested = purchases + deposits
+            # Баланс = Всего вложил - Справедливая доля
             balance = total_invested - fair_share_investments
             
             investment_balances[pid] = {
@@ -1157,6 +1174,26 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             .order_by('-date', '-id')[:50]
         )
         
+        # Последние 10 переводов между владельцами (для таблицы под балансом доходов)
+        owner_transfers_recent = (
+            MoneyTransfer.objects
+            .filter(date__gte=cutoff, purpose=MoneyTransfer.Purpose.OWNER_TO_OWNER)
+            .select_related('from_partner__user', 'to_partner__user')
+            .order_by('-date', '-id')[:10]
+        )
+        
+        # Последние 10 вложений (закупки + взносы, для таблицы под вложениями)
+        investments_recent = (
+            Expense.objects
+            .filter(
+                date__gte=cutoff,
+                payment_type__in=[Expense.PaymentType.PURCHASE, Expense.PaymentType.DEPOSIT],
+                paid_by_partner_id__in=owner_ids
+            )
+            .select_related('paid_by_partner__user')
+            .order_by('-date', '-id')[:10]
+        )
+        
         # ========================================
         # CONTEXT
         # ========================================
@@ -1189,6 +1226,8 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             
             # История
             'transfers_history': transfers_history,
+            'owner_transfers_recent': owner_transfers_recent,
+            'investments_recent': investments_recent,
             
             # Для форм
             'partner_choices': [{'id': p.id, 'name': p.user.username, 'role': p.role} for p in partners],

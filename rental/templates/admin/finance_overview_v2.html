@@ -252,7 +252,7 @@
 
 .form-group input,
 .form-group select {
-    padding: 8px 12px;
+    padding: 4px 12px;
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 14px;
@@ -449,6 +449,42 @@
                 </div>
             </div>
             {% endif %}
+            
+            <!-- Кнопка для создания перевода между владельцами -->
+            <div style="margin-top: 20px; text-align: center;">
+                <button class="btn-primary" onclick="openOwnerTransferForm()" style="font-size: 16px; padding: 12px 24px;">
+                    💸 Создать перевод между владельцами
+                </button>
+            </div>
+            
+            <!-- Последние 10 переводов между владельцами -->
+            {% if owner_transfers_recent %}
+            <div style="margin-top: 30px;">
+                <h3 style="color: #333; font-size: 18px; margin-bottom: 15px;">📋 Последние 10 переводов между владельцами</h3>
+                <table class="finance-table" style="font-size: 14px;">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>От</th>
+                            <th>Кому</th>
+                            <th>Сумма</th>
+                            <th>Примечание</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for transfer in owner_transfers_recent %}
+                        <tr>
+                            <td>{{ transfer.date|date:"d.m.Y" }}</td>
+                            <td>{{ transfer.from_partner.user.username }}</td>
+                            <td>{{ transfer.to_partner.user.username }}</td>
+                            <td class="amount">{{ transfer.amount|floatformat:2 }} PLN</td>
+                            <td>{{ transfer.note|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
         </div>
         
         <!-- Вложения в бизнес -->
@@ -494,6 +530,41 @@
                     </tr>
                 </tfoot>
             </table>
+            
+            <!-- Последние 10 вложений (закупки + взносы) -->
+            {% if investments_recent %}
+            <div style="margin-top: 30px;">
+                <h3 style="color: #333; font-size: 18px; margin-bottom: 15px;">📋 Последние 10 вложений</h3>
+                <table class="finance-table" style="font-size: 14px;">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Владелец</th>
+                            <th>Тип</th>
+                            <th>Сумма</th>
+                            <th>Описание</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for expense in investments_recent %}
+                        <tr>
+                            <td>{{ expense.date|date:"d.m.Y" }}</td>
+                            <td>{{ expense.paid_by_partner.user.username }}</td>
+                            <td>
+                                {% if expense.payment_type == 'purchase' %}
+                                    <span class="badge badge-blue">Закупка</span>
+                                {% elif expense.payment_type == 'deposit' %}
+                                    <span class="badge badge-green">Взнос</span>
+                                {% endif %}
+                            </td>
+                            <td class="amount">{{ expense.amount|floatformat:2 }} PLN</td>
+                            <td>{{ expense.description|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
         </div>
         
         <!-- ИТОГОВЫЙ РАСЧЁТ -->
@@ -685,6 +756,13 @@
                 </div>
                 
                 <div class="form-group" style="margin-bottom:15px">
+                    <label>
+                        <input type="checkbox" name="add_to_deposits" id="add-to-deposits" value="true" checked>
+                        Добавить в взносы (для переводов между владельцами)
+                    </label>
+                </div>
+                
+                <div class="form-group" style="margin-bottom:15px">
                     <label>Дата</label>
                     <input type="date" name="date" id="date" value="{{ today|date:'Y-m-d' }}">
                 </div>
@@ -728,6 +806,27 @@ function openTransferForm(fromId, toId, amount, purpose, useCollected) {
     if (amount) document.getElementById('amount').value = amount;
     if (purpose) document.getElementById('purpose').value = purpose;
     if (useCollected) document.getElementById('use-collected').checked = true;
+    
+    // Clear message
+    document.getElementById('form-message').innerHTML = '';
+}
+
+// Open form for owner-to-owner transfer (manual input)
+function openOwnerTransferForm() {
+    document.getElementById('transfer-form-container').style.display = 'flex';
+    
+    // Reset form
+    document.getElementById('transfer-form').reset();
+    
+    // Set purpose to owner_to_owner
+    document.getElementById('purpose').value = 'owner_to_owner';
+    
+    // Uncheck use_collected, check add_to_deposits
+    document.getElementById('use-collected').checked = false;
+    document.getElementById('add-to-deposits').checked = true;
+    
+    // Set today's date
+    document.getElementById('date').value = '{{ today|date:"Y-m-d" }}';
     
     // Clear message
     document.getElementById('form-message').innerHTML = '';
