@@ -298,6 +298,7 @@ class Expense(TimeStampedModel):
     class PaymentType(models.TextChoices):
         PURCHASE = "purchase", "Закупка"
         DEPOSIT = "deposit", "Внесение денег"
+        PERSONAL_INVESTMENT = "personal", "Личное вложение"
     payment_type = models.CharField(max_length=16, choices=PaymentType.choices, default=PaymentType.PURCHASE)
     paid_by_partner = models.ForeignKey('FinancePartner', null=True, blank=True, on_delete=models.SET_NULL, related_name='expenses_paid')
     note = models.TextField(blank=True)
