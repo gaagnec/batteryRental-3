@@ -378,10 +378,10 @@
                     {% for debt in moderator_debts %}
                     <tr>
                         <td>{{ debt.partner.user.username }}</td>
-                        <td class="amount">{{ debt.collected|floatformat:2 }} PLN</td>
-                        <td class="amount">{{ debt.transferred|floatformat:2 }} PLN</td>
+                        <td class="amount">{{ debt.collected|floatformat:0 }} PLN</td>
+                        <td class="amount">{{ debt.transferred|floatformat:0 }} PLN</td>
                         <td class="amount {% if debt.debt > 0 %}amount-negative{% elif debt.debt < 0 %}amount-positive{% endif %}">
-                            {{ debt.debt|floatformat:2 }} PLN
+                            {{ debt.debt|floatformat:0 }} PLN
                             {% if debt.debt > 0 %}
                                 <span class="badge badge-red">Должен</span>
                             {% elif debt.debt < 0 %}
@@ -392,7 +392,7 @@
                         </td>
                         <td>
                             {% if debt.debt > 0 %}
-                            <button class="btn-primary btn-small" onclick="openTransferForm('{{ debt.partner.id }}', null, '{{ debt.debt|floatformat:2 }}', 'moderator_to_owner', true)">
+                            <button class="btn-primary btn-small" onclick="openTransferForm('{{ debt.partner.id }}', null, '{{ debt.debt|floatformat:0 }}', 'moderator_to_owner', true)">
                                 Создать перевод
                             </button>
                             {% endif %}
@@ -422,12 +422,12 @@
                     {% for pid, data in owner_balances.items %}
                     <tr>
                         <td><strong>{{ data.partner.user.username }}</strong></td>
-                        <td class="amount">{{ data.received_payments|floatformat:2 }}</td>
-                        <td class="amount">{{ data.received_from_mods|floatformat:2 }}</td>
-                        <td class="amount">{{ data.received_from_owners|floatformat:2 }}</td>
-                        <td class="amount">{{ data.sent_to_owners|floatformat:2 }}</td>
+                        <td class="amount">{{ data.received_payments|floatformat:0 }}</td>
+                        <td class="amount">{{ data.received_from_mods|floatformat:0 }}</td>
+                        <td class="amount">{{ data.received_from_owners|floatformat:0 }}</td>
+                        <td class="amount">{{ data.sent_to_owners|floatformat:0 }}</td>
                         <td class="amount {% if data.imbalance > 0 %}amount-positive{% elif data.imbalance < 0 %}amount-negative{% endif %}">
-                            {{ data.net_balance|floatformat:2 }} PLN
+                            {{ data.net_balance|floatformat:0 }} PLN
                         </td>
                     </tr>
                     {% endfor %}
@@ -435,7 +435,7 @@
                 <tfoot>
                     <tr>
                         <td colspan="5">Справедливо (50/50):</td>
-                        <td class="amount">{{ fair_share_income|floatformat:2 }} PLN каждому</td>
+                        <td class="amount">{{ fair_share_income|floatformat:0 }} PLN каждому</td>
                     </tr>
                 </tfoot>
             </table>
@@ -446,9 +446,9 @@
                 <div class="card-content">
                     {% for pid, data in owner_balances.items %}
                         {% if data.imbalance > 0 %}
-                            <p><strong>{{ data.partner.user.username }}</strong> получил на <strong class="amount-positive">{{ data.imbalance|floatformat:2 }} PLN</strong> больше справедливой доли.</p>
+                            <p><strong>{{ data.partner.user.username }}</strong> получил на <strong class="amount-positive">{{ data.imbalance|floatformat:0 }} PLN</strong> больше справедливой доли.</p>
                         {% elif data.imbalance < 0 %}
-                            <p><strong>{{ data.partner.user.username }}</strong> получил на <strong class="amount-negative">{{ data.imbalance|abs_value|floatformat:2 }} PLN</strong> меньше справедливой доли.</p>
+                            <p><strong>{{ data.partner.user.username }}</strong> получил на <strong class="amount-negative">{{ data.imbalance|abs_value|floatformat:0 }} PLN</strong> меньше справедливой доли.</p>
                         {% endif %}
                     {% endfor %}
                 </div>
@@ -482,7 +482,7 @@
                             <td>{{ transfer.date|date:"d.m.Y" }}</td>
                             <td>{{ transfer.from_partner.user.username }}</td>
                             <td>{{ transfer.to_partner.user.username }}</td>
-                            <td class="amount">{{ transfer.amount|floatformat:2 }} PLN</td>
+                            <td class="amount">{{ transfer.amount|floatformat:0 }} PLN</td>
                             <td>{{ transfer.note|default:"—" }}</td>
                         </tr>
                         {% endfor %}
@@ -512,14 +512,14 @@
                     {% for pid, data in investment_balances.items %}
                     <tr>
                         <td><strong>{{ data.partner.user.username }}</strong></td>
-                        <td class="amount">{{ data.purchases|floatformat:2 }}</td>
-                        <td class="amount">{{ data.batteries|floatformat:2 }}</td>
-                        <td class="amount">{{ data.software|floatformat:2 }}</td>
-                        <td class="amount">{{ data.other|floatformat:2 }}</td>
-                        <td class="amount">{{ data.deposits|floatformat:2 }}</td>
-                        <td class="amount">{{ data.fair_share|floatformat:2 }}</td>
+                        <td class="amount">{{ data.purchases|floatformat:0 }}</td>
+                        <td class="amount">{{ data.batteries|floatformat:0 }}</td>
+                        <td class="amount">{{ data.software|floatformat:0 }}</td>
+                        <td class="amount">{{ data.other|floatformat:0 }}</td>
+                        <td class="amount">{{ data.deposits|floatformat:0 }}</td>
+                        <td class="amount">{{ data.fair_share|floatformat:0 }}</td>
                         <td class="amount {% if data.balance > 0 %}amount-positive{% elif data.balance < 0 %}amount-negative{% endif %}">
-                            {{ data.balance|floatformat:2 }} PLN
+                            {{ data.balance|floatformat:0 }} PLN
                             {% if data.balance > 0 %}
                                 <span class="badge badge-green">Переплатил</span>
                             {% elif data.balance < 0 %}
@@ -534,7 +534,7 @@
                 <tfoot>
                     <tr>
                         <td colspan="5"><strong>Итого вложений:</strong></td>
-                        <td class="amount">{{ total_investments|floatformat:2 }} PLN</td>
+                        <td class="amount">{{ total_investments|floatformat:0 }} PLN</td>
                         <td colspan="2"></td>
                     </tr>
                 </tfoot>
@@ -568,7 +568,7 @@
                                     <span class="badge badge-orange">Личное вложение</span>
                                 {% endif %}
                             </td>
-                            <td class="amount">{{ expense.amount|floatformat:2 }} PLN</td>
+                            <td class="amount">{{ expense.amount|floatformat:0 }} PLN</td>
                             <td>{{ expense.description|default:"—" }}</td>
                         </tr>
                         {% endfor %}
@@ -585,18 +585,18 @@
             <div class="summary-content">
                 <p><strong>1️⃣ По доходам:</strong></p>
                 {% if total_debt.income_transfer > 0 %}
-                    <p>{{ total_debt.owner2.user.username }} получил больше → должен {{ total_debt.owner1.user.username }}: <strong>{{ total_debt.income_transfer|floatformat:2 }} PLN</strong></p>
+                    <p>{{ total_debt.owner2.user.username }} получил больше → должен {{ total_debt.owner1.user.username }}: <strong>{{ total_debt.income_transfer|floatformat:0 }} PLN</strong></p>
                 {% elif total_debt.income_transfer < 0 %}
-                    <p>{{ total_debt.owner1.user.username }} получил больше → должен {{ total_debt.owner2.user.username }}: <strong>{{ total_debt.income_transfer|abs_value|floatformat:2 }} PLN</strong></p>
+                    <p>{{ total_debt.owner1.user.username }} получил больше → должен {{ total_debt.owner2.user.username }}: <strong>{{ total_debt.income_transfer|abs_value|floatformat:0 }} PLN</strong></p>
                 {% else %}
                     <p>✅ Доходы сбалансированы</p>
                 {% endif %}
                 
                 <p style="margin-top:15px"><strong>2️⃣ По вложениям:</strong></p>
                 {% if total_debt.investment_transfer > 0 %}
-                    <p>{{ total_debt.owner2.user.username }} вложил меньше → должен {{ total_debt.owner1.user.username }}: <strong>{{ total_debt.investment_transfer|floatformat:2 }} PLN</strong></p>
+                    <p>{{ total_debt.owner2.user.username }} вложил меньше → должен {{ total_debt.owner1.user.username }}: <strong>{{ total_debt.investment_transfer|floatformat:0 }} PLN</strong></p>
                 {% elif total_debt.investment_transfer < 0 %}
-                    <p>{{ total_debt.owner1.user.username }} вложил меньше → должен {{ total_debt.owner2.user.username }}: <strong>{{ total_debt.investment_transfer|abs_value|floatformat:2 }} PLN</strong></p>
+                    <p>{{ total_debt.owner1.user.username }} вложил меньше → должен {{ total_debt.owner2.user.username }}: <strong>{{ total_debt.investment_transfer|abs_value|floatformat:0 }} PLN</strong></p>
                 {% else %}
                     <p>✅ Вложения сбалансированы</p>
                 {% endif %}
@@ -605,13 +605,13 @@
                 
                 <p style="font-size:20px"><strong>💰 ИТОГО:</strong></p>
                 {% if total_debt.total_transfer > 0 %}
-                    <p style="font-size:24px"><strong>{{ total_debt.owner2.user.username }} → {{ total_debt.owner1.user.username }}: {{ total_debt.total_transfer|floatformat:2 }} PLN</strong></p>
-                    <button class="btn-primary" style="margin-top:15px" onclick="openTransferForm('{{ total_debt.owner2.id }}', '{{ total_debt.owner1.id }}', '{{ total_debt.total_transfer|floatformat:2 }}', 'owner_to_owner', false)">
+                    <p style="font-size:24px"><strong>{{ total_debt.owner2.user.username }} → {{ total_debt.owner1.user.username }}: {{ total_debt.total_transfer|floatformat:0 }} PLN</strong></p>
+                    <button class="btn-primary" style="margin-top:15px" onclick="openTransferForm('{{ total_debt.owner2.id }}', '{{ total_debt.owner1.id }}', '{{ total_debt.total_transfer|floatformat:0 }}', 'owner_to_owner', false)">
                         🎯 Создать перевод {{ total_debt.owner2.user.username }} → {{ total_debt.owner1.user.username }}
                     </button>
                 {% elif total_debt.total_transfer < 0 %}
-                    <p style="font-size:24px"><strong>{{ total_debt.owner1.user.username }} → {{ total_debt.owner2.user.username }}: {{ total_debt.total_transfer|abs_value|floatformat:2 }} PLN</strong></p>
-                    <button class="btn-primary" style="margin-top:15px" onclick="openTransferForm('{{ total_debt.owner1.id }}', '{{ total_debt.owner2.id }}', '{{ total_debt.total_transfer|abs_value|floatformat:2 }}', 'owner_to_owner', false)">
+                    <p style="font-size:24px"><strong>{{ total_debt.owner1.user.username }} → {{ total_debt.owner2.user.username }}: {{ total_debt.total_transfer|abs_value|floatformat:0 }} PLN</strong></p>
+                    <button class="btn-primary" style="margin-top:15px" onclick="openTransferForm('{{ total_debt.owner1.id }}', '{{ total_debt.owner2.id }}', '{{ total_debt.total_transfer|abs_value|floatformat:0 }}', 'owner_to_owner', false)">
                         🎯 Создать перевод {{ total_debt.owner1.user.username }} → {{ total_debt.owner2.user.username }}
                     </button>
                 {% else %}
@@ -645,12 +645,12 @@
                     <tr>
                         <td><strong>{{ month_data.month|date:"F Y" }}</strong></td>
                         {% for owner in owners %}
-                            <td class="amount">{{ month_data.by_partner|get_item:owner.id|default:0|floatformat:2 }}</td>
+                            <td class="amount">{{ month_data.by_partner|get_item:owner.id|default:0|floatformat:0 }}</td>
                         {% endfor %}
                         {% for mod in moderators %}
-                            <td class="amount">{{ month_data.by_partner|get_item:mod.id|default:0|floatformat:2 }}</td>
+                            <td class="amount">{{ month_data.by_partner|get_item:mod.id|default:0|floatformat:0 }}</td>
                         {% endfor %}
-                        <td class="amount"><strong>{{ month_data.total|floatformat:2 }}</strong></td>
+                        <td class="amount"><strong>{{ month_data.total|floatformat:0 }}</strong></td>
                     </tr>
                     {% empty %}
                     <tr>
@@ -662,11 +662,11 @@
                     <tr>
                         <td><strong>ИТОГО</strong></td>
                         {% for owner in owners %}
-                            <td class="amount"><strong>{{ owner_balances|get_item:owner.id|get_item:"total_received"|default:0|floatformat:2 }}</strong></td>
+                            <td class="amount"><strong>{{ owner_balances|get_item:owner.id|get_item:"total_received"|default:0|floatformat:0 }}</strong></td>
                         {% endfor %}
                         {% for mod in moderators %}
                             {% with mod_data=moderator_debts|get_item_by_partner:mod.id %}
-                                <td class="amount"><strong>{{ mod_data.collected|default:0|floatformat:2 }}</strong></td>
+                                <td class="amount"><strong>{{ mod_data.collected|default:0|floatformat:0 }}</strong></td>
                             {% endwith %}
                         {% endfor %}
                         <td class="amount"><strong>-</strong></td>
@@ -697,7 +697,7 @@
                         <td>{{ transfer.date|date:"d.m.Y" }}</td>
                         <td>{{ transfer.from_partner.user.username }}</td>
                         <td>{{ transfer.to_partner.user.username }}</td>
-                        <td class="amount">{{ transfer.amount|floatformat:2 }} PLN</td>
+                        <td class="amount">{{ transfer.amount|floatformat:0 }} PLN</td>
                         <td>
                             {% if transfer.purpose == "moderator_to_owner" %}
                                 <span class="badge badge-red">Mod → Owner</span>

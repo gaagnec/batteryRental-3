@@ -1058,7 +1058,8 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             .values_list('paid_by_partner_id', 'total')
         )
         
-        # Взносы (DEPOSIT)
+        # Взносы (DEPOSIT) - виртуальные переводы между владельцами
+        # У того кто добавил: +сумма, у другого: -сумма (в сумме = 0)
         deposits_by_partner = dict(
             Expense.objects
             .filter(date__gte=cutoff, payment_type=Expense.PaymentType.DEPOSIT, paid_by_partner_id__in=owner_ids)
@@ -1067,23 +1068,14 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             .values_list('paid_by_partner_id', 'total')
         )
         
-        # Личные вложения (PERSONAL_INVESTMENT) - для специальной логики балансов
-        # У того кто добавил: +сумма, у другого: -сумма
-        personal_investments_by_partner = dict(
-            Expense.objects
-            .filter(date__gte=cutoff, payment_type=Expense.PaymentType.PERSONAL_INVESTMENT, paid_by_partner_id__in=owner_ids)
-            .values('paid_by_partner_id')
-            .annotate(total=Sum('amount'))
-            .values_list('paid_by_partner_id', 'total')
-        )
+        # Общая сумма взносов
+        total_deposits = sum(deposits_by_partner.values())
         
-        # Общая сумма личных вложений
-        total_personal_investments = sum(personal_investments_by_partner.values())
-        
-        # Расчёт балансов вложений (ОБНОВЛЁННАЯ ФОРМУЛА v3)
+        # Расчёт балансов вложений (ОБНОВЛЁННАЯ ФОРМУЛА v4)
         # Справедливая доля = Все закупки / 2 (БЕЗ взносов!)
         total_purchases = sum(purchases_by_partner.values())
-        total_deposits = sum(deposits_by_partner.values())
+        # Взносы в сумме = 0 (т.к. +сумма у одного, -сумма у другого)
+        # total_deposits уже вычислен выше
         total_investments = total_purchases + total_deposits  # Для отображения в шаблоне
         fair_share_investments = total_purchases / Decimal(2)
         
@@ -1136,13 +1128,10 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             purchases = Decimal(purchases_by_partner.get(pid, 0))
             deposits = Decimal(deposits_by_partner.get(pid, 0))
             
-            # Личные вложения: +сумма для автора, -сумма для второго владельца
-            personal_inv_added = Decimal(personal_investments_by_partner.get(pid, 0))
-            personal_inv_deducted = total_personal_investments - personal_inv_added
-            personal_inv_net = personal_inv_added - personal_inv_deducted
-            
-            # Эффективные взносы = обычные взносы + личные вложения (net)
-            effective_deposits = deposits + personal_inv_net
+            # Взносы (DEPOSIT): +сумма для автора, -сумма для других владельцев
+            deposits_added = Decimal(deposits_by_partner.get(pid, 0))
+            deposits_deducted = total_deposits - deposits_added
+            effective_deposits = deposits_added - deposits_deducted
             
             # Баланс = (Закупки / 2) + Эффективные взносы - Справедливая доля
             balance = (purchases / Decimal(2)) + effective_deposits - fair_share_investments
@@ -1150,7 +1139,7 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             investment_balances[pid] = {
                 'partner': owner,
                 'purchases': purchases,
-                'deposits': effective_deposits,  # Показываем эффективные взносы
+                'deposits': effective_deposits,  # Показываем эффективные взносы (+/-)
                 'batteries': category_expenses[pid]['batteries'],
                 'software': category_expenses[pid]['software'],
                 'other': category_expenses[pid]['other'],
