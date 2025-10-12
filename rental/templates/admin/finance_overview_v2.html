@@ -499,6 +499,7 @@
                 <thead>
                     <tr>
                         <th>Владелец</th>
+                        <th>Закупки</th>
                         <th>Батареи</th>
                         <th>Софт</th>
                         <th>Остальное</th>
@@ -511,6 +512,7 @@
                     {% for pid, data in investment_balances.items %}
                     <tr>
                         <td><strong>{{ data.partner.user.username }}</strong></td>
+                        <td class="amount">{{ data.purchases|floatformat:2 }}</td>
                         <td class="amount">{{ data.batteries|floatformat:2 }}</td>
                         <td class="amount">{{ data.software|floatformat:2 }}</td>
                         <td class="amount">{{ data.other|floatformat:2 }}</td>
@@ -531,7 +533,7 @@
                 </tbody>
                 <tfoot>
                     <tr>
-                        <td colspan="4"><strong>Итого вложений:</strong></td>
+                        <td colspan="5"><strong>Итого вложений:</strong></td>
                         <td class="amount">{{ total_investments|floatformat:2 }} PLN</td>
                         <td colspan="2"></td>
                     </tr>

@@ -1048,10 +1048,11 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
         # 3. ВЛОЖЕНИЯ В БИЗНЕС
         # ========================================
         
-        # Закупки (PURCHASE)
+        # Закупки = ВСЁ кроме DEPOSIT (т.е. PURCHASE + PERSONAL_INVESTMENT)
         purchases_by_partner = dict(
             Expense.objects
-            .filter(date__gte=cutoff, payment_type=Expense.PaymentType.PURCHASE, paid_by_partner_id__in=owner_ids)
+            .filter(date__gte=cutoff, paid_by_partner_id__in=owner_ids)
+            .exclude(payment_type=Expense.PaymentType.DEPOSIT)
             .values('paid_by_partner_id')
             .annotate(total=Sum('amount'))
             .values_list('paid_by_partner_id', 'total')
@@ -1066,7 +1067,7 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             .values_list('paid_by_partner_id', 'total')
         )
         
-        # Личные вложения (PERSONAL_INVESTMENT) - особая логика
+        # Личные вложения (PERSONAL_INVESTMENT) - для специальной логики балансов
         # У того кто добавил: +сумма, у другого: -сумма
         personal_investments_by_partner = dict(
             Expense.objects
@@ -1086,13 +1087,14 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
         total_investments = total_purchases + total_deposits  # Для отображения в шаблоне
         fair_share_investments = total_purchases / Decimal(2)
         
-        # Расходы по категориям для каждого владельца
+        # Расходы по категориям для каждого владельца (все кроме DEPOSIT)
         category_expenses = {}
         for owner in owners:
             pid = owner.id
             expenses_by_category = dict(
                 Expense.objects
-                .filter(date__gte=cutoff, payment_type=Expense.PaymentType.PURCHASE, paid_by_partner_id=pid)
+                .filter(date__gte=cutoff, paid_by_partner_id=pid)
+                .exclude(payment_type=Expense.PaymentType.DEPOSIT)
                 .exclude(category__isnull=True)
                 .values('category__name')
                 .annotate(total=Sum('amount'))
