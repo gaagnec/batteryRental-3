@@ -1241,7 +1241,7 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
                 payment_type__in=[Expense.PaymentType.PURCHASE, Expense.PaymentType.DEPOSIT],
                 paid_by_partner_id__in=owner_ids
             )
-            .select_related('paid_by_partner__user')
+            .select_related('paid_by_partner__user', 'category')
             .order_by('-date', '-id')[:10]
         )
         

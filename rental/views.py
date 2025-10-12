@@ -338,3 +338,40 @@ def dashboard(request):
         'monthly3_chart': monthly3_chart,
     }
     return render(request, 'admin/dashboard.html', context)
+
+
+@staff_member_required
+def load_more_investments(request):
+    """HTMX endpoint для подгрузки следующих 10 вложений"""
+    from .models import Expense, FinancePartner
+    
+    offset = int(request.GET.get('offset', 10))
+    limit = 10
+    cutoff = timezone.now().date() - timedelta(days=365)
+    
+    # Получаем только владельцев
+    owner_ids = list(
+        FinancePartner.objects
+        .filter(is_owner=True)
+        .values_list('id', flat=True)
+    )
+    
+    investments = (
+        Expense.objects
+        .filter(
+            date__gte=cutoff,
+            payment_type__in=[Expense.PaymentType.PURCHASE, Expense.PaymentType.DEPOSIT],
+            paid_by_partner_id__in=owner_ids
+        )
+        .select_related('paid_by_partner__user', 'category')
+        .order_by('-date', '-id')[offset:offset + limit]
+    )
+    
+    investments_list = list(investments)
+    has_more = len(investments_list) == limit
+    
+    return render(request, 'admin/partials/investments_rows.html', {
+        'investments_recent': investments_list,
+        'offset': offset + limit,
+        'has_more': has_more,
+    })
