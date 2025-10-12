@@ -1070,6 +1070,7 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
         # Справедливая доля = (Все закупки / 2) + (Все взносы / 2)
         total_purchases = sum(purchases_by_partner.values())
         total_deposits = sum(deposits_by_partner.values())
+        total_investments = total_purchases + total_deposits  # Для отображения в шаблоне
         fair_share_investments = (total_purchases / Decimal(2)) + (total_deposits / Decimal(2))
         
         investment_balances = {}
