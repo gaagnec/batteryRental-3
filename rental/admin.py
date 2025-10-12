@@ -1048,17 +1048,16 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
         # 3. ВЛОЖЕНИЯ В БИЗНЕС
         # ========================================
         
-        # Закупки = ВСЁ кроме DEPOSIT (т.е. PURCHASE + PERSONAL_INVESTMENT)
+        # Закупки (PURCHASE) - реальные расходы на бизнес
         purchases_by_partner = dict(
             Expense.objects
-            .filter(date__gte=cutoff, paid_by_partner_id__in=owner_ids)
-            .exclude(payment_type=Expense.PaymentType.DEPOSIT)
+            .filter(date__gte=cutoff, payment_type=Expense.PaymentType.PURCHASE, paid_by_partner_id__in=owner_ids)
             .values('paid_by_partner_id')
             .annotate(total=Sum('amount'))
             .values_list('paid_by_partner_id', 'total')
         )
         
-        # Взносы (DEPOSIT) - виртуальные переводы между владельцами
+        # Взносы (DEPOSIT) - внесение личных средств
         # У того кто добавил: +сумма, у другого: -сумма (в сумме = 0)
         deposits_by_partner = dict(
             Expense.objects
@@ -1071,22 +1070,20 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
         # Общая сумма взносов
         total_deposits = sum(deposits_by_partner.values())
         
-        # Расчёт балансов вложений (ОБНОВЛЁННАЯ ФОРМУЛА v4)
-        # Справедливая доля = Все закупки / 2 (БЕЗ взносов!)
+        # Расчёт балансов вложений (ОБНОВЛЁННАЯ ФОРМУЛА v5)
+        # Справедливая доля = Все закупки / 2
         total_purchases = sum(purchases_by_partner.values())
-        # Взносы в сумме = 0 (т.к. +сумма у одного, -сумма у другого)
-        # total_deposits уже вычислен выше
-        total_investments = total_purchases + total_deposits  # Для отображения в шаблоне
+        # Итого вложений = только закупки (БЕЗ взносов)
+        total_investments = total_purchases
         fair_share_investments = total_purchases / Decimal(2)
         
-        # Расходы по категориям для каждого владельца (все кроме DEPOSIT)
+        # Расходы по категориям для каждого владельца (только PURCHASE)
         category_expenses = {}
         for owner in owners:
             pid = owner.id
             expenses_by_category = dict(
                 Expense.objects
-                .filter(date__gte=cutoff, paid_by_partner_id=pid)
-                .exclude(payment_type=Expense.PaymentType.DEPOSIT)
+                .filter(date__gte=cutoff, payment_type=Expense.PaymentType.PURCHASE, paid_by_partner_id=pid)
                 .exclude(category__isnull=True)
                 .values('category__name')
                 .annotate(total=Sum('amount'))
@@ -1126,15 +1123,14 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             pid = owner.id
             
             purchases = Decimal(purchases_by_partner.get(pid, 0))
-            deposits = Decimal(deposits_by_partner.get(pid, 0))
             
             # Взносы (DEPOSIT): +сумма для автора, -сумма для других владельцев
             deposits_added = Decimal(deposits_by_partner.get(pid, 0))
             deposits_deducted = total_deposits - deposits_added
             effective_deposits = deposits_added - deposits_deducted
             
-            # Баланс = (Закупки / 2) + Эффективные взносы - Справедливая доля
-            balance = (purchases / Decimal(2)) + effective_deposits - fair_share_investments
+            # Баланс = Закупки + Взносы - Справедливая доля
+            balance = purchases + effective_deposits - fair_share_investments
             
             investment_balances[pid] = {
                 'partner': owner,
@@ -1237,12 +1233,12 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             .order_by('-date', '-id')[:10]
         )
         
-        # Последние 10 вложений (закупки + взносы + личные, для таблицы под вложениями)
+        # Последние 10 вложений (закупки + взносы, для таблицы под вложениями)
         investments_recent = (
             Expense.objects
             .filter(
                 date__gte=cutoff,
-                payment_type__in=[Expense.PaymentType.PURCHASE, Expense.PaymentType.DEPOSIT, Expense.PaymentType.PERSONAL_INVESTMENT],
+                payment_type__in=[Expense.PaymentType.PURCHASE, Expense.PaymentType.DEPOSIT],
                 paid_by_partner_id__in=owner_ids
             )
             .select_related('paid_by_partner__user')

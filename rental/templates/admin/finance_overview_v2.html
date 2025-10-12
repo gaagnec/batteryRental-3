@@ -164,11 +164,6 @@
     color: #2e7d32;
 }
 
-.badge-orange {
-    background: #fff3e0;
-    color: #e65100;
-}
-
 .badge-gray {
     background: #f5f5f5;
     color: #666;
@@ -563,9 +558,7 @@
                                 {% if expense.payment_type == 'purchase' %}
                                     <span class="badge badge-blue">Закупка</span>
                                 {% elif expense.payment_type == 'deposit' %}
-                                    <span class="badge badge-green">Взнос</span>
-                                {% elif expense.payment_type == 'personal' %}
-                                    <span class="badge badge-orange">Личное вложение</span>
+                                    <span class="badge badge-green">Внесение личных средств</span>
                                 {% endif %}
                             </td>
                             <td class="amount">{{ expense.amount|floatformat:0 }} PLN</td>
