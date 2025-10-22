@@ -1,0 +1,945 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static custom_filters %}
+
+{% block extrahead %}
+<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+{% endblock %}
+
+{% block extrastyle %}
+<style>
+/* General */
+.finance-v2-container {
+    padding: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.finance-v2-container h1 {
+    font-size: 28px;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.finance-v2-container .subtitle {
+    color: #666;
+    margin-bottom: 25px;
+    font-size: 14px;
+}
+
+/* Tabs */
+.tabs {
+    display: flex;
+    gap: 10px;
+    border-bottom: 2px solid #ddd;
+    margin-bottom: 30px;
+}
+
+.tab {
+    padding: 12px 24px;
+    cursor: pointer;
+    background: #f5f5f5;
+    border: none;
+    border-radius: 8px 8px 0 0;
+    font-size: 15px;
+    font-weight: 500;
+    transition: all 0.2s;
+    color: #666;
+}
+
+.tab:hover {
+    background: #e0e0e0;
+}
+
+.tab.active {
+    background: #417690;
+    color: white;
+    border-bottom: 3px solid #417690;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Tables */
+.finance-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 30px;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.finance-table thead {
+    background: #417690;
+    color: white;
+}
+
+.finance-table th {
+    padding: 14px 16px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.finance-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 14px;
+}
+
+.finance-table tbody tr:hover {
+    background: #f9f9f9;
+}
+
+.finance-table tfoot {
+    background: #f5f5f5;
+    font-weight: 600;
+}
+
+.finance-table tfoot td {
+    padding: 14px 16px;
+    border-top: 2px solid #ddd;
+}
+
+/* Section */
+.section {
+    margin-bottom: 40px;
+}
+
+.section-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 15px;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.section-title .icon {
+    font-size: 24px;
+}
+
+/* Cards */
+.card {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin-bottom: 20px;
+}
+
+.card-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 15px;
+    color: #417690;
+}
+
+.card-content {
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+/* Badges */
+.badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.badge-red {
+    background: #ffebee;
+    color: #c62828;
+}
+
+.badge-green {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.badge-gray {
+    background: #f5f5f5;
+    color: #666;
+}
+
+/* Number styling */
+.amount {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+}
+
+.amount-positive {
+    color: #2e7d32;
+}
+
+.amount-negative {
+    color: #c62828;
+}
+
+/* Buttons */
+.btn-primary {
+    background: #417690;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-primary:hover {
+    background: #2e5468;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(65, 118, 144, 0.3);
+}
+
+.btn-secondary {
+    background: #f5f5f5;
+    color: #666;
+    border: 1px solid #ddd;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+    background: #e0e0e0;
+}
+
+.btn-small {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+/* Inline form */
+.inline-form {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    background: #f9f9f9;
+    padding: 15px;
+    border-radius: 6px;
+    margin-top: 15px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.form-group label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.form-group input,
+.form-group select {
+    padding: 4px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    min-width: 150px;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #417690;
+    box-shadow: 0 0 0 3px rgba(65, 118, 144, 0.1);
+}
+
+/* Summary box */
+.summary-box {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 25px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+}
+
+.summary-box h3 {
+    font-size: 18px;
+    margin-bottom: 15px;
+    opacity: 0.9;
+}
+
+.summary-box .summary-content {
+    font-size: 16px;
+    line-height: 1.8;
+}
+
+.summary-box .summary-content strong {
+    font-size: 20px;
+}
+
+/* Alert */
+.alert {
+    padding: 15px 20px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+
+.alert-success {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border-left: 4px solid #2e7d32;
+}
+
+.alert-error {
+    background: #ffebee;
+    color: #c62828;
+    border-left: 4px solid #c62828;
+}
+
+.alert-info {
+    background: #e3f2fd;
+    color: #1565c0;
+    border-left: 4px solid #1565c0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .finance-table {
+        font-size: 12px;
+    }
+    
+    .finance-table th,
+    .finance-table td {
+        padding: 8px 10px;
+    }
+    
+    .inline-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .form-group input,
+    .form-group select {
+        min-width: 100%;
+    }
+}
+
+/* Приглушенные колонки (расшифровка) */
+.subdued-column {
+    color: #999;
+    font-size: 0.9em;
+    opacity: 1;
+}
+
+/* HTMX loading indicator */
+.htmx-indicator {
+    display: none;
+}
+.htmx-request .htmx-indicator {
+    display: inline;
+}
+
+/* Bootstrap Icons for investments */
+.investment-icon-purchase {
+    color: #f39c12;
+    font-size: 18px;
+}
+.investment-icon-deposit {
+    color: #27ae60;
+    font-size: 18px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="finance-v2-container">
+    <h1>💰 {{ title }}</h1>
+    <p class="subtitle">Бухгалтерский учёт с {{ cutoff_date|date:"d.m.Y" }}</p>
+    
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab active" onclick="showTab('accumulated')">📊 Накопленный итог</button>
+        <button class="tab" onclick="showTab('by-months')">📅 По месяцам</button>
+        <button class="tab" onclick="showTab('history')">📜 История переводов</button>
+    </div>
+    
+    <!-- Tab 1: Накопленный итог -->
+    <div id="tab-accumulated" class="tab-content active">
+        
+        <!-- Долги модераторов -->
+        {% if moderator_debts %}
+        <div class="section">
+            <h2 class="section-title"><span class="icon">🔴</span> Долги модераторов владельцам</h2>
+            <table class="finance-table">
+                <thead>
+                    <tr>
+                        <th>Модератор</th>
+                        <th>Собрал</th>
+                        <th>Перевёл владельцам</th>
+                        <th>Долг</th>
+                        <th>Действие</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for debt in moderator_debts %}
+                    <tr>
+                        <td>{{ debt.partner.user.username }}</td>
+                        <td class="amount">{{ debt.collected|floatformat:0 }} PLN</td>
+                        <td class="amount">{{ debt.transferred|floatformat:0 }} PLN</td>
+                        <td class="amount {% if debt.debt > 0 %}amount-negative{% elif debt.debt < 0 %}amount-positive{% endif %}">
+                            {{ debt.debt|floatformat:0 }} PLN
+                            {% if debt.debt > 0 %}
+                                <span class="badge badge-red">Должен</span>
+                            {% elif debt.debt < 0 %}
+                                <span class="badge badge-green">Переплатил</span>
+                            {% else %}
+                                <span class="badge badge-gray">✓ Погашено</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if debt.debt > 0 %}
+                            <button class="btn-primary btn-small" onclick="openTransferForm('{{ debt.partner.id }}', null, '{{ debt.debt|floatformat:0 }}', 'moderator_to_owner', true)">
+                                Создать перевод
+                            </button>
+                            {% elif debt.debt < 0 %}
+                            <button class="btn-primary btn-small" onclick="openTransferForm(null, '{{ debt.partner.id }}', '{{ debt.debt|abs_value|floatformat:0 }}', 'owner_to_moderator', false)">
+                                Создать перевод
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        
+        <!-- Балансы владельцев (доходы) -->
+        <div class="section">
+            <h2 class="section-title"><span class="icon">💰</span> Баланс доходов владельцев</h2>
+            <table class="finance-table">
+                <thead>
+                    <tr>
+                        <th>Владелец</th>
+                        <th>Получил от клиентов</th>
+                        <th>Получил от модераторов</th>
+                        <th>Получил от др. владельцев</th>
+                        <th>Перевёл др. владельцам</th>
+                        <th>Чистый баланс</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pid, data in owner_balances.items %}
+                    <tr>
+                        <td><strong>{{ data.partner.user.username }}</strong></td>
+                        <td class="amount">{{ data.received_payments|floatformat:0 }}</td>
+                        <td class="amount">{{ data.received_from_mods|floatformat:0 }}</td>
+                        <td class="amount">{{ data.received_from_owners|floatformat:0 }}</td>
+                        <td class="amount">{{ data.sent_to_owners|floatformat:0 }}</td>
+                        <td class="amount {% if data.imbalance > 0 %}amount-positive{% elif data.imbalance < 0 %}amount-negative{% endif %}">
+                            {{ data.net_balance|floatformat:0 }} PLN
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="5">Справедливо (50/50):</td>
+                        <td class="amount">{{ fair_share_income|floatformat:0 }} PLN каждому</td>
+                    </tr>
+                </tfoot>
+            </table>
+            
+            {% if owner_balances.items|length == 2 %}
+            <div class="card">
+                <div class="card-title">📊 Рекомендация по выравниванию доходов</div>
+                <div class="card-content">
+                    {% for pid, data in owner_balances.items %}
+                        {% if data.imbalance > 0 %}
+                            <p><strong>{{ data.partner.user.username }}</strong> получил на <strong class="amount-positive">{{ data.imbalance|floatformat:0 }} PLN</strong> больше справедливой доли.</p>
+                        {% elif data.imbalance < 0 %}
+                            <p><strong>{{ data.partner.user.username }}</strong> получил на <strong class="amount-negative">{{ data.imbalance|abs_value|floatformat:0 }} PLN</strong> меньше справедливой доли.</p>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Кнопка для создания перевода между владельцами -->
+            <div style="margin-top: 20px; text-align: center;">
+                <button class="btn-primary" onclick="openOwnerTransferForm()" style="font-size: 16px; padding: 12px 24px;">
+                    💸 Создать перевод между владельцами
+                </button>
+            </div>
+            
+            <!-- Последние 10 переводов между владельцами -->
+            {% if owner_transfers_recent %}
+            <div style="margin-top: 30px;">
+                <h3 style="color: #333; font-size: 18px; margin-bottom: 15px;">📋 Последние 10 переводов между владельцами</h3>
+                <table class="finance-table" style="font-size: 14px;">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>От</th>
+                            <th>Кому</th>
+                            <th>Сумма</th>
+                            <th>Примечание</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for transfer in owner_transfers_recent %}
+                        <tr>
+                            <td>{{ transfer.date|date:"d.m.Y" }}</td>
+                            <td>{{ transfer.from_partner.user.username }}</td>
+                            <td>{{ transfer.to_partner.user.username }}</td>
+                            <td class="amount">{{ transfer.amount|floatformat:0 }} PLN</td>
+                            <td>{{ transfer.note|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Вложения в бизнес -->
+        <div class="section">
+            <h2 class="section-title"><span class="icon">🏭</span> Вложения в бизнес</h2>
+            <table class="finance-table">
+                <thead>
+                    <tr>
+                        <th>Владелец</th>
+                        <th>Закупки</th>
+                        <th class="subdued-column">Батареи</th>
+                        <th class="subdued-column">Софт</th>
+                        <th class="subdued-column">Остальное</th>
+                        <th>Взносы</th>
+                        <th>Доля</th>
+                        <th>Баланс</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pid, data in investment_balances.items %}
+                    <tr>
+                        <td><strong>{{ data.partner.user.username }}</strong></td>
+                        <td class="amount">{{ data.purchases|floatformat:0 }}</td>
+                        <td class="amount subdued-column">{{ data.batteries|floatformat:0 }}</td>
+                        <td class="amount subdued-column">{{ data.software|floatformat:0 }}</td>
+                        <td class="amount subdued-column">{{ data.other|floatformat:0 }}</td>
+                        <td class="amount">{{ data.deposits|floatformat:0 }}</td>
+                        <td class="amount">{{ data.fair_share|floatformat:0 }}</td>
+                        <td class="amount {% if data.balance > 0 %}amount-positive{% elif data.balance < 0 %}amount-negative{% endif %}">
+                            {{ data.balance|floatformat:0 }} PLN
+                            {% if data.balance > 0 %}
+                                <span class="badge badge-green">Переплатил</span>
+                            {% elif data.balance < 0 %}
+                                <span class="badge badge-red">Недоплатил</span>
+                            {% else %}
+                                <span class="badge badge-gray">✓ Сбалансировано</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="5"><strong>Итого вложений:</strong></td>
+                        <td class="amount">{{ total_investments|floatformat:0 }} PLN</td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
+            </table>
+            
+            <!-- Последние 10 вложений (закупки + взносы) -->
+            {% if investments_recent %}
+            <div style="margin-top: 30px;">
+                <h3 style="color: #333; font-size: 18px; margin-bottom: 15px;">📋 Последние 10 вложений</h3>
+                <table class="finance-table" style="font-size: 14px;">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Владелец</th>
+                            <th>Категория</th>
+                            <th>Сумма</th>
+                            <th>Описание</th>
+                        </tr>
+                    </thead>
+                    <tbody id="investments-tbody">
+                        {% for expense in investments_recent %}
+                        <tr>
+                            <td>{{ expense.date|date:"d.m.Y" }}</td>
+                            <td>{{ expense.paid_by_partner.user.username }}</td>
+                            <td>
+                                {% if expense.payment_type == 'purchase' %}
+                                    <i class="bi bi-cart4 investment-icon-purchase"></i> {{ expense.category.name|default:"—" }}
+                                {% elif expense.payment_type == 'deposit' %}
+                                    <i class="bi bi-currency-euro investment-icon-deposit"></i> Внесение личных средств
+                                {% endif %}
+                            </td>
+                            <td class="amount">{{ expense.amount|floatformat:0 }} PLN</td>
+                            <td>{{ expense.description|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                        <tr id="load-more-row">
+                            <td colspan="5" style="text-align: center; padding: 20px;">
+                                <button 
+                                    class="btn-primary btn-small" 
+                                    hx-get="{% url 'load-investments' %}?offset=10"
+                                    hx-target="#investments-tbody"
+                                    hx-swap="beforeend"
+                                    hx-indicator="#loading-spinner"
+                                >
+                                    Загрузить ещё 10
+                                </button>
+                                <span id="loading-spinner" class="htmx-indicator" style="margin-left: 10px;">⏳ Загрузка...</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- ИТОГОВЫЙ РАСЧЁТ -->
+        {% if total_debt %}
+        <div class="summary-box">
+            <h3>🎯 ИТОГОВЫЙ расчёт между владельцами</h3>
+            <div class="summary-content">
+                <p><strong>1️⃣ По доходам:</strong></p>
+                {% if total_debt.income_transfer > 0 %}
+                    <p>{{ total_debt.owner1.user.username }} получил больше → должен {{ total_debt.owner2.user.username }}: <strong>{{ total_debt.income_transfer|floatformat:0 }} PLN</strong></p>
+                {% elif total_debt.income_transfer < 0 %}
+                    <p>{{ total_debt.owner2.user.username }} получил больше → должен {{ total_debt.owner1.user.username }}: <strong>{{ total_debt.income_transfer|abs_value|floatformat:0 }} PLN</strong></p>
+                {% else %}
+                    <p>✅ Доходы сбалансированы</p>
+                {% endif %}
+                
+                <p style="margin-top:15px"><strong>2️⃣ По вложениям:</strong></p>
+                {% if total_debt.investment_transfer > 0 %}
+                    <p>{{ total_debt.owner1.user.username }} вложил меньше → должен {{ total_debt.owner2.user.username }}: <strong>{{ total_debt.investment_transfer|floatformat:0 }} PLN</strong></p>
+                {% elif total_debt.investment_transfer < 0 %}
+                    <p>{{ total_debt.owner2.user.username }} вложил меньше → должен {{ total_debt.owner1.user.username }}: <strong>{{ total_debt.investment_transfer|abs_value|floatformat:0 }} PLN</strong></p>
+                {% else %}
+                    <p>✅ Вложения сбалансированы</p>
+                {% endif %}
+                
+                <hr style="border-color: rgba(255,255,255,0.3); margin: 20px 0;">
+                
+                <p style="font-size:20px"><strong>💰 ИТОГО:</strong></p>
+                {% if total_debt.total_transfer > 0 %}
+                    <p style="font-size:24px"><strong>{{ total_debt.owner1.user.username }} → {{ total_debt.owner2.user.username }}: {{ total_debt.total_transfer|floatformat:0 }} PLN</strong></p>
+                    <button class="btn-primary" style="margin-top:15px" onclick="openTransferForm('{{ total_debt.owner1.id }}', '{{ total_debt.owner2.id }}', '{{ total_debt.total_transfer|floatformat:0 }}', 'owner_to_owner', false)">
+                        🎯 Создать перевод {{ total_debt.owner1.user.username }} → {{ total_debt.owner2.user.username }}
+                    </button>
+                {% elif total_debt.total_transfer < 0 %}
+                    <p style="font-size:24px"><strong>{{ total_debt.owner2.user.username }} → {{ total_debt.owner1.user.username }}: {{ total_debt.total_transfer|abs_value|floatformat:0 }} PLN</strong></p>
+                    <button class="btn-primary" style="margin-top:15px" onclick="openTransferForm('{{ total_debt.owner2.id }}', '{{ total_debt.owner1.id }}', '{{ total_debt.total_transfer|abs_value|floatformat:0 }}', 'owner_to_owner', false)">
+                        🎯 Создать перевод {{ total_debt.owner2.user.username }} → {{ total_debt.owner1.user.username }}
+                    </button>
+                {% else %}
+                    <p style="font-size:24px">✅ <strong>Балансы полностью сбалансированы!</strong></p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        
+    </div>
+    
+    <!-- Tab 2: По месяцам -->
+    <div id="tab-by-months" class="tab-content">
+        <div class="section">
+            <h2 class="section-title"><span class="icon">📅</span> Доходы по месяцам</h2>
+            <table class="finance-table">
+                <thead>
+                    <tr>
+                        <th>Месяц</th>
+                        {% for owner in owners %}
+                            <th>{{ owner.user.username }}</th>
+                        {% endfor %}
+                        {% for mod in moderators %}
+                            <th>{{ mod.user.username }}</th>
+                        {% endfor %}
+                        <th>Итого</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for month_data in months_list %}
+                    <tr>
+                        <td><strong>{{ month_data.month|date:"F Y" }}</strong></td>
+                        {% for owner in owners %}
+                            <td class="amount">{{ month_data.by_partner|get_item:owner.id|default:0|floatformat:0 }}</td>
+                        {% endfor %}
+                        {% for mod in moderators %}
+                            <td class="amount">{{ month_data.by_partner|get_item:mod.id|default:0|floatformat:0 }}</td>
+                        {% endfor %}
+                        <td class="amount"><strong>{{ month_data.total|floatformat:0 }}</strong></td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="100">Нет данных за этот период</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td><strong>ИТОГО</strong></td>
+                        {% for owner in owners %}
+                            <td class="amount"><strong>{{ owner_balances|get_item:owner.id|get_item:"total_received"|default:0|floatformat:0 }}</strong></td>
+                        {% endfor %}
+                        {% for mod in moderators %}
+                            {% with mod_data=moderator_debts|get_item_by_partner:mod.id %}
+                                <td class="amount"><strong>{{ mod_data.collected|default:0|floatformat:0 }}</strong></td>
+                            {% endwith %}
+                        {% endfor %}
+                        <td class="amount"><strong>-</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Tab 3: История переводов -->
+    <div id="tab-history" class="tab-content">
+        <div class="section">
+            <h2 class="section-title"><span class="icon">📜</span> История переводов</h2>
+            <table class="finance-table">
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>От</th>
+                        <th>Кому</th>
+                        <th>Сумма</th>
+                        <th>Тип</th>
+                        <th>Примечание</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transfer in transfers_history %}
+                    <tr>
+                        <td>{{ transfer.date|date:"d.m.Y" }}</td>
+                        <td>{{ transfer.from_partner.user.username }}</td>
+                        <td>{{ transfer.to_partner.user.username }}</td>
+                        <td class="amount">{{ transfer.amount|floatformat:0 }} PLN</td>
+                        <td>
+                            {% if transfer.purpose == "moderator_to_owner" %}
+                                <span class="badge badge-red">Mod → Owner</span>
+                            {% elif transfer.purpose == "owner_to_owner" %}
+                                <span class="badge badge-green">Owner ↔ Owner</span>
+                            {% else %}
+                                <span class="badge badge-gray">{{ transfer.get_purpose_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ transfer.note|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6">Нет переводов</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- AJAX Transfer Form (hidden by default) -->
+    <div id="transfer-form-container" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
+        <div style="background:white; padding:30px; border-radius:8px; max-width:500px; width:90%;">
+            <h3 style="margin-top:0">Создать перевод</h3>
+            <form id="transfer-form" onsubmit="submitTransfer(event); return false;">
+                {% csrf_token %}
+                <div class="form-group" style="margin-bottom:15px">
+                    <label>От (партнёр)</label>
+                    <select name="from_partner" id="from-partner" required>
+                        <option value="">Выберите...</option>
+                        {% for partner in partner_choices %}
+                            <option value="{{ partner.id }}">{{ partner.name }} ({{ partner.role }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group" style="margin-bottom:15px">
+                    <label>Кому (партнёр)</label>
+                    <select name="to_partner" id="to-partner" required>
+                        <option value="">Выберите...</option>
+                        {% for partner in partner_choices %}
+                            <option value="{{ partner.id }}">{{ partner.name }} ({{ partner.role }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group" style="margin-bottom:15px">
+                    <label>Сумма (PLN)</label>
+                    <input type="number" step="0.01" name="amount" id="amount" required>
+                </div>
+                
+                <div class="form-group" style="margin-bottom:15px">
+                    <label>Тип перевода</label>
+                    <select name="purpose" id="purpose" required>
+                        <option value="moderator_to_owner">От модератора владельцу</option>
+                        <option value="owner_to_owner">Между владельцами</option>
+                        <option value="other">Другое</option>
+                    </select>
+                </div>
+                
+                <div class="form-group" style="margin-bottom:15px">
+                    <label>
+                        <input type="checkbox" name="use_collected" id="use-collected" value="true">
+                        Списывать из собранных средств бизнеса (не влияет на баланс владельцев)
+                    </label>
+                </div>
+                
+                <div class="form-group" style="margin-bottom:15px">
+                    <label>
+                        <input type="checkbox" name="add_to_deposits" id="add-to-deposits" value="true" checked>
+                        Засчитать как взнос в бизнес (увеличивает вклад отправителя)
+                    </label>
+                </div>
+                
+                <div class="form-group" style="margin-bottom:15px">
+                    <label>Дата</label>
+                    <input type="date" name="date" id="date" value="{{ today|date:'Y-m-d' }}">
+                </div>
+                
+                <div class="form-group" style="margin-bottom:20px">
+                    <label>Примечание</label>
+                    <textarea name="note" id="note" rows="2" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;"></textarea>
+                </div>
+                
+                <div style="display:flex; gap:10px">
+                    <button type="submit" class="btn-primary" id="submit-btn">Создать перевод</button>
+                    <button type="button" class="btn-secondary" onclick="closeTransferForm()">Отмена</button>
+                </div>
+                
+                <div id="form-message" style="margin-top:15px"></div>
+            </form>
+        </div>
+    </div>
+    
+</div>
+
+<script>
+// Tab switching
+function showTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+    
+    // Show selected tab
+    document.getElementById('tab-' + tabName).classList.add('active');
+    event.target.classList.add('active');
+}
+
+// Transfer form
+function openTransferForm(fromId, toId, amount, purpose, useCollected) {
+    document.getElementById('transfer-form-container').style.display = 'flex';
+    
+    // Pre-fill form
+    if (fromId) document.getElementById('from-partner').value = fromId;
+    if (toId) document.getElementById('to-partner').value = toId;
+    if (amount) document.getElementById('amount').value = amount;
+    if (purpose) document.getElementById('purpose').value = purpose;
+    if (useCollected) document.getElementById('use-collected').checked = true;
+    
+    // По умолчанию галочка "Добавить в взносы" выключена
+    document.getElementById('add-to-deposits').checked = false;
+    
+    // Clear message
+    document.getElementById('form-message').innerHTML = '';
+}
+
+// Open form for owner-to-owner transfer (manual input)
+function openOwnerTransferForm() {
+    document.getElementById('transfer-form-container').style.display = 'flex';
+    
+    // Reset form
+    document.getElementById('transfer-form').reset();
+    
+    // Set purpose to owner_to_owner
+    document.getElementById('purpose').value = 'owner_to_owner';
+    
+    // Uncheck use_collected, check add_to_deposits
+    document.getElementById('use-collected').checked = false;
+    document.getElementById('add-to-deposits').checked = true;
+    
+    // Set today's date
+    document.getElementById('date').value = '{{ today|date:"Y-m-d" }}';
+    
+    // Clear message
+    document.getElementById('form-message').innerHTML = '';
+}
+
+function closeTransferForm() {
+    document.getElementById('transfer-form-container').style.display = 'none';
+    document.getElementById('transfer-form').reset();
+}
+
+async function submitTransfer(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const submitBtn = document.getElementById('submit-btn');
+    const messageDiv = document.getElementById('form-message');
+    
+    // Disable button
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Создание...';
+    messageDiv.innerHTML = '';
+    
+    // Prepare data
+    const formData = new FormData(form);
+    
+    try {
+        const response = await fetch("{% url 'admin:finance_v2_create_transfer' %}", {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.ok) {
+            messageDiv.innerHTML = '<div class="alert alert-success">✅ ' + (data.message || 'Перевод создан успешно!') + '</div>';
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            messageDiv.innerHTML = '<div class="alert alert-error">❌ ' + (data.error || 'Ошибка при создании перевода') + '</div>';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Создать перевод';
+        }
+    } catch (error) {
+        messageDiv.innerHTML = '<div class="alert alert-error">❌ Ошибка сети: ' + error.message + '</div>';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Создать перевод';
+    }
+}
+
+// Close modal on outside click
+document.getElementById('transfer-form-container').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeTransferForm();
+    }
+});
+</script>
+{% endblock %}

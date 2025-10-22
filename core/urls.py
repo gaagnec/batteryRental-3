@@ -17,11 +17,12 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
-from rental.views import dashboard
+from rental.views import dashboard, load_more_investments
 
 urlpatterns = [
     # Place dashboard BEFORE admin.site.urls so it's not captured by admin's catch-all
     path('admin/dashboard/', dashboard, name='admin-dashboard'),
+    path('admin/load-investments/', load_more_investments, name='load-investments'),
     path('admin/', admin.site.urls),
 ]
 

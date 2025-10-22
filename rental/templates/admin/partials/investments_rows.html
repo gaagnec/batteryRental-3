@@ -1,0 +1,39 @@
+{% load rental_extras %}
+<script>
+// Удаляем предыдущую кнопку "Загрузить ещё"
+const oldLoadMoreRow = document.getElementById('load-more-row');
+if (oldLoadMoreRow) {
+    oldLoadMoreRow.remove();
+}
+</script>
+{% for expense in investments_recent %}
+<tr>
+    <td>{{ expense.date|date:"d.m.Y" }}</td>
+    <td>{{ expense.paid_by_partner.user.username }}</td>
+    <td>
+        {% if expense.payment_type == 'purchase' %}
+            <i class="bi bi-cart4 investment-icon-purchase"></i> {{ expense.category.name|default:"—" }}
+        {% elif expense.payment_type == 'deposit' %}
+            <i class="bi bi-currency-euro investment-icon-deposit"></i> Внесение личных средств
+        {% endif %}
+    </td>
+    <td class="amount">{{ expense.amount|floatformat:0 }} PLN</td>
+    <td>{{ expense.description|default:"—" }}</td>
+</tr>
+{% endfor %}
+{% if has_more %}
+<tr id="load-more-row">
+    <td colspan="5" style="text-align: center; padding: 20px;">
+        <button 
+            class="btn-primary btn-small" 
+            hx-get="{% url 'load-investments' %}?offset={{ offset }}"
+            hx-target="#investments-tbody"
+            hx-swap="beforeend"
+            hx-indicator="#loading-spinner-{{ offset }}"
+        >
+            Загрузить ещё 10
+        </button>
+        <span id="loading-spinner-{{ offset }}" class="htmx-indicator" style="margin-left: 10px;">⏳ Загрузка...</span>
+    </td>
+</tr>
+{% endif %}

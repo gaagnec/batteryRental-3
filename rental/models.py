@@ -271,6 +271,13 @@ class FinanceOverviewProxy(Payment):
         verbose_name_plural = "Финансы"
 
 
+class FinanceOverviewProxy2(Payment):
+    class Meta:
+        proxy = True
+        verbose_name = "Бухучёт"
+        verbose_name_plural = "Бухучёт"
+
+
 class ExpenseCategory(TimeStampedModel):
     name = models.CharField(max_length=64, unique=True)
     history = HistoricalRecords()
@@ -290,7 +297,7 @@ class Expense(TimeStampedModel):
     description = models.TextField(blank=True)
     class PaymentType(models.TextChoices):
         PURCHASE = "purchase", "Закупка"
-        DEPOSIT = "deposit", "Внесение денег"
+        DEPOSIT = "deposit", "Внесение личных средств"
     payment_type = models.CharField(max_length=16, choices=PaymentType.choices, default=PaymentType.PURCHASE)
     paid_by_partner = models.ForeignKey('FinancePartner', null=True, blank=True, on_delete=models.SET_NULL, related_name='expenses_paid')
     note = models.TextField(blank=True)
