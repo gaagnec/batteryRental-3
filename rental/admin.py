@@ -1154,12 +1154,16 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             pid1, pid2 = owner1.id, owner2.id
             
             # По доходам
+            # Если owner1 получил больше (imbalance > 0), то owner1 должен owner2
+            # Инвертируем знак: положительное значение = owner1 должен owner2
             income_diff = income_imbalance.get(pid1, 0) - income_imbalance.get(pid2, 0)
-            income_transfer = income_diff / Decimal(2)  # Кто должен кому
+            income_transfer = -income_diff / Decimal(2)  # + значит owner1 должен owner2
             
             # По вложениям
+            # Если owner1 вложил больше, то owner2 должен owner1
+            # Инвертируем знак: положительное значение = owner1 должен owner2
             investment_diff = investment_balances[pid1]['balance'] - investment_balances[pid2]['balance']
-            investment_transfer = investment_diff / Decimal(2)
+            investment_transfer = -investment_diff / Decimal(2)  # + значит owner1 должен owner2
             
             # Итого
             total_transfer = income_transfer + investment_transfer
@@ -1167,9 +1171,9 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             total_debt_between_owners = {
                 'owner1': owner1,
                 'owner2': owner2,
-                'income_transfer': income_transfer,  # + значит owner2 должен owner1
-                'investment_transfer': investment_transfer,
-                'total_transfer': total_transfer,
+                'income_transfer': income_transfer,  # + значит owner1 должен owner2
+                'investment_transfer': investment_transfer,  # + значит owner1 должен owner2
+                'total_transfer': total_transfer,  # + значит owner1 должен owner2
             }
         
         # ========================================
