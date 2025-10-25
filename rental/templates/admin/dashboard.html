@@ -55,8 +55,23 @@
     <!-- Средняя колонка: Активные клиенты и недавно закрытые -->
     <div class="col-lg-4 col-md-6">
       <div class="card shadow-sm h-100" style="background-color: #1c1e2d; border-color: #2a2e41;">
-        <div class="card-header" style="background-color: #0e1018; color: #e3e6ed; font-weight: 500; border-bottom: 1px solid #2a2e41;">Активные клиенты: батареи и баланс</div>
+        <div class="card-header" style="background-color: #0e1018; color: #e3e6ed; font-weight: 500; border-bottom: none; padding-bottom: 0;">
+          Клиенты: батареи и баланс
+        </div>
+        
+        <!-- Табы для переключения -->
+        <div class="client-tabs">
+          <button class="client-tab-btn active" onclick="switchClientTab('active')">
+            <i class="bi bi-people-fill"></i> Активные
+          </button>
+          <button class="client-tab-btn" onclick="switchClientTab('closed')">
+            <i class="bi bi-archive"></i> Закрытые
+          </button>
+        </div>
+        
         <div class="card-body p-0" style="background-color: #1c1e2d;">
+          <!-- Активные клиенты -->
+          <div id="active-clients-tab" class="client-tab-content active">
           <div class="table-responsive">
             <table class="table table-sm table-hover mb-0" style="background-color: #1c1e2d; color: #9fa6bc;">
               <thead style="background-color: #0e1018; border-bottom: 1px solid #2a2e41;">
@@ -100,14 +115,29 @@
                   </td>
                 </tr>
               {% empty %}
-                <tr><td colspan="3" class="text-center py-3" style="color: #6e7891; border: none;">Нет активных клиентов</td></tr>
+                <tr><td colspan="4" class="text-center py-3" style="color: #6e7891; border: none;">Нет активных клиентов</td></tr>
               {% endfor %}
-              {% if closed_clients_data %}
-                <tr style="background-color: #0e1018; border-top: 1px solid #2a2e41;">
-                  <td colspan="4" class="small" style="padding: 0.5rem 1rem; color: #6e7891; border: none;">Недавно закрытые</td>
+              </tbody>
+            </table>
+          </div>
+          </div>
+          
+          <!-- Закрытые клиенты -->
+          <div id="closed-clients-tab" class="client-tab-content">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0" style="background-color: #1c1e2d; color: #9fa6bc;">
+              <thead style="background-color: #0e1018; border-bottom: 1px solid #2a2e41;">
+                <tr>
+                  <th style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Клиент</th>
+                  <th style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Батареи</th>
+                  <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Баланс</th>
+                  <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">pln/week</th>
                 </tr>
+              </thead>
+              <tbody>
+              {% if closed_clients_data %}
                 {% for row in closed_clients_data %}
-                  <tr style="background-color: rgba(14, 16, 24, 0.5); border-bottom: 1px solid #2a2e41;">
+                  <tr style="border-bottom: 1px solid #2a2e41;">
                     <td style="padding: 0.75rem 1rem; color: #6e7891; border: none;">{{ row.client.name }}</td>
                     <td style="padding: 0.75rem 1rem; border: none;"><span style="color: #6e7891;">—</span></td>
                     <td class="text-end" style="padding: 0.75rem 1rem; border: none;">
@@ -130,9 +160,12 @@
                     </td>
                   </tr>
                 {% endfor %}
+              {% else %}
+                <tr><td colspan="4" class="text-center py-3" style="color: #6e7891; border: none;">Нет закрытых клиентов</td></tr>
               {% endif %}
               </tbody>
             </table>
+          </div>
           </div>
         </div>
       </div>
@@ -365,9 +398,17 @@
 {% block extrastyle %}
   {{ block.super }}
   <style>
-    /* Темный фон для body admin */
-    body.model-index {
+    /* Темный фон для body admin и main content */
+    body.model-index,
+    main#content-start.content,
+    main.content {
       background-color: #0b0d1a !important;
+    }
+    
+    /* Переопределение белого фона таблиц */
+    .table>:not(caption)>*>* {
+      background-color: transparent !important;
+      border-bottom-color: #2a2e41 !important;
     }
     
     /* Выравнивание цифр списка KPI по правому краю одной колонкой */
@@ -420,6 +461,60 @@
     .table-responsive::-webkit-scrollbar-thumb:hover {
       background: #3a3e51;
     }
+    
+    /* Стили для ApexCharts (графики) в темной теме */
+    .apexcharts-text {
+      fill: #9fa6bc !important;
+    }
+    
+    .apexcharts-legend-text {
+      color: #9fa6bc !important;
+    }
+    
+    .apexcharts-datalabel {
+      fill: #e3e6ed !important;
+    }
+    
+    /* Стили для табов переключения клиентов */
+    .client-tabs {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background-color: #0e1018;
+      border-bottom: 1px solid #2a2e41;
+    }
+    
+    .client-tab-btn {
+      padding: 0.5rem 1rem;
+      background-color: transparent;
+      color: #6e7891;
+      border: 1px solid #2a2e41;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    
+    .client-tab-btn:hover {
+      background-color: rgba(102, 126, 234, 0.1);
+      color: #9fa6bc;
+      border-color: #667eea;
+    }
+    
+    .client-tab-btn.active {
+      background-color: #667eea;
+      color: #fff;
+      border-color: #667eea;
+    }
+    
+    .client-tab-content {
+      display: none;
+    }
+    
+    .client-tab-content.active {
+      display: block;
+    }
   </style>
 {% endblock %}
 
@@ -453,8 +548,17 @@
       const available = {{ battery_stats.available|default:0 }};
       const sum = rented + inService + available;
       const optionPie = {
-        tooltip: { trigger: 'item' },
-        legend: { bottom: 0 },
+        backgroundColor: 'transparent',
+        tooltip: { 
+          trigger: 'item',
+          backgroundColor: '#1c1e2d',
+          borderColor: '#2a2e41',
+          textStyle: { color: '#e3e6ed' }
+        },
+        legend: { 
+          bottom: 0,
+          textStyle: { color: '#9fa6bc' }
+        },
         series: [{
           type: 'pie',
           startAngle: 180,
@@ -462,7 +566,11 @@
           center: ['50%','72%'],
           avoidLabelOverlap: true,
           itemStyle: { borderWidth: 0 },
-          label: { show: true, formatter: '{b}: {c}' },
+          label: { 
+            show: true, 
+            formatter: '{b}: {c}',
+            color: '#9fa6bc'
+          },
           data: [
             { value: rented, name: 'В аренде', itemStyle: { color: getComputedStyle(document.documentElement).getPropertyValue('--pastel-blue').trim() } },
             { value: inService, name: 'На сервисе', itemStyle: { color: getComputedStyle(document.documentElement).getPropertyValue('--pastel-orange').trim() } },
@@ -484,11 +592,32 @@
       const paid = {{ payments_series.values|safe }};
       const charged = {{ charges_series.values|safe }};
       const optionBar = {
-        tooltip: { trigger: 'axis' },
-        legend: { bottom: 0, data: ['Начислено','Оплачено'] },
+        backgroundColor: 'transparent',
+        tooltip: { 
+          trigger: 'axis',
+          backgroundColor: '#1c1e2d',
+          borderColor: '#2a2e41',
+          textStyle: { color: '#e3e6ed' }
+        },
+        legend: { 
+          bottom: 0, 
+          data: ['Начислено','Оплачено'],
+          textStyle: { color: '#9fa6bc' }
+        },
         grid: { left: 40, right: 20, top: 20, bottom: 40 },
-        xAxis: { type: 'category', data: labels },
-        yAxis: { type: 'value', min: 0 },
+        xAxis: { 
+          type: 'category', 
+          data: labels,
+          axisLine: { lineStyle: { color: '#2a2e41' } },
+          axisLabel: { color: '#9fa6bc' }
+        },
+        yAxis: { 
+          type: 'value', 
+          min: 0,
+          axisLine: { lineStyle: { color: '#2a2e41' } },
+          axisLabel: { color: '#9fa6bc' },
+          splitLine: { lineStyle: { color: '#2a2e41' } }
+        },
         series: [
           { name: 'Начислено', type: 'bar', stack: 'total', data: charged, itemStyle: { color: '#6c757d' } },
           { name: 'Оплачено', type: 'bar', stack: 'total', data: paid, itemStyle: { color: '#0d6efd' } }
@@ -506,15 +635,56 @@
       const names = {{ top_debtors.names|safe }};
       const values = {{ top_debtors.values|safe }};
       const optionDebt = {
-        tooltip: { trigger: 'axis' },
+        backgroundColor: 'transparent',
+        tooltip: { 
+          trigger: 'axis',
+          backgroundColor: '#1c1e2d',
+          borderColor: '#2a2e41',
+          textStyle: { color: '#e3e6ed' }
+        },
         grid: { left: 120, right: 20, top: 10, bottom: 30 },
-        xAxis: { type: 'value' },
-        yAxis: { type: 'category', data: names, axisLabel: { interval: 0 } },
-        series: [{ type: 'bar', data: values, itemStyle: { color: '#dc3545' } }]
+        xAxis: { 
+          type: 'value',
+          axisLine: { lineStyle: { color: '#2a2e41' } },
+          axisLabel: { color: '#9fa6bc' },
+          splitLine: { lineStyle: { color: '#2a2e41' } }
+        },
+        yAxis: { 
+          type: 'category', 
+          data: names, 
+          axisLabel: { 
+            interval: 0,
+            color: '#9fa6bc'
+          },
+          axisLine: { lineStyle: { color: '#2a2e41' } }
+        },
+        series: [{ type: 'bar', data: values, itemStyle: { color: '#ff6b6b' } }]
       };
       debt.setOption(optionDebt);
       window.addEventListener('resize', () => debt.resize());
     }
   });
+  
+  // Функция переключения табов клиентов
+  function switchClientTab(tabName) {
+    // Скрываем все табы
+    document.querySelectorAll('.client-tab-content').forEach(tab => {
+      tab.classList.remove('active');
+    });
+    
+    // Убираем active со всех кнопок
+    document.querySelectorAll('.client-tab-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+    
+    // Показываем нужный таб
+    if (tabName === 'active') {
+      document.getElementById('active-clients-tab').classList.add('active');
+      event.target.classList.add('active');
+    } else if (tabName === 'closed') {
+      document.getElementById('closed-clients-tab').classList.add('active');
+      event.target.classList.add('active');
+    }
+  }
 </script>
 {% endblock %}
