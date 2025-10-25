@@ -215,56 +215,56 @@
         </div>
       </div>
       <div class="col-lg-8 col-md-12">
-        <div class="card shadow-sm h-100">
-          <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: 600; border-bottom: none;">
-            <i class="bi bi-calculator"></i> Взаиморасчеты
+        <div class="card shadow-sm h-100" style="background-color: #1c1e2d; border-color: #2a2e41;">
+          <div class="card-header" style="background-color: #0e1018; color: #e3e6ed; font-weight: 600; border-bottom: 1px solid #2a2e41; padding: 1rem 1.25rem;">
+            <i class="bi bi-calculator" style="margin-right: 8px;"></i> Взаиморасчеты
           </div>
-          <div class="card-body p-0">
+          <div class="card-body p-0" style="background-color: #1c1e2d;">
             {% if moderator_debts %}
             <div class="table-responsive">
-              <table class="table table-sm table-hover mb-0 settlements-table" style="margin-bottom: 0;">
-                <thead style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+              <table class="table table-sm table-hover mb-0 settlements-table" style="margin-bottom: 0; background-color: #1c1e2d; color: #9fa6bc;">
+                <thead style="background-color: #0e1018; border-bottom: 1px solid #2a2e41;">
                   <tr>
-                    <th style="padding: 12px 15px; font-weight: 600; color: #495057;">
-                      <i class="bi bi-person-badge" style="margin-right: 5px;"></i>Модератор
+                    <th style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.5px; border: none;">
+                      <i class="bi bi-person-badge" style="margin-right: 5px; color: #667eea;"></i>Модератор
                     </th>
-                    <th class="text-end" style="padding: 12px 15px; font-weight: 600; color: #495057;">
-                      <i class="bi bi-cash-coin" style="margin-right: 5px;"></i>Собрал
+                    <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.5px; border: none;">
+                      <i class="bi bi-cash-coin" style="margin-right: 5px; color: #667eea;"></i>Собрал
                     </th>
-                    <th class="text-end" style="padding: 12px 15px; font-weight: 600; color: #495057;">
-                      <i class="bi bi-arrow-right-circle" style="margin-right: 5px;"></i>Переведено
+                    <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.5px; border: none;">
+                      <i class="bi bi-arrow-right-circle" style="margin-right: 5px; color: #667eea;"></i>Переведено
                     </th>
-                    <th class="text-end" style="padding: 12px 15px; font-weight: 600; color: #495057;">
-                      <i class="bi bi-wallet2" style="margin-right: 5px;"></i>Долг
+                    <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.5px; border: none;">
+                      <i class="bi bi-wallet2" style="margin-right: 5px; color: #667eea;"></i>Долг
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {% for debt in moderator_debts %}
-                  <tr style="transition: all 0.3s ease;">
-                    <td style="padding: 12px 15px; vertical-align: middle;">
-                      <strong>{{ debt.partner.user.username }}</strong>
+                  <tr style="border-bottom: 1px solid #2a2e41; transition: all 0.2s ease;">
+                    <td style="padding: 0.875rem 1rem; vertical-align: middle; border: none; color: #e3e6ed;">
+                      <strong style="font-weight: 500;">{{ debt.partner.user.username }}</strong>
                     </td>
-                    <td class="text-end" style="padding: 12px 15px; vertical-align: middle;">
-                      <span style="color: #28a745; font-weight: 600;">{{ debt.collected|floatformat:0 }}</span>
-                      <span style="color: #6c757d; font-size: 0.85em;"> PLN</span>
+                    <td class="text-end" style="padding: 0.875rem 1rem; vertical-align: middle; border: none;">
+                      <span style="color: #00d27a; font-weight: 500;">{{ debt.collected|floatformat:0 }}</span>
+                      <span style="color: #6e7891; font-size: 0.85em;"> PLN</span>
                     </td>
-                    <td class="text-end" style="padding: 12px 15px; vertical-align: middle;">
-                      <span style="color: #17a2b8; font-weight: 600;">{{ debt.transferred|floatformat:0 }}</span>
-                      <span style="color: #6c757d; font-size: 0.85em;"> PLN</span>
+                    <td class="text-end" style="padding: 0.875rem 1rem; vertical-align: middle; border: none;">
+                      <span style="color: #27bcfd; font-weight: 500;">{{ debt.transferred|floatformat:0 }}</span>
+                      <span style="color: #6e7891; font-size: 0.85em;"> PLN</span>
                     </td>
-                    <td class="text-end" style="padding: 12px 15px; vertical-align: middle;">
+                    <td class="text-end" style="padding: 0.875rem 1rem; vertical-align: middle; border: none;">
                       {% if debt.debt > 0 %}
-                        <span class="badge" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); font-size: 0.9em; padding: 6px 12px; border-radius: 20px;">
-                          <i class="bi bi-exclamation-circle"></i> {{ debt.debt|floatformat:0 }} PLN
+                        <span class="badge" style="background-color: rgba(240, 68, 56, 0.15); color: #ff6b6b; font-size: 0.8125rem; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 500;">
+                          <i class="bi bi-exclamation-circle" style="margin-right: 3px;"></i>{{ debt.debt|floatformat:0 }} PLN
                         </span>
                       {% elif debt.debt < 0 %}
-                        <span class="badge" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); font-size: 0.9em; padding: 6px 12px; border-radius: 20px;">
-                          <i class="bi bi-check-circle"></i> {{ debt.debt|floatformat:0 }} PLN
+                        <span class="badge" style="background-color: rgba(0, 210, 122, 0.15); color: #00d27a; font-size: 0.8125rem; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 500;">
+                          <i class="bi bi-check-circle" style="margin-right: 3px;"></i>{{ debt.debt|floatformat:0 }} PLN
                         </span>
                       {% else %}
-                        <span class="badge bg-light text-dark" style="font-size: 0.9em; padding: 6px 12px; border-radius: 20px;">
-                          <i class="bi bi-dash-circle"></i> {{ debt.debt|floatformat:0 }} PLN
+                        <span class="badge" style="background-color: rgba(159, 166, 188, 0.15); color: #9fa6bc; font-size: 0.8125rem; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 500;">
+                          <i class="bi bi-dash-circle" style="margin-right: 3px;"></i>{{ debt.debt|floatformat:0 }} PLN
                         </span>
                       {% endif %}
                     </td>
@@ -275,44 +275,44 @@
             </div>
             
             {% if moderator_transfers_recent %}
-            <div style="margin: 25px; border-top: 2px solid #e9ecef; padding-top: 20px;">
-              <h6 class="mb-3" style="font-size: 15px; font-weight: 700; color: #495057; display: flex; align-items: center;">
+            <div style="margin: 1.5rem; border-top: 1px solid #2a2e41; padding-top: 1.5rem;">
+              <h6 class="mb-3" style="font-size: 0.875rem; font-weight: 500; color: #9fa6bc; display: flex; align-items: center; text-transform: uppercase; letter-spacing: 0.5px;">
                 <i class="bi bi-clock-history" style="margin-right: 8px; color: #667eea;"></i>
-                История переводов <span style="font-size: 12px; color: #6c757d; font-weight: 400; margin-left: 8px;">(последние 10)</span>
+                История переводов <span style="font-size: 0.75rem; color: #6e7891; font-weight: 400; margin-left: 8px; text-transform: lowercase;">(последние 10)</span>
               </h6>
               <div class="table-responsive">
-                <table class="table table-sm mb-0 settlements-history" style="font-size: 13px;">
-                  <thead style="background-color: #f1f3f5;">
+                <table class="table table-sm mb-0 settlements-history" style="font-size: 0.8125rem; background-color: #1c1e2d; color: #9fa6bc;">
+                  <thead style="background-color: transparent; border-bottom: 1px solid #2a2e41;">
                     <tr>
-                      <th style="padding: 10px 12px; border: none; font-weight: 600; color: #495057;">Дата</th>
-                      <th style="padding: 10px 12px; border: none; font-weight: 600; color: #495057;">От</th>
-                      <th style="padding: 10px 12px; border: none; font-weight: 600; color: #495057;">Кому</th>
-                      <th class="text-end" style="padding: 10px 12px; border: none; font-weight: 600; color: #495057;">Сумма</th>
-                      <th style="padding: 10px 12px; border: none; font-weight: 600; color: #495057;">Примечание</th>
+                      <th style="padding: 0.625rem 1rem; border: none; font-weight: 500; color: #6e7891; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Дата</th>
+                      <th style="padding: 0.625rem 1rem; border: none; font-weight: 500; color: #6e7891; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">От</th>
+                      <th style="padding: 0.625rem 1rem; border: none; font-weight: 500; color: #6e7891; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Кому</th>
+                      <th class="text-end" style="padding: 0.625rem 1rem; border: none; font-weight: 500; color: #6e7891; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Сумма</th>
+                      <th style="padding: 0.625rem 1rem; border: none; font-weight: 500; color: #6e7891; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Примечание</th>
                     </tr>
                   </thead>
                   <tbody>
                     {% for transfer in moderator_transfers_recent %}
-                    <tr style="border-bottom: 1px solid #f1f3f5;">
-                      <td style="padding: 10px 12px; color: #495057;">
+                    <tr style="border-bottom: 1px solid #232637;">
+                      <td style="padding: 0.75rem 1rem; color: #9fa6bc; border: none;">
                         <i class="bi bi-calendar3" style="color: #667eea; margin-right: 4px;"></i>
                         {{ transfer.date|date:"d.m.Y" }}
                       </td>
-                      <td style="padding: 10px 12px;">
-                        <span style="background-color: #e7f1ff; color: #0c63e4; padding: 4px 10px; border-radius: 12px; font-weight: 500; font-size: 12px;">
+                      <td style="padding: 0.75rem 1rem; border: none;">
+                        <span style="background-color: rgba(102, 126, 234, 0.15); color: #9ba5ff; padding: 0.25rem 0.625rem; border-radius: 6px; font-weight: 500; font-size: 0.75rem;">
                           {{ transfer.from_partner.user.username }}
                         </span>
                       </td>
-                      <td style="padding: 10px 12px;">
-                        <span style="background-color: #e8f5e9; color: #1e7e34; padding: 4px 10px; border-radius: 12px; font-weight: 500; font-size: 12px;">
+                      <td style="padding: 0.75rem 1rem; border: none;">
+                        <span style="background-color: rgba(0, 210, 122, 0.15); color: #00d27a; padding: 0.25rem 0.625rem; border-radius: 6px; font-weight: 500; font-size: 0.75rem;">
                           {{ transfer.to_partner.user.username }}
                         </span>
                       </td>
-                      <td class="text-end" style="padding: 10px 12px;">
-                        <span style="font-weight: 700; color: #17a2b8;">{{ transfer.amount|floatformat:0 }}</span>
-                        <span style="color: #6c757d; font-size: 0.85em;"> PLN</span>
+                      <td class="text-end" style="padding: 0.75rem 1rem; border: none;">
+                        <span style="font-weight: 500; color: #e3e6ed;">{{ transfer.amount|floatformat:0 }}</span>
+                        <span style="color: #6e7891; font-size: 0.85em;"> PLN</span>
                       </td>
-                      <td style="padding: 10px 12px; color: #6c757d; font-style: italic; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                      <td style="padding: 0.75rem 1rem; color: #6e7891; font-style: italic; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: none;">
                         {{ transfer.note|default:"—" }}
                       </td>
                     </tr>
@@ -323,9 +323,9 @@
             </div>
             {% endif %}
             {% else %}
-            <div class="text-center text-muted py-5">
-              <i class="bi bi-info-circle" style="font-size: 3em; opacity: 0.3;"></i>
-              <p style="margin-top: 10px;">Нет данных о модераторах</p>
+            <div class="text-center py-5" style="color: #6e7891;">
+              <i class="bi bi-info-circle" style="font-size: 3em; opacity: 0.3; color: #6e7891;"></i>
+              <p style="margin-top: 10px; color: #9fa6bc;">Нет данных о модераторах</p>
             </div>
             {% endif %}
           </div>
@@ -366,24 +366,26 @@
     /* Выравнивание цифр списка KPI по правому краю одной колонкой */
     .card .list-unstyled li span.fw-semibold { min-width: 80px; text-align: right; display: inline-block; }
     
-    /* Стили для таблицы взаиморасчетов */
+    /* Стили для таблицы взаиморасчетов в темном стиле Phoenix */
     .settlements-table tbody tr:hover {
-      background-color: #f8f9fa !important;
-      transform: scale(1.01);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      background-color: rgba(102, 126, 234, 0.05) !important;
       cursor: pointer;
     }
     
     .settlements-history tbody tr:hover {
-      background-color: #f8f9fa !important;
+      background-color: rgba(102, 126, 234, 0.05) !important;
     }
     
-    .badge-gradient-danger {
-      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    /* Плавные переходы для бейджей */
+    .settlements-table .badge:hover {
+      transform: scale(1.05);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
     
-    .badge-gradient-success {
-      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    /* Анимация для строк */
+    .settlements-table tbody tr,
+    .settlements-history tbody tr {
+      transition: background-color 0.2s ease, transform 0.2s ease;
     }
   </style>
 {% endblock %}
