@@ -322,7 +322,8 @@ def dashboard(request):
         })
 
     # Расчет долгов модераторов для блока "Взаиморасчеты"
-    cutoff = timezone.localdate() - timedelta(days=365)
+    # Используем ту же дату cutoff, что и на странице financeoverviewproxy2
+    cutoff = timezone.datetime(2025, 9, 1).date()
     
     partners = FinancePartner.objects.filter(active=True).select_related('user')
     moderators = [p for p in partners if p.role == FinancePartner.Role.MODERATOR]

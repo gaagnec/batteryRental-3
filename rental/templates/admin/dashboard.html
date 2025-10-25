@@ -3,6 +3,30 @@
 
 {% block title %}Dashboard | {{ block.super }}{% endblock %}
 
+{% block extrastyle %}
+<style>
+  /* Стили для таблицы взаиморасчетов */
+  .settlements-table tbody tr:hover {
+    background-color: #f8f9fa !important;
+    transform: scale(1.01);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    cursor: pointer;
+  }
+  
+  .settlements-history tbody tr:hover {
+    background-color: #f8f9fa !important;
+  }
+  
+  .badge-gradient-danger {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  }
+  
+  .badge-gradient-success {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
   <h1 class="h3 mb-4">Dashboard</h1>
@@ -216,32 +240,56 @@
       </div>
       <div class="col-lg-8 col-md-12">
         <div class="card shadow-sm h-100">
-          <div class="card-header">Взаиморасчеты</div>
+          <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: 600; border-bottom: none;">
+            <i class="bi bi-calculator"></i> Взаиморасчеты
+          </div>
           <div class="card-body p-0">
             {% if moderator_debts %}
             <div class="table-responsive">
-              <table class="table table-sm table-hover mb-0">
-                <thead>
+              <table class="table table-sm table-hover mb-0 settlements-table" style="margin-bottom: 0;">
+                <thead style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
                   <tr>
-                    <th>Модератор</th>
-                    <th class="text-end">Собрал</th>
-                    <th class="text-end">Переведено</th>
-                    <th class="text-end">Долг</th>
+                    <th style="padding: 12px 15px; font-weight: 600; color: #495057;">
+                      <i class="bi bi-person-badge" style="margin-right: 5px;"></i>Модератор
+                    </th>
+                    <th class="text-end" style="padding: 12px 15px; font-weight: 600; color: #495057;">
+                      <i class="bi bi-cash-coin" style="margin-right: 5px;"></i>Собрал
+                    </th>
+                    <th class="text-end" style="padding: 12px 15px; font-weight: 600; color: #495057;">
+                      <i class="bi bi-arrow-right-circle" style="margin-right: 5px;"></i>Переведено
+                    </th>
+                    <th class="text-end" style="padding: 12px 15px; font-weight: 600; color: #495057;">
+                      <i class="bi bi-wallet2" style="margin-right: 5px;"></i>Долг
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {% for debt in moderator_debts %}
-                  <tr>
-                    <td>{{ debt.partner.user.username }}</td>
-                    <td class="text-end">{{ debt.collected|floatformat:0 }} PLN</td>
-                    <td class="text-end">{{ debt.transferred|floatformat:0 }} PLN</td>
-                    <td class="text-end">
+                  <tr style="transition: all 0.3s ease;">
+                    <td style="padding: 12px 15px; vertical-align: middle;">
+                      <strong>{{ debt.partner.user.username }}</strong>
+                    </td>
+                    <td class="text-end" style="padding: 12px 15px; vertical-align: middle;">
+                      <span style="color: #28a745; font-weight: 600;">{{ debt.collected|floatformat:0 }}</span>
+                      <span style="color: #6c757d; font-size: 0.85em;"> PLN</span>
+                    </td>
+                    <td class="text-end" style="padding: 12px 15px; vertical-align: middle;">
+                      <span style="color: #17a2b8; font-weight: 600;">{{ debt.transferred|floatformat:0 }}</span>
+                      <span style="color: #6c757d; font-size: 0.85em;"> PLN</span>
+                    </td>
+                    <td class="text-end" style="padding: 12px 15px; vertical-align: middle;">
                       {% if debt.debt > 0 %}
-                        <span class="text-danger">{{ debt.debt|floatformat:0 }} PLN</span>
+                        <span class="badge" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); font-size: 0.9em; padding: 6px 12px; border-radius: 20px;">
+                          <i class="bi bi-exclamation-circle"></i> {{ debt.debt|floatformat:0 }} PLN
+                        </span>
                       {% elif debt.debt < 0 %}
-                        <span class="text-success">{{ debt.debt|floatformat:0 }} PLN</span>
+                        <span class="badge" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); font-size: 0.9em; padding: 6px 12px; border-radius: 20px;">
+                          <i class="bi bi-check-circle"></i> {{ debt.debt|floatformat:0 }} PLN
+                        </span>
                       {% else %}
-                        <span class="text-muted">{{ debt.debt|floatformat:0 }} PLN</span>
+                        <span class="badge bg-light text-dark" style="font-size: 0.9em; padding: 6px 12px; border-radius: 20px;">
+                          <i class="bi bi-dash-circle"></i> {{ debt.debt|floatformat:0 }} PLN
+                        </span>
                       {% endif %}
                     </td>
                   </tr>
@@ -251,27 +299,46 @@
             </div>
             
             {% if moderator_transfers_recent %}
-            <div style="margin: 20px; border-top: 1px solid #dee2e6; padding-top: 15px;">
-              <h6 class="mb-3" style="font-size: 14px; font-weight: 600;">История переводов (последние 10)</h6>
+            <div style="margin: 25px; border-top: 2px solid #e9ecef; padding-top: 20px;">
+              <h6 class="mb-3" style="font-size: 15px; font-weight: 700; color: #495057; display: flex; align-items: center;">
+                <i class="bi bi-clock-history" style="margin-right: 8px; color: #667eea;"></i>
+                История переводов <span style="font-size: 12px; color: #6c757d; font-weight: 400; margin-left: 8px;">(последние 10)</span>
+              </h6>
               <div class="table-responsive">
-                <table class="table table-sm table-striped mb-0" style="font-size: 13px;">
-                  <thead>
+                <table class="table table-sm mb-0 settlements-history" style="font-size: 13px;">
+                  <thead style="background-color: #f1f3f5;">
                     <tr>
-                      <th>Дата</th>
-                      <th>От</th>
-                      <th>Кому</th>
-                      <th class="text-end">Сумма</th>
-                      <th>Примечание</th>
+                      <th style="padding: 10px 12px; border: none; font-weight: 600; color: #495057;">Дата</th>
+                      <th style="padding: 10px 12px; border: none; font-weight: 600; color: #495057;">От</th>
+                      <th style="padding: 10px 12px; border: none; font-weight: 600; color: #495057;">Кому</th>
+                      <th class="text-end" style="padding: 10px 12px; border: none; font-weight: 600; color: #495057;">Сумма</th>
+                      <th style="padding: 10px 12px; border: none; font-weight: 600; color: #495057;">Примечание</th>
                     </tr>
                   </thead>
                   <tbody>
                     {% for transfer in moderator_transfers_recent %}
-                    <tr>
-                      <td>{{ transfer.date|date:"d.m.Y" }}</td>
-                      <td>{{ transfer.from_partner.user.username }}</td>
-                      <td>{{ transfer.to_partner.user.username }}</td>
-                      <td class="text-end">{{ transfer.amount|floatformat:0 }} PLN</td>
-                      <td>{{ transfer.note|default:"—" }}</td>
+                    <tr style="border-bottom: 1px solid #f1f3f5;">
+                      <td style="padding: 10px 12px; color: #495057;">
+                        <i class="bi bi-calendar3" style="color: #667eea; margin-right: 4px;"></i>
+                        {{ transfer.date|date:"d.m.Y" }}
+                      </td>
+                      <td style="padding: 10px 12px;">
+                        <span style="background-color: #e7f1ff; color: #0c63e4; padding: 4px 10px; border-radius: 12px; font-weight: 500; font-size: 12px;">
+                          {{ transfer.from_partner.user.username }}
+                        </span>
+                      </td>
+                      <td style="padding: 10px 12px;">
+                        <span style="background-color: #e8f5e9; color: #1e7e34; padding: 4px 10px; border-radius: 12px; font-weight: 500; font-size: 12px;">
+                          {{ transfer.to_partner.user.username }}
+                        </span>
+                      </td>
+                      <td class="text-end" style="padding: 10px 12px;">
+                        <span style="font-weight: 700; color: #17a2b8;">{{ transfer.amount|floatformat:0 }}</span>
+                        <span style="color: #6c757d; font-size: 0.85em;"> PLN</span>
+                      </td>
+                      <td style="padding: 10px 12px; color: #6c757d; font-style: italic; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        {{ transfer.note|default:"—" }}
+                      </td>
                     </tr>
                     {% endfor %}
                   </tbody>
@@ -281,7 +348,8 @@
             {% endif %}
             {% else %}
             <div class="text-center text-muted py-5">
-              Нет данных о модераторах
+              <i class="bi bi-info-circle" style="font-size: 3em; opacity: 0.3;"></i>
+              <p style="margin-top: 10px;">Нет данных о модераторах</p>
             </div>
             {% endif %}
           </div>
