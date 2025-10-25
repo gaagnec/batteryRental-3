@@ -4,47 +4,47 @@
 {% block title %}Dashboard | {{ block.super }}{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-  <h1 class="h3 mb-4">Dashboard</h1>
+<div class="container-fluid" style="background-color: #0b0d1a; padding-bottom: 1rem; padding-top: 1rem;">
+  <h1 class="h3 mb-4" style="color: #e3e6ed; font-weight: 600;">Dashboard</h1>
 
   <!-- Три колонки сверху -->
   <div class="row g-3">
     <!-- Левая колонка: KPI + half-donut под списком -->
     <div class="col-lg-4 col-md-6">
-      <div class="card shadow-sm">
-        <div class="card-body">
+      <div class="card shadow-sm" style="background-color: #1c1e2d; border-color: #2a2e41;">
+        <div class="card-body card-body-mobile-compact">
           <div class="d-flex justify-content-between align-items-baseline mb-2">
-            <h5 class="mb-0" style="font-weight:600;">Бизнес‑метрики</h5>
-            <div class="text-muted small">Всего батарей: {{ battery_stats.total }}</div>
+            <h5 class="mb-0" style="font-weight:600; color: #e3e6ed;">Бизнес‑метрики</h5>
+            <div class="small" style="color: #6e7891;">Всего батарей: {{ battery_stats.total }}</div>
           </div>
           <ul class="list-unstyled mb-3" style="line-height:1.4;">
             <li class="d-flex justify-content-between align-items-center mb-1">
-              <span class="d-flex align-items-center"><span class="rounded-circle me-2" style="display:inline-block;width:10px;height:10px;background:#8ad0ff;"></span>Активные клиенты</span>
-              <span class="fw-semibold">{{ active_clients_count }}</span>
+              <span class="d-flex align-items-center" style="color: #9fa6bc;"><span class="rounded-circle me-2" style="display:inline-block;width:10px;height:10px;background:#8ad0ff;"></span>Активные клиенты</span>
+              <span class="fw-semibold" style="color: #e3e6ed;">{{ active_clients_count }}</span>
             </li>
             <li class="d-flex justify-content-between align-items-center mb-1">
-              <span class="d-flex align-items-center"><span class="rounded-circle me-2" style="display:inline-block;width:10px;height:10px;background:#ffd28a;"></span>В аренде</span>
-              <span class="fw-semibold">{{ battery_stats.rented }}</span>
+              <span class="d-flex align-items-center" style="color: #9fa6bc;"><span class="rounded-circle me-2" style="display:inline-block;width:10px;height:10px;background:#ffd28a;"></span>В аренде</span>
+              <span class="fw-semibold" style="color: #e3e6ed;">{{ battery_stats.rented }}</span>
             </li>
             <li class="d-flex justify-content-between align-items-center mb-1">
-              <span class="d-flex align-items-center"><span class="rounded-circle me-2" style="display:inline-block;width:10px;height:10px;background:#a8e2a8;"></span>На сервисе</span>
-              <span class="fw-semibold">{{ battery_stats.in_service }}</span>
+              <span class="d-flex align-items-center" style="color: #9fa6bc;"><span class="rounded-circle me-2" style="display:inline-block;width:10px;height:10px;background:#a8e2a8;"></span>На сервисе</span>
+              <span class="fw-semibold" style="color: #e3e6ed;">{{ battery_stats.in_service }}</span>
             </li>
             <li class="d-flex justify-content-between align-items-center mb-1">
-              <span class="d-flex align-items-center"><span class="rounded-circle me-2" style="display:inline-block;width:10px;height:10px;background:#9bb2ff;"></span>Доступные</span>
-              <span class="fw-semibold">{{ battery_stats.available }}</span>
+              <span class="d-flex align-items-center" style="color: #9fa6bc;"><span class="rounded-circle me-2" style="display:inline-block;width:10px;height:10px;background:#9bb2ff;"></span>Доступные</span>
+              <span class="fw-semibold" style="color: #e3e6ed;">{{ battery_stats.available }}</span>
             </li>
             <li class="d-flex justify-content-between align-items-center mb-1">
-              <span class="text-muted">Начислено ({{ window_days }} дн.)</span>
-              <span class="fw-semibold">{{ total_charged_30|floatformat:2 }}</span>
+              <span style="color: #6e7891;">Начислено ({{ window_days }} дн.)</span>
+              <span class="fw-semibold" style="color: #e3e6ed;">{{ total_charged_30|floatformat:2 }}</span>
             </li>
             <li class="d-flex justify-content-between align-items-center mb-1">
-              <span class="text-muted">Оплачено ({{ window_days }} дн.)</span>
-              <span class="fw-semibold">{{ total_paid_30|floatformat:2 }}</span>
+              <span style="color: #6e7891;">Оплачено ({{ window_days }} дн.)</span>
+              <span class="fw-semibold" style="color: #e3e6ed;">{{ total_paid_30|floatformat:2 }}</span>
             </li>
             <li class="d-flex justify-content-between align-items-center">
-              <span class="text-muted">Общая дебиторка</span>
-              <span class="fw-semibold text-danger">{{ overall_debt|floatformat:2 }}</span>
+              <span style="color: #6e7891;">Общая дебиторка</span>
+              <span class="fw-semibold" style="color: #ff6b6b;">{{ overall_debt|floatformat:2 }}</span>
             </li>
           </ul>
           <div id="batteryStatusChart"></div>
@@ -54,83 +54,122 @@
 
     <!-- Средняя колонка: Активные клиенты и недавно закрытые -->
     <div class="col-lg-4 col-md-6">
-      <div class="card shadow-sm h-100">
-        <div class="card-header">Активные клиенты: батареи и баланс</div>
-        <div class="card-body p-0">
+      <div class="card shadow-sm h-100" style="background-color: #1c1e2d; border-color: #2a2e41;">
+        <div class="card-header" style="background-color: #0e1018; color: #e3e6ed; font-weight: 500; border-bottom: none; padding-bottom: 0;">
+          Клиенты: батареи и баланс
+        </div>
+        
+        <!-- Табы для переключения -->
+        <div class="client-tabs">
+          <button class="client-tab-btn active" onclick="switchClientTab('active')">
+            <i class="bi bi-people-fill"></i> Активные
+          </button>
+          <button class="client-tab-btn" onclick="switchClientTab('closed')">
+            <i class="bi bi-archive"></i> Закрытые
+          </button>
+        </div>
+        
+        <div class="card-body p-0 card-body-mobile-compact" style="background-color: #1c1e2d;">
+          <!-- Активные клиенты -->
+          <div id="active-clients-tab" class="client-tab-content active">
+          <div class="clients-table-wrapper">
           <div class="table-responsive">
-            <table class="table table-sm table-hover mb-0">
-              <thead>
+            <table class="table table-sm table-hover mb-0" style="background-color: #1c1e2d; color: #9fa6bc;">
+              <thead style="background-color: #0e1018; border-bottom: 1px solid #2a2e41;">
                 <tr>
-                  <th>Клиент</th>
-                  <th>Батареи</th>
-                  <th class="text-end">Баланс</th>
-                  <th class="text-end">pln/week</th>
+                  <th style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Клиент</th>
+                  <th style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Батареи</th>
+                  <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Баланс</th>
+                  <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">pln/week</th>
                 </tr>
               </thead>
               <tbody>
               {% for row in clients_data %}
-                <tr>
-                  <td>{{ row.client.name }}</td>
-                  <td>
+                <tr style="border-bottom: 1px solid #2a2e41;">
+                  <td style="padding: 0.75rem 1rem; color: #e3e6ed; border: none;">{{ row.client.name }}</td>
+                  <td style="padding: 0.75rem 1rem; border: none;">
                     {% if row.batteries %}
                       {% for b in row.batteries %}
-                        <span class="badge text-bg-secondary me-1">{{ b.short_code }}</span>
+                        <span class="badge me-1" style="background-color: rgba(159, 166, 188, 0.2); color: #9fa6bc; font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 4px;">{{ b.short_code }}</span>
                       {% endfor %}
                     {% else %}
-                      <span class="text-muted">—</span>
+                      <span style="color: #6e7891;">—</span>
                     {% endif %}
                   </td>
-                  <td class="text-end">
+                  <td class="text-end" style="padding: 0.75rem 1rem; border: none;">
                     {% with val=row.balance_ui %}
                       {% if val > 0 %}
-                        <span class="text-success">+{{ val|floatformat:2 }}</span>
+                        <span style="color: #00d27a;">+{{ val|floatformat:2 }}</span>
                       {% elif val < 0 %}
-                        <span class="text-danger">{{ val|floatformat:2 }}</span>
+                        <span style="color: #ff6b6b;">{{ val|floatformat:2 }}</span>
                       {% else %}
-                        {{ val|floatformat:2 }}
+                        <span style="color: #9fa6bc;">{{ val|floatformat:2 }}</span>
                       {% endif %}
                     {% endwith %}
                   </td>
-                  <td class="text-end">
+                  <td class="text-end" style="padding: 0.75rem 1rem; border: none; color: #9fa6bc;">
                     {% if row.weekly_rate is not None %}
                       {{ row.weekly_rate|floatformat:2 }}
                     {% else %}
-                      <span class="text-muted">—</span>
+                      <span style="color: #6e7891;">—</span>
                     {% endif %}
                   </td>
                 </tr>
               {% empty %}
-                <tr><td colspan="3" class="text-center text-muted py-3">Нет активных клиентов</td></tr>
+                <tr><td colspan="4" class="text-center py-3" style="color: #6e7891; border: none;">Нет активных клиентов</td></tr>
               {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          </div>
+          </div>
+          
+          <!-- Закрытые клиенты -->
+          <div id="closed-clients-tab" class="client-tab-content">
+          <div class="clients-table-wrapper">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0" style="background-color: #1c1e2d; color: #9fa6bc;">
+              <thead style="background-color: #0e1018; border-bottom: 1px solid #2a2e41;">
+                <tr>
+                  <th style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Клиент</th>
+                  <th style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Батареи</th>
+                  <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Баланс</th>
+                  <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">pln/week</th>
+                </tr>
+              </thead>
+              <tbody>
               {% if closed_clients_data %}
-                <tr class="table-secondary"><td colspan="4" class="small text-muted">Недавно закрытые</td></tr>
                 {% for row in closed_clients_data %}
-                  <tr class="table-secondary">
-                    <td>{{ row.client.name }}</td>
-                    <td><span class="text-muted">—</span></td>
-                    <td class="text-end">
+                  <tr style="border-bottom: 1px solid #2a2e41;">
+                    <td style="padding: 0.75rem 1rem; color: #6e7891; border: none;">{{ row.client.name }}</td>
+                    <td style="padding: 0.75rem 1rem; border: none;"><span style="color: #6e7891;">—</span></td>
+                    <td class="text-end" style="padding: 0.75rem 1rem; border: none;">
                       {% with val=row.balance_ui %}
                         {% if val > 0 %}
-                          <span class="text-success">+{{ val|floatformat:2 }}</span>
+                          <span style="color: #00d27a;">+{{ val|floatformat:2 }}</span>
                         {% elif val < 0 %}
-                          <span class="text-danger">{{ val|floatformat:2 }}</span>
+                          <span style="color: #ff6b6b;">{{ val|floatformat:2 }}</span>
                         {% else %}
-                          {{ val|floatformat:2 }}
+                          <span style="color: #6e7891;">{{ val|floatformat:2 }}</span>
                         {% endif %}
                       {% endwith %}
                     </td>
-                    <td class="text-end">
+                    <td class="text-end" style="padding: 0.75rem 1rem; border: none; color: #6e7891;">
                       {% if row.weekly_rate is not None %}
                         {{ row.weekly_rate|floatformat:2 }}
                       {% else %}
-                        <span class="text-muted">—</span>
+                        <span style="color: #6e7891;">—</span>
                       {% endif %}
                     </td>
                   </tr>
                 {% endfor %}
+              {% else %}
+                <tr><td colspan="4" class="text-center py-3" style="color: #6e7891; border: none;">Нет закрытых клиентов</td></tr>
               {% endif %}
               </tbody>
             </table>
+          </div>
+          </div>
           </div>
         </div>
       </div>
@@ -138,29 +177,29 @@
 
     <!-- Правая колонка: Последние платежи -->
     <div class="col-lg-4 col-md-12">
-      <div class="card shadow-sm h-100">
-        <div class="card-header">Последние 10 платежей</div>
-        <div class="card-body p-0">
+      <div class="card shadow-sm h-100" style="background-color: #1c1e2d; border-color: #2a2e41;">
+        <div class="card-header" style="background-color: #0e1018; color: #e3e6ed; font-weight: 500; border-bottom: 1px solid #2a2e41;">Последние платежи</div>
+        <div class="card-body p-0 card-body-mobile-compact" style="background-color: #1c1e2d;">
           <div class="table-responsive">
-            <table class="table table-sm table-striped mb-0">
-              <thead>
+            <table class="table table-sm mb-0" style="background-color: #1c1e2d; color: #9fa6bc;">
+              <thead style="background-color: #0e1018; border-bottom: 1px solid #2a2e41;">
                 <tr>
-                  <th>Клиент</th>
-                  <th>Дата</th>
-                  <th class="text-end">Сумма</th>
-                  <th>Кем</th>
+                  <th style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Клиент</th>
+                  <th style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Дата</th>
+                  <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Сумма</th>
+                  <th style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Кем</th>
                 </tr>
               </thead>
               <tbody>
                 {% for p in latest_payments %}
-                <tr>
-                  <td>{{ p.rental.client.name }}</td>
-                  <td>{{ p.date }}</td>
-                  <td class="text-end">{{ p.amount|floatformat:2 }}</td>
-                  <td>{{ p.created_by.get_full_name|default:p.created_by.username|default:p.created_by.email|default:"—" }}</td>
+                <tr style="border-bottom: 1px solid #2a2e41;">
+                  <td style="padding: 0.75rem 1rem; color: #e3e6ed; border: none;">{{ p.rental.client.name }}</td>
+                  <td style="padding: 0.75rem 1rem; color: #9fa6bc; border: none;">{{ p.date }}</td>
+                  <td class="text-end" style="padding: 0.75rem 1rem; color: #27bcfd; border: none; font-weight: 500;">{{ p.amount|floatformat:2 }}</td>
+                  <td style="padding: 0.75rem 1rem; color: #6e7891; border: none; font-size: 0.875rem;">{{ p.created_by.get_full_name|default:p.created_by.username|default:p.created_by.email|default:"—" }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="4" class="text-center text-muted py-3">Платежей нет</td></tr>
+                <tr><td colspan="4" class="text-center py-3" style="color: #6e7891; border: none;">Платежей нет</td></tr>
                 {% endfor %}
               </tbody>
             </table>
@@ -172,33 +211,31 @@
     </div>
 
     <!-- Сводка по месяцам: Июнь, Июль, Август -->
-    <div class="row g-3 mt-3">
+    <div class="row g-3 mt-2">
       <div class="col-lg-4 col-md-12">
-        <div class="card shadow-sm h-100">
-          <div class="card-header">Месячные итоги</div>
-          <div class="card-body p-0">
+        <div class="card shadow-sm h-100" style="background-color: #1c1e2d; border-color: #2a2e41;">
+          <div class="card-header" style="background-color: #0e1018; color: #e3e6ed; font-weight: 500; border-bottom: 1px solid #2a2e41;">Месячные итоги</div>
+          <div class="card-body p-0" style="background-color: #1c1e2d;">
             <div class="table-responsive">
-              <table class="table table-sm table-striped mb-0">
-                <thead>
+              <table class="table table-sm mb-0" style="background-color: #1c1e2d; color: #9fa6bc;">
+                <thead style="background-color: #0e1018; border-bottom: 1px solid #2a2e41;">
                   <tr>
-                    <th>Месяц</th>
-                    <th class="text-end">Пришло</th>
-                    <th class="text-end">Потрачено</th>
-                    <th class="text-end">Прибыль</th>
+                    <th style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Месяц</th>
+                    <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Пришло</th>
+                    <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Выручка</th>
                   </tr>
                 </thead>
                 <tbody>
                   {% for row in monthly3_rows %}
-                  <tr>
-                    <td>{{ row.label }}</td>
-                    <td class="text-end">{{ row.income|floatformat:2 }}</td>
-                    <td class="text-end">{{ row.expense|floatformat:2 }}</td>
-                    <td class="text-end">{{ row.profit|floatformat:2 }}</td>
+                  <tr style="border-bottom: 1px solid #2a2e41;">
+                    <td style="padding: 0.75rem 1rem; color: #e3e6ed; border: none; font-weight: 500;">{{ row.label }}</td>
+                    <td class="text-end" style="padding: 0.75rem 1rem; color: #27bcfd; border: none; font-weight: 500;">{{ row.income|floatformat:2 }}</td>
+                    <td class="text-end" style="padding: 0.75rem 1rem; color: #00d27a; border: none; font-weight: 500;">{{ row.profit|floatformat:2 }}</td>
                   </tr>
-                  <tr class="table-active">
-                    <td></td>
-                    <td colspan="3">
-                      <small class="text-muted">
+                  <tr style="background-color: rgba(14, 16, 24, 0.5); border-bottom: 1px solid #232637;">
+                    <td style="border: none;"></td>
+                    <td colspan="2" style="padding: 0.5rem 1rem; border: none;">
+                      <small style="color: #6e7891; font-size: 0.75rem;">
                         {% if row.user_totals %}
                           {% for ut in row.user_totals %}
                             {{ ut.user }}: {{ ut.total|floatformat:2 }}{% if not forloop.last %}, {% endif %}
@@ -217,35 +254,123 @@
         </div>
       </div>
       <div class="col-lg-8 col-md-12">
-        <div class="card shadow-sm h-100">
-          <div class="card-body">
-            <div id="monthly3Chart" style="height:260px;"></div>
+        <div class="card shadow-sm h-100" style="background-color: #1c1e2d; border-color: #2a2e41;">
+          <div class="card-header" style="background-color: #0e1018; color: #e3e6ed; font-weight: 600; border-bottom: 1px solid #2a2e41; padding: 1rem 1.25rem;">
+            <i class="bi bi-calculator" style="margin-right: 8px;"></i> Взаиморасчеты
+          </div>
+          <div class="card-body p-0" style="background-color: #1c1e2d;">
+            {% if moderator_debts %}
+            <div class="table-responsive">
+              <table class="table table-sm table-hover mb-0 settlements-table" style="margin-bottom: 0; background-color: #1c1e2d; color: #9fa6bc;">
+                <thead style="background-color: #0e1018; border-bottom: 1px solid #2a2e41;">
+                  <tr>
+                    <th style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.5px; border: none;">
+                      <i class="bi bi-person-badge" style="margin-right: 5px; color: #667eea;"></i>Модератор
+                    </th>
+                    <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.5px; border: none;">
+                      <i class="bi bi-cash-coin" style="margin-right: 5px; color: #667eea;"></i>Собрал
+                    </th>
+                    <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.5px; border: none;">
+                      <i class="bi bi-arrow-right-circle" style="margin-right: 5px; color: #667eea;"></i>Переведено
+                    </th>
+                    <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.5px; border: none;">
+                      <i class="bi bi-wallet2" style="margin-right: 5px; color: #667eea;"></i>Долг
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for debt in moderator_debts %}
+                  <tr style="border-bottom: 1px solid #2a2e41; transition: all 0.2s ease;">
+                    <td style="padding: 0.875rem 1rem; vertical-align: middle; border: none; color: #e3e6ed;">
+                      <strong style="font-weight: 500;">{{ debt.partner.user.username }}</strong>
+                    </td>
+                    <td class="text-end" style="padding: 0.875rem 1rem; vertical-align: middle; border: none;">
+                      <span style="color: #00d27a; font-weight: 500;">{{ debt.collected|floatformat:0 }}</span>
+                      <span style="color: #6e7891; font-size: 0.85em;"> PLN</span>
+                    </td>
+                    <td class="text-end" style="padding: 0.875rem 1rem; vertical-align: middle; border: none;">
+                      <span style="color: #27bcfd; font-weight: 500;">{{ debt.transferred|floatformat:0 }}</span>
+                      <span style="color: #6e7891; font-size: 0.85em;"> PLN</span>
+                    </td>
+                    <td class="text-end" style="padding: 0.875rem 1rem; vertical-align: middle; border: none;">
+                      {% if debt.debt > 0 %}
+                        <span class="badge" style="background-color: rgba(240, 68, 56, 0.15); color: #ff6b6b; font-size: 0.8125rem; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 500;">
+                          <i class="bi bi-exclamation-circle" style="margin-right: 3px;"></i>{{ debt.debt|floatformat:0 }} PLN
+                        </span>
+                      {% elif debt.debt < 0 %}
+                        <span class="badge" style="background-color: rgba(0, 210, 122, 0.15); color: #00d27a; font-size: 0.8125rem; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 500;">
+                          <i class="bi bi-check-circle" style="margin-right: 3px;"></i>{{ debt.debt|floatformat:0 }} PLN
+                        </span>
+                      {% else %}
+                        <span class="badge" style="background-color: rgba(159, 166, 188, 0.15); color: #9fa6bc; font-size: 0.8125rem; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 500;">
+                          <i class="bi bi-dash-circle" style="margin-right: 3px;"></i>{{ debt.debt|floatformat:0 }} PLN
+                        </span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            
+            {% if moderator_transfers_recent %}
+            <div style="margin: 1.5rem; border-top: 1px solid #2a2e41; padding-top: 1.5rem;">
+              <h6 class="mb-3" style="font-size: 0.875rem; font-weight: 500; color: #9fa6bc; display: flex; align-items: center; text-transform: uppercase; letter-spacing: 0.5px;">
+                <i class="bi bi-clock-history" style="margin-right: 8px; color: #667eea;"></i>
+                История переводов <span style="font-size: 0.75rem; color: #6e7891; font-weight: 400; margin-left: 8px; text-transform: lowercase;">(последние 10)</span>
+              </h6>
+              <div class="table-responsive">
+                <table class="table table-sm mb-0 settlements-history" style="font-size: 0.8125rem; background-color: #1c1e2d; color: #9fa6bc;">
+                  <thead style="background-color: transparent; border-bottom: 1px solid #2a2e41;">
+                    <tr>
+                      <th style="padding: 0.625rem 1rem; border: none; font-weight: 500; color: #6e7891; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Дата</th>
+                      <th style="padding: 0.625rem 1rem; border: none; font-weight: 500; color: #6e7891; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">От</th>
+                      <th style="padding: 0.625rem 1rem; border: none; font-weight: 500; color: #6e7891; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Кому</th>
+                      <th class="text-end" style="padding: 0.625rem 1rem; border: none; font-weight: 500; color: #6e7891; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Сумма</th>
+                      <th style="padding: 0.625rem 1rem; border: none; font-weight: 500; color: #6e7891; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Примечание</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for transfer in moderator_transfers_recent %}
+                    <tr style="border-bottom: 1px solid #232637;">
+                      <td style="padding: 0.75rem 1rem; color: #9fa6bc; border: none;">
+                        <i class="bi bi-calendar3" style="color: #667eea; margin-right: 4px;"></i>
+                        {{ transfer.date|date:"d.m.Y" }}
+                      </td>
+                      <td style="padding: 0.75rem 1rem; border: none;">
+                        <span style="background-color: rgba(102, 126, 234, 0.15); color: #9ba5ff; padding: 0.25rem 0.625rem; border-radius: 6px; font-weight: 500; font-size: 0.75rem;">
+                          {{ transfer.from_partner.user.username }}
+                        </span>
+                      </td>
+                      <td style="padding: 0.75rem 1rem; border: none;">
+                        <span style="background-color: rgba(0, 210, 122, 0.15); color: #00d27a; padding: 0.25rem 0.625rem; border-radius: 6px; font-weight: 500; font-size: 0.75rem;">
+                          {{ transfer.to_partner.user.username }}
+                        </span>
+                      </td>
+                      <td class="text-end" style="padding: 0.75rem 1rem; border: none;">
+                        <span style="font-weight: 500; color: #e3e6ed;">{{ transfer.amount|floatformat:0 }}</span>
+                        <span style="color: #6e7891; font-size: 0.85em;"> PLN</span>
+                      </td>
+                      <td style="padding: 0.75rem 1rem; color: #6e7891; font-style: italic; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: none;">
+                        {{ transfer.note|default:"—" }}
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            {% endif %}
+            {% else %}
+            <div class="text-center py-5" style="color: #6e7891;">
+              <i class="bi bi-info-circle" style="font-size: 3em; opacity: 0.3; color: #6e7891;"></i>
+              <p style="margin-top: 10px; color: #9fa6bc;">Нет данных о модераторах</p>
+            </div>
+            {% endif %}
           </div>
         </div>
       </div>
     </div>
-
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        const chartEl = document.getElementById('monthly3Chart');
-        if (!chartEl) return;
-        const chart = echarts.init(chartEl);
-        const option = {
-          tooltip: { trigger: 'axis' },
-          legend: { bottom: 0, data: ['Пришло', 'Потрачено', 'Прибыль'] },
-          grid: { left: 40, right: 20, top: 20, bottom: 40 },
-          xAxis: { type: 'category', data: {{ monthly3_chart.labels|safe }} },
-          yAxis: { type: 'value' },
-          series: [
-            { name: 'Пришло', type: 'line', data: {{ monthly3_chart.income|safe }}, smooth: true },
-            { name: 'Потрачено', type: 'line', data: {{ monthly3_chart.expense|safe }}, smooth: true },
-            { name: 'Прибыль', type: 'line', data: {{ monthly3_chart.profit|safe }}, smooth: true },
-          ]
-        };
-        chart.setOption(option);
-        window.addEventListener('resize', () => chart.resize());
-      });
-    </script>
 
       </div>
     </div>
@@ -277,8 +402,183 @@
 {% block extrastyle %}
   {{ block.super }}
   <style>
+    /* Темный фон для body admin и main content */
+    body.model-index,
+    main#content-start.content,
+    main.content {
+      background-color: #0b0d1a !important;
+    }
+    
+    /* Переопределение белого фона таблиц - делаем темным */
+    .table>:not(caption)>*>* {
+      background-color: #1c1e2d !important;
+      border-bottom-color: #2a2e41 !important;
+    }
+    
+    /* Убираем белый фон у строк таблиц */
+    .table tbody tr {
+      background-color: transparent !important;
+    }
+    
+    .table thead tr {
+      background-color: transparent !important;
+    }
+    
     /* Выравнивание цифр списка KPI по правому краю одной колонкой */
     .card .list-unstyled li span.fw-semibold { min-width: 80px; text-align: right; display: inline-block; }
+    
+    /* Стили для всех таблиц в темном стиле Phoenix */
+    .table-hover tbody tr:hover {
+      background-color: rgba(102, 126, 234, 0.05) !important;
+      cursor: pointer;
+    }
+    
+    .settlements-table tbody tr:hover,
+    .settlements-history tbody tr:hover {
+      background-color: rgba(102, 126, 234, 0.05) !important;
+    }
+    
+    /* Плавные переходы для бейджей */
+    .settlements-table .badge:hover,
+    .table .badge:hover {
+      transform: scale(1.05);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      transition: all 0.2s ease;
+    }
+    
+    /* Анимация для строк */
+    .table tbody tr {
+      transition: background-color 0.2s ease;
+    }
+    
+    /* Скрытие лишних borders в таблицах */
+    .table-striped tbody tr:nth-of-type(odd) {
+      background-color: rgba(14, 16, 24, 0.3) !important;
+    }
+    
+    /* Стили для скроллбаров в темной теме */
+    .table-responsive::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    
+    .table-responsive::-webkit-scrollbar-track {
+      background: #1c1e2d;
+    }
+    
+    .table-responsive::-webkit-scrollbar-thumb {
+      background: #2a2e41;
+      border-radius: 4px;
+    }
+    
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+      background: #3a3e51;
+    }
+    
+    /* Стили для ApexCharts (графики) в темной теме */
+    .apexcharts-text {
+      fill: #9fa6bc !important;
+    }
+    
+    .apexcharts-legend-text {
+      color: #9fa6bc !important;
+    }
+    
+    .apexcharts-datalabel {
+      fill: #e3e6ed !important;
+    }
+    
+    /* Стили для табов переключения клиентов */
+    .client-tabs {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background-color: #0e1018;
+      border-bottom: 1px solid #2a2e41;
+    }
+    
+    .client-tab-btn {
+      padding: 0.5rem 1rem;
+      background-color: transparent;
+      color: #6e7891;
+      border: 1px solid #2a2e41;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    
+    .client-tab-btn:hover {
+      background-color: rgba(102, 126, 234, 0.1);
+      color: #9fa6bc;
+      border-color: #667eea;
+    }
+    
+    .client-tab-btn.active {
+      background-color: #667eea;
+      color: #fff;
+      border-color: #667eea;
+    }
+    
+    .client-tab-content {
+      display: none;
+    }
+    
+    .client-tab-content.active {
+      display: block;
+    }
+    
+    /* Ограничение высоты для таблицы клиентов с прокруткой */
+    .clients-table-wrapper {
+      max-height: 820px; /* ~15 строк * 50px + header 40px + padding */
+      overflow-y: auto;
+    }
+    
+    /* Темный скроллбар для таблицы клиентов */
+    .clients-table-wrapper::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    .clients-table-wrapper::-webkit-scrollbar-track {
+      background: #1c1e2d;
+    }
+    
+    .clients-table-wrapper::-webkit-scrollbar-thumb {
+      background: #2a2e41;
+      border-radius: 4px;
+    }
+    
+    .clients-table-wrapper::-webkit-scrollbar-thumb:hover {
+      background: #3a3e51;
+    }
+    
+    /* Уменьшение боковых отступов на мобильных для первых трех блоков */
+    @media (max-width: 991px) {
+      .card-body-mobile-compact {
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+      }
+      
+      .table-responsive {
+        margin-left: -0.5rem;
+        margin-right: -0.5rem;
+      }
+    }
+    
+    /* Уменьшение отступов между блоками на ПК */
+    @media (min-width: 992px) {
+      .row.g-3 {
+        --bs-gutter-y: 0.75rem;
+      }
+    }
+    
+    /* Уменьшение боковых padding в container-fluid */
+    .container-fluid {
+      --bs-gutter-x: 1rem; /* Уменьшено с 1.5rem */
+      padding-right: calc(var(--bs-gutter-x) * 0.5);
+      padding-left: calc(var(--bs-gutter-x) * 0.5);
+    }
   </style>
 {% endblock %}
 
@@ -312,8 +612,17 @@
       const available = {{ battery_stats.available|default:0 }};
       const sum = rented + inService + available;
       const optionPie = {
-        tooltip: { trigger: 'item' },
-        legend: { bottom: 0 },
+        backgroundColor: 'transparent',
+        tooltip: { 
+          trigger: 'item',
+          backgroundColor: '#1c1e2d',
+          borderColor: '#2a2e41',
+          textStyle: { color: '#e3e6ed' }
+        },
+        legend: { 
+          bottom: 0,
+          textStyle: { color: '#9fa6bc' }
+        },
         series: [{
           type: 'pie',
           startAngle: 180,
@@ -321,7 +630,11 @@
           center: ['50%','72%'],
           avoidLabelOverlap: true,
           itemStyle: { borderWidth: 0 },
-          label: { show: true, formatter: '{b}: {c}' },
+          label: { 
+            show: true, 
+            formatter: '{b}: {c}',
+            color: '#9fa6bc'
+          },
           data: [
             { value: rented, name: 'В аренде', itemStyle: { color: getComputedStyle(document.documentElement).getPropertyValue('--pastel-blue').trim() } },
             { value: inService, name: 'На сервисе', itemStyle: { color: getComputedStyle(document.documentElement).getPropertyValue('--pastel-orange').trim() } },
@@ -343,11 +656,32 @@
       const paid = {{ payments_series.values|safe }};
       const charged = {{ charges_series.values|safe }};
       const optionBar = {
-        tooltip: { trigger: 'axis' },
-        legend: { bottom: 0, data: ['Начислено','Оплачено'] },
+        backgroundColor: 'transparent',
+        tooltip: { 
+          trigger: 'axis',
+          backgroundColor: '#1c1e2d',
+          borderColor: '#2a2e41',
+          textStyle: { color: '#e3e6ed' }
+        },
+        legend: { 
+          bottom: 0, 
+          data: ['Начислено','Оплачено'],
+          textStyle: { color: '#9fa6bc' }
+        },
         grid: { left: 40, right: 20, top: 20, bottom: 40 },
-        xAxis: { type: 'category', data: labels },
-        yAxis: { type: 'value', min: 0 },
+        xAxis: { 
+          type: 'category', 
+          data: labels,
+          axisLine: { lineStyle: { color: '#2a2e41' } },
+          axisLabel: { color: '#9fa6bc' }
+        },
+        yAxis: { 
+          type: 'value', 
+          min: 0,
+          axisLine: { lineStyle: { color: '#2a2e41' } },
+          axisLabel: { color: '#9fa6bc' },
+          splitLine: { lineStyle: { color: '#2a2e41' } }
+        },
         series: [
           { name: 'Начислено', type: 'bar', stack: 'total', data: charged, itemStyle: { color: '#6c757d' } },
           { name: 'Оплачено', type: 'bar', stack: 'total', data: paid, itemStyle: { color: '#0d6efd' } }
@@ -365,15 +699,56 @@
       const names = {{ top_debtors.names|safe }};
       const values = {{ top_debtors.values|safe }};
       const optionDebt = {
-        tooltip: { trigger: 'axis' },
+        backgroundColor: 'transparent',
+        tooltip: { 
+          trigger: 'axis',
+          backgroundColor: '#1c1e2d',
+          borderColor: '#2a2e41',
+          textStyle: { color: '#e3e6ed' }
+        },
         grid: { left: 120, right: 20, top: 10, bottom: 30 },
-        xAxis: { type: 'value' },
-        yAxis: { type: 'category', data: names, axisLabel: { interval: 0 } },
-        series: [{ type: 'bar', data: values, itemStyle: { color: '#dc3545' } }]
+        xAxis: { 
+          type: 'value',
+          axisLine: { lineStyle: { color: '#2a2e41' } },
+          axisLabel: { color: '#9fa6bc' },
+          splitLine: { lineStyle: { color: '#2a2e41' } }
+        },
+        yAxis: { 
+          type: 'category', 
+          data: names, 
+          axisLabel: { 
+            interval: 0,
+            color: '#9fa6bc'
+          },
+          axisLine: { lineStyle: { color: '#2a2e41' } }
+        },
+        series: [{ type: 'bar', data: values, itemStyle: { color: '#ff6b6b' } }]
       };
       debt.setOption(optionDebt);
       window.addEventListener('resize', () => debt.resize());
     }
   });
+  
+  // Функция переключения табов клиентов
+  function switchClientTab(tabName) {
+    // Скрываем все табы
+    document.querySelectorAll('.client-tab-content').forEach(tab => {
+      tab.classList.remove('active');
+    });
+    
+    // Убираем active со всех кнопок
+    document.querySelectorAll('.client-tab-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+    
+    // Показываем нужный таб
+    if (tabName === 'active') {
+      document.getElementById('active-clients-tab').classList.add('active');
+      event.target.classList.add('active');
+    } else if (tabName === 'closed') {
+      document.getElementById('closed-clients-tab').classList.add('active');
+      event.target.classList.add('active');
+    }
+  }
 </script>
 {% endblock %}
