@@ -4,7 +4,7 @@
 {% block title %}Dashboard | {{ block.super }}{% endblock %}
 
 {% block content %}
-<div class="container-fluid" style="background-color: #0b0d1a; min-height: 100vh; padding-bottom: 2rem;">
+<div class="container-fluid" style="background-color: #0b0d1a; padding-bottom: 1rem; padding-top: 1rem;">
   <h1 class="h3 mb-4" style="color: #e3e6ed; font-weight: 600;">Dashboard</h1>
 
   <!-- Три колонки сверху -->
@@ -531,8 +531,26 @@
     
     /* Ограничение высоты для таблицы клиентов с прокруткой */
     .clients-table-wrapper {
-      max-height: 600px;
+      max-height: 820px; /* ~15 строк * 50px + header 40px + padding */
       overflow-y: auto;
+    }
+    
+    /* Темный скроллбар для таблицы клиентов */
+    .clients-table-wrapper::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    .clients-table-wrapper::-webkit-scrollbar-track {
+      background: #1c1e2d;
+    }
+    
+    .clients-table-wrapper::-webkit-scrollbar-thumb {
+      background: #2a2e41;
+      border-radius: 4px;
+    }
+    
+    .clients-table-wrapper::-webkit-scrollbar-thumb:hover {
+      background: #3a3e51;
     }
     
     /* Уменьшение боковых отступов на мобильных для первых трех блоков */
@@ -553,6 +571,13 @@
       .row.g-3 {
         --bs-gutter-y: 0.75rem;
       }
+    }
+    
+    /* Уменьшение боковых padding в container-fluid */
+    .container-fluid {
+      --bs-gutter-x: 1rem; /* Уменьшено с 1.5rem */
+      padding-right: calc(var(--bs-gutter-x) * 0.5);
+      padding-left: calc(var(--bs-gutter-x) * 0.5);
     }
   </style>
 {% endblock %}
