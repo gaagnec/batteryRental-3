@@ -405,10 +405,19 @@
       background-color: #0b0d1a !important;
     }
     
-    /* Переопределение белого фона таблиц */
+    /* Переопределение белого фона таблиц - делаем темным */
     .table>:not(caption)>*>* {
-      background-color: transparent !important;
+      background-color: #1c1e2d !important;
       border-bottom-color: #2a2e41 !important;
+    }
+    
+    /* Убираем белый фон у строк таблиц */
+    .table tbody tr {
+      background-color: transparent !important;
+    }
+    
+    .table thead tr {
+      background-color: transparent !important;
     }
     
     /* Выравнивание цифр списка KPI по правому краю одной колонкой */
