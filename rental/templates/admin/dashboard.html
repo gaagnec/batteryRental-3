@@ -12,7 +12,7 @@
     <!-- Левая колонка: KPI + half-donut под списком -->
     <div class="col-lg-4 col-md-6">
       <div class="card shadow-sm" style="background-color: #1c1e2d; border-color: #2a2e41;">
-        <div class="card-body">
+        <div class="card-body card-body-mobile-compact">
           <div class="d-flex justify-content-between align-items-baseline mb-2">
             <h5 class="mb-0" style="font-weight:600; color: #e3e6ed;">Бизнес‑метрики</h5>
             <div class="small" style="color: #6e7891;">Всего батарей: {{ battery_stats.total }}</div>
@@ -69,9 +69,10 @@
           </button>
         </div>
         
-        <div class="card-body p-0" style="background-color: #1c1e2d;">
+        <div class="card-body p-0 card-body-mobile-compact" style="background-color: #1c1e2d;">
           <!-- Активные клиенты -->
           <div id="active-clients-tab" class="client-tab-content active">
+          <div class="clients-table-wrapper">
           <div class="table-responsive">
             <table class="table table-sm table-hover mb-0" style="background-color: #1c1e2d; color: #9fa6bc;">
               <thead style="background-color: #0e1018; border-bottom: 1px solid #2a2e41;">
@@ -121,9 +122,11 @@
             </table>
           </div>
           </div>
+          </div>
           
           <!-- Закрытые клиенты -->
           <div id="closed-clients-tab" class="client-tab-content">
+          <div class="clients-table-wrapper">
           <div class="table-responsive">
             <table class="table table-sm table-hover mb-0" style="background-color: #1c1e2d; color: #9fa6bc;">
               <thead style="background-color: #0e1018; border-bottom: 1px solid #2a2e41;">
@@ -167,6 +170,7 @@
             </table>
           </div>
           </div>
+          </div>
         </div>
       </div>
     </div>
@@ -174,8 +178,8 @@
     <!-- Правая колонка: Последние платежи -->
     <div class="col-lg-4 col-md-12">
       <div class="card shadow-sm h-100" style="background-color: #1c1e2d; border-color: #2a2e41;">
-        <div class="card-header" style="background-color: #0e1018; color: #e3e6ed; font-weight: 500; border-bottom: 1px solid #2a2e41;">Последние 10 платежей</div>
-        <div class="card-body p-0" style="background-color: #1c1e2d;">
+        <div class="card-header" style="background-color: #0e1018; color: #e3e6ed; font-weight: 500; border-bottom: 1px solid #2a2e41;">Последние платежи</div>
+        <div class="card-body p-0 card-body-mobile-compact" style="background-color: #1c1e2d;">
           <div class="table-responsive">
             <table class="table table-sm mb-0" style="background-color: #1c1e2d; color: #9fa6bc;">
               <thead style="background-color: #0e1018; border-bottom: 1px solid #2a2e41;">
@@ -207,7 +211,7 @@
     </div>
 
     <!-- Сводка по месяцам: Июнь, Июль, Август -->
-    <div class="row g-3 mt-3">
+    <div class="row g-3 mt-2">
       <div class="col-lg-4 col-md-12">
         <div class="card shadow-sm h-100" style="background-color: #1c1e2d; border-color: #2a2e41;">
           <div class="card-header" style="background-color: #0e1018; color: #e3e6ed; font-weight: 500; border-bottom: 1px solid #2a2e41;">Месячные итоги</div>
@@ -523,6 +527,32 @@
     
     .client-tab-content.active {
       display: block;
+    }
+    
+    /* Ограничение высоты для таблицы клиентов с прокруткой */
+    .clients-table-wrapper {
+      max-height: 600px;
+      overflow-y: auto;
+    }
+    
+    /* Уменьшение боковых отступов на мобильных для первых трех блоков */
+    @media (max-width: 991px) {
+      .card-body-mobile-compact {
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+      }
+      
+      .table-responsive {
+        margin-left: -0.5rem;
+        margin-right: -0.5rem;
+      }
+    }
+    
+    /* Уменьшение отступов между блоками на ПК */
+    @media (min-width: 992px) {
+      .row.g-3 {
+        --bs-gutter-y: 0.75rem;
+      }
     }
   </style>
 {% endblock %}
