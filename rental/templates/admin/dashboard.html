@@ -3,30 +3,6 @@
 
 {% block title %}Dashboard | {{ block.super }}{% endblock %}
 
-{% block extrastyle %}
-<style>
-  /* Стили для таблицы взаиморасчетов */
-  .settlements-table tbody tr:hover {
-    background-color: #f8f9fa !important;
-    transform: scale(1.01);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    cursor: pointer;
-  }
-  
-  .settlements-history tbody tr:hover {
-    background-color: #f8f9fa !important;
-  }
-  
-  .badge-gradient-danger {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  }
-  
-  .badge-gradient-success {
-    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-  }
-</style>
-{% endblock %}
-
 {% block content %}
 <div class="container-fluid">
   <h1 class="h3 mb-4">Dashboard</h1>
@@ -389,6 +365,26 @@
   <style>
     /* Выравнивание цифр списка KPI по правому краю одной колонкой */
     .card .list-unstyled li span.fw-semibold { min-width: 80px; text-align: right; display: inline-block; }
+    
+    /* Стили для таблицы взаиморасчетов */
+    .settlements-table tbody tr:hover {
+      background-color: #f8f9fa !important;
+      transform: scale(1.01);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      cursor: pointer;
+    }
+    
+    .settlements-history tbody tr:hover {
+      background-color: #f8f9fa !important;
+    }
+    
+    .badge-gradient-danger {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    
+    .badge-gradient-success {
+      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
   </style>
 {% endblock %}
 
