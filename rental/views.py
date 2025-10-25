@@ -8,7 +8,7 @@ from django.db.models import Prefetch, Q
 
 from decimal import Decimal
 
-from .models import Client, Rental, Battery, Payment, Repair, RentalBatteryAssignment
+from .models import Client, Rental, Battery, Payment, Repair, RentalBatteryAssignment, FinancePartner, MoneyTransfer
 
 
 def calculate_balances_for_rentals(rentals, tz, now_dt):
@@ -321,6 +321,54 @@ def dashboard(request):
             'weekly_rate': r.weekly_rate,
         })
 
+    # Расчет долгов модераторов для блока "Взаиморасчеты"
+    cutoff = timezone.localdate() - timedelta(days=365)
+    
+    partners = FinancePartner.objects.filter(active=True).select_related('user')
+    moderators = [p for p in partners if p.role == FinancePartner.Role.MODERATOR]
+    
+    # Платежи, собранные модераторами (RENT + SOLD)
+    payments_by_user = dict(
+        Payment.objects
+        .filter(date__gte=cutoff, type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD])
+        .values('created_by_id')
+        .annotate(total=Sum('amount'))
+        .values_list('created_by_id', 'total')
+    )
+    
+    # Переводы от модераторов к владельцам
+    outgoing_from_mods = dict(
+        MoneyTransfer.objects
+        .filter(date__gte=cutoff, purpose=MoneyTransfer.Purpose.MODERATOR_TO_OWNER, use_collected=True)
+        .values('from_partner_id')
+        .annotate(total=Sum('amount'))
+        .values_list('from_partner_id', 'total')
+    )
+    
+    moderator_debts = []
+    for mod in moderators:
+        uid = mod.user_id
+        pid = mod.id
+        
+        collected = Decimal(payments_by_user.get(uid, 0))
+        transferred = Decimal(outgoing_from_mods.get(pid, 0))
+        debt = collected - transferred
+        
+        moderator_debts.append({
+            'partner': mod,
+            'collected': collected,
+            'transferred': transferred,
+            'debt': debt,
+        })
+    
+    # История переводов от модераторов к владельцам (последние 10)
+    moderator_transfers_recent = (
+        MoneyTransfer.objects
+        .filter(date__gte=cutoff, purpose=MoneyTransfer.Purpose.MODERATOR_TO_OWNER)
+        .select_related('from_partner__user', 'to_partner__user')
+        .order_by('-date', '-id')[:10]
+    )
+    
     context = {
         'active_clients_count': active_clients_count,
         'clients_data': clients_data,
@@ -336,6 +384,8 @@ def dashboard(request):
         'window_days': window_days,
         'monthly3_rows': monthly3_rows,
         'monthly3_chart': monthly3_chart,
+        'moderator_debts': moderator_debts,
+        'moderator_transfers_recent': moderator_transfers_recent,
     }
     return render(request, 'admin/dashboard.html', context)
 

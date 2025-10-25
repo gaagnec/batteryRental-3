@@ -183,8 +183,7 @@
                   <tr>
                     <th>Месяц</th>
                     <th class="text-end">Пришло</th>
-                    <th class="text-end">Потрачено</th>
-                    <th class="text-end">Прибыль</th>
+                    <th class="text-end">Выручка</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -192,12 +191,11 @@
                   <tr>
                     <td>{{ row.label }}</td>
                     <td class="text-end">{{ row.income|floatformat:2 }}</td>
-                    <td class="text-end">{{ row.expense|floatformat:2 }}</td>
                     <td class="text-end">{{ row.profit|floatformat:2 }}</td>
                   </tr>
                   <tr class="table-active">
                     <td></td>
-                    <td colspan="3">
+                    <td colspan="2">
                       <small class="text-muted">
                         {% if row.user_totals %}
                           {% for ut in row.user_totals %}
@@ -218,34 +216,78 @@
       </div>
       <div class="col-lg-8 col-md-12">
         <div class="card shadow-sm h-100">
-          <div class="card-body">
-            <div id="monthly3Chart" style="height:260px;"></div>
+          <div class="card-header">Взаиморасчеты</div>
+          <div class="card-body p-0">
+            {% if moderator_debts %}
+            <div class="table-responsive">
+              <table class="table table-sm table-hover mb-0">
+                <thead>
+                  <tr>
+                    <th>Модератор</th>
+                    <th class="text-end">Собрал</th>
+                    <th class="text-end">Переведено</th>
+                    <th class="text-end">Долг</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for debt in moderator_debts %}
+                  <tr>
+                    <td>{{ debt.partner.user.username }}</td>
+                    <td class="text-end">{{ debt.collected|floatformat:0 }} PLN</td>
+                    <td class="text-end">{{ debt.transferred|floatformat:0 }} PLN</td>
+                    <td class="text-end">
+                      {% if debt.debt > 0 %}
+                        <span class="text-danger">{{ debt.debt|floatformat:0 }} PLN</span>
+                      {% elif debt.debt < 0 %}
+                        <span class="text-success">{{ debt.debt|floatformat:0 }} PLN</span>
+                      {% else %}
+                        <span class="text-muted">{{ debt.debt|floatformat:0 }} PLN</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            
+            {% if moderator_transfers_recent %}
+            <div style="margin: 20px; border-top: 1px solid #dee2e6; padding-top: 15px;">
+              <h6 class="mb-3" style="font-size: 14px; font-weight: 600;">История переводов (последние 10)</h6>
+              <div class="table-responsive">
+                <table class="table table-sm table-striped mb-0" style="font-size: 13px;">
+                  <thead>
+                    <tr>
+                      <th>Дата</th>
+                      <th>От</th>
+                      <th>Кому</th>
+                      <th class="text-end">Сумма</th>
+                      <th>Примечание</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for transfer in moderator_transfers_recent %}
+                    <tr>
+                      <td>{{ transfer.date|date:"d.m.Y" }}</td>
+                      <td>{{ transfer.from_partner.user.username }}</td>
+                      <td>{{ transfer.to_partner.user.username }}</td>
+                      <td class="text-end">{{ transfer.amount|floatformat:0 }} PLN</td>
+                      <td>{{ transfer.note|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            {% endif %}
+            {% else %}
+            <div class="text-center text-muted py-5">
+              Нет данных о модераторах
+            </div>
+            {% endif %}
           </div>
         </div>
       </div>
     </div>
-
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        const chartEl = document.getElementById('monthly3Chart');
-        if (!chartEl) return;
-        const chart = echarts.init(chartEl);
-        const option = {
-          tooltip: { trigger: 'axis' },
-          legend: { bottom: 0, data: ['Пришло', 'Потрачено', 'Прибыль'] },
-          grid: { left: 40, right: 20, top: 20, bottom: 40 },
-          xAxis: { type: 'category', data: {{ monthly3_chart.labels|safe }} },
-          yAxis: { type: 'value' },
-          series: [
-            { name: 'Пришло', type: 'line', data: {{ monthly3_chart.income|safe }}, smooth: true },
-            { name: 'Потрачено', type: 'line', data: {{ monthly3_chart.expense|safe }}, smooth: true },
-            { name: 'Прибыль', type: 'line', data: {{ monthly3_chart.profit|safe }}, smooth: true },
-          ]
-        };
-        chart.setOption(option);
-        window.addEventListener('resize', () => chart.resize());
-      });
-    </script>
 
       </div>
     </div>
