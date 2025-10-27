@@ -2395,7 +2395,7 @@ class PaymentAdmin(SimpleHistoryAdmin):
                 active_assignments = rental.assignments.filter(
                     Q(end_at__isnull=True) | Q(end_at__gt=now_dt)
                 ).select_related('battery')
-                battery_numbers = [a.battery.battery_number for a in active_assignments]
+                battery_numbers = [a.battery.short_code for a in active_assignments]
                 battery_numbers.sort()
             
             # Получаем дату старта от первой версии (root)
