@@ -4,6 +4,8 @@
 {% block title %}Админка | {{ block.super }}{% endblock %}
 {% block nav-global %}
   <div class="nav-global-item"><a href="{% url 'admin-dashboard' %}">Dashboard</a></div>
+  <div class="nav-global-item"><a href="{% url 'admin:rental_rental_changelist' %}">Договора</a></div>
+  <div class="nav-global-item"><a href="{% url 'admin:rental_payment_changelist' %}">Платежи</a></div>
   {{ block.super }}
   <style>
     .nav-global-item a { display: block; padding: 0.25rem 0.5rem; }
