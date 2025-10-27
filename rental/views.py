@@ -329,12 +329,13 @@ def dashboard(request):
     moderators = [p for p in partners if p.role == FinancePartner.Role.MODERATOR]
     
     # Платежи, собранные модераторами (RENT + SOLD)
+    # Привязываем платежи к модератору договора (кто получил деньги), а не к тому кто создал платеж в админке
     payments_by_user = dict(
         Payment.objects
         .filter(date__gte=cutoff, type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD])
-        .values('created_by_id')
+        .values('rental__created_by_id')
         .annotate(total=Sum('amount'))
-        .values_list('created_by_id', 'total')
+        .values_list('rental__created_by_id', 'total')
     )
     
     # Переводы от модераторов к владельцам
@@ -356,7 +357,8 @@ def dashboard(request):
     last_week_end = current_week_monday - timedelta(days=1)  # воскресенье прошлой недели
     last_week_start = last_week_end - timedelta(days=6)  # понедельник прошлой недели
     
-    # Платежи за последнюю неделю (убираем cutoff, чтобы считать все платежи за неделю)
+    # Платежи за последнюю неделю
+    # Привязываем к модератору договора (rental__created_by_id), а не к тому кто создал платеж
     payments_last_week_by_user = dict(
         Payment.objects
         .filter(
@@ -364,9 +366,9 @@ def dashboard(request):
             date__lte=last_week_end,
             type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD]
         )
-        .values('created_by_id')
+        .values('rental__created_by_id')
         .annotate(total=Sum('amount'))
-        .values_list('created_by_id', 'total')
+        .values_list('rental__created_by_id', 'total')
     )
     
     # DEBUG: Выводим информацию о периоде и платежах
