@@ -323,13 +323,14 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
         partner_shares = {p["id"]: (p["share_percent"] or 0) for p in partners}
 
         # Income for period
+        # Привязываем платежи к модератору договора (rental__created_by_id), а не к тому кто создал платеж
         income_qs = (
             Payment.objects
-            .filter(date__gte=start_d, date__lte=end_d, type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD], created_by_id__in=list(user_to_partner.keys()))
-            .values("created_by_id")
+            .filter(date__gte=start_d, date__lte=end_d, type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD], rental__created_by_id__in=list(user_to_partner.keys()))
+            .values("rental__created_by_id")
             .annotate(total=Sum("amount"))
         )
-        income_by_user = {row["created_by_id"]: row["total"] or 0 for row in income_qs}
+        income_by_user = {row["rental__created_by_id"]: row["total"] or 0 for row in income_qs}
         income_total = sum(income_by_user.values())
 
         # Transfers affecting collected (period)
