@@ -2393,7 +2393,7 @@ class PaymentAdmin(SimpleHistoryAdmin):
             if rental.status == Rental.Status.ACTIVE:
                 # Получаем активные батареи (где end_at is NULL или в будущем)
                 active_assignments = rental.assignments.filter(
-                    models.Q(end_at__isnull=True) | models.Q(end_at__gt=now_dt)
+                    Q(end_at__isnull=True) | Q(end_at__gt=now_dt)
                 ).select_related('battery')
                 battery_numbers = [a.battery.battery_number for a in active_assignments]
                 battery_numbers.sort()

@@ -216,46 +216,47 @@
     
     /* Стили для компактного чекбокса "Показать все договора" */
     #rental-filter-compact-wrapper {
-        max-width: fit-content;
-        margin-bottom: 0.75rem;
+        max-width: fit-content !important;
+        margin-bottom: 0.75rem !important;
     }
     
     .rental-filter-compact {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.6rem;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 0.6rem !important;
         background: linear-gradient(135deg, rgba(138, 208, 255, 0.05) 0%, rgba(138, 208, 255, 0.08) 100%) !important;
         border: 1px solid rgba(138, 208, 255, 0.2) !important;
-        border-radius: 6px;
-        padding: 0.5rem 0.9rem;
-        cursor: pointer;
-        transition: all 0.25s ease;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        min-width: 280px;
+        border-radius: 6px !important;
+        padding: 0.5rem 0.9rem !important;
+        cursor: pointer !important;
+        transition: all 0.25s ease !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+        min-width: 400px !important;
+        width: 400px !important;
     }
     
     .rental-filter-compact:hover {
         background: linear-gradient(135deg, rgba(138, 208, 255, 0.12) 0%, rgba(138, 208, 255, 0.15) 100%) !important;
         border-color: rgba(138, 208, 255, 0.4) !important;
-        box-shadow: 0 3px 8px rgba(138, 208, 255, 0.15);
-        transform: translateY(-1px);
+        box-shadow: 0 3px 8px rgba(138, 208, 255, 0.15) !important;
+        transform: translateY(-1px) !important;
     }
     
     .rental-filter-compact input[type="checkbox"] {
-        width: 17px;
-        height: 17px;
-        cursor: pointer;
-        margin: 0;
-        accent-color: #8ad0ff;
-        flex-shrink: 0;
+        width: 17px !important;
+        height: 17px !important;
+        cursor: pointer !important;
+        margin: 0 !important;
+        accent-color: #8ad0ff !important;
+        flex-shrink: 0 !important;
     }
     
     .rental-filter-compact > span {
         color: #c9d1e0 !important;
-        font-size: 0.875rem;
-        font-weight: 500;
-        user-select: none;
-        white-space: nowrap;
+        font-size: 0.875rem !important;
+        font-weight: 500 !important;
+        user-select: none !important;
+        white-space: nowrap !important;
     }
     
     .rental-status-badge {
