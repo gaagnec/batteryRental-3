@@ -356,7 +356,7 @@ def dashboard(request):
     last_week_end = current_week_monday - timedelta(days=1)  # воскресенье прошлой недели
     last_week_start = last_week_end - timedelta(days=6)  # понедельник прошлой недели
     
-    # Платежи за последнюю неделю (убираем cutoff, чтобы считать все платежи за неделю)
+    # Платежи за последнюю неделю
     payments_last_week_by_user = dict(
         Payment.objects
         .filter(
@@ -369,24 +369,6 @@ def dashboard(request):
         .values_list('created_by_id', 'total')
     )
     
-    # DEBUG: Выводим информацию о периоде и платежах
-    print(f"DEBUG: Last week period: {last_week_start} to {last_week_end}")
-    print(f"DEBUG: Payments last week by user: {payments_last_week_by_user}")
-    
-    # Переводы за последнюю неделю
-    transfers_last_week_by_partner = dict(
-        MoneyTransfer.objects
-        .filter(
-            date__gte=last_week_start,
-            date__lte=last_week_end,
-            purpose=MoneyTransfer.Purpose.MODERATOR_TO_OWNER,
-            use_collected=True
-        )
-        .values('from_partner_id')
-        .annotate(total=Sum('amount'))
-        .values_list('from_partner_id', 'total')
-    )
-    
     moderator_debts = []
     for mod in moderators:
         uid = mod.user_id
@@ -396,23 +378,15 @@ def dashboard(request):
         transferred = Decimal(outgoing_from_mods.get(pid, 0))
         debt = collected - transferred
         
-        # Долг за последнюю неделю
+        # Сумма поступлений за последнюю неделю (без вычета переводов)
         collected_last_week = Decimal(payments_last_week_by_user.get(uid, 0))
-        transferred_last_week = Decimal(transfers_last_week_by_partner.get(pid, 0))
-        debt_last_week = collected_last_week - transferred_last_week
-        
-        # DEBUG: Выводим информацию для каждого модератора
-        print(f"DEBUG: Moderator {mod.user.username} (user_id={uid}, partner_id={pid})")
-        print(f"  Collected last week: {collected_last_week}")
-        print(f"  Transferred last week: {transferred_last_week}")
-        print(f"  Debt last week: {debt_last_week}")
         
         moderator_debts.append({
             'partner': mod,
             'collected': collected,
             'transferred': transferred,
             'debt': debt,
-            'debt_last_week': debt_last_week,
+            'collected_last_week': collected_last_week,
         })
     
     # История переводов от модераторов к владельцам (последние 10)

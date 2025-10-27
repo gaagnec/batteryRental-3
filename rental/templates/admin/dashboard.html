@@ -314,15 +314,11 @@
                           </span>
                         {% endif %}
                       </div>
-                      {% if debt.debt_last_week != 0 %}
+                      {% if debt.collected_last_week != 0 %}
                       <div style="margin-top: 0.35rem;">
                         <span style="font-size: 0.7rem; color: #6e7891; font-weight: 400;">
                           за прошлую неделю: 
-                          {% if debt.debt_last_week > 0 %}
-                            <span style="color: #ff6b6b;">+{{ debt.debt_last_week|floatformat:0 }}</span>
-                          {% elif debt.debt_last_week < 0 %}
-                            <span style="color: #00d27a;">{{ debt.debt_last_week|floatformat:0 }}</span>
-                          {% endif %}
+                          <span style="color: #00d27a;">{{ debt.collected_last_week|floatformat:0 }}</span>
                           PLN
                         </span>
                       </div>
