@@ -2388,20 +2388,25 @@ class PaymentAdmin(SimpleHistoryAdmin):
                 for p in recent_payments
             ]
             
-            # Получаем номера батарей для активного договора
+            # Получаем номера батарей через assignments (активные на данный момент)
             battery_numbers = []
             if rental.status == Rental.Status.ACTIVE:
-                battery_numbers = list(rental.batteries.values_list('battery_number', flat=True).order_by('battery_number'))
+                # Получаем активные батареи (где end_at is NULL или в будущем)
+                active_assignments = rental.assignments.filter(
+                    models.Q(end_at__isnull=True) | models.Q(end_at__gt=now_dt)
+                ).select_related('battery')
+                battery_numbers = [a.battery.battery_number for a in active_assignments]
+                battery_numbers.sort()
             
             # Получаем дату старта от первой версии (root)
             if rental.root_id:
                 try:
                     root_rental = Rental.objects.get(pk=rental.root_id)
-                    start_date = root_rental.start_date
+                    start_at = root_rental.start_at
                 except Rental.DoesNotExist:
-                    start_date = rental.start_date
+                    start_at = rental.start_at
             else:
-                start_date = rental.start_date
+                start_at = rental.start_at
             
             return JsonResponse({
                 'success': True,
@@ -2414,7 +2419,7 @@ class PaymentAdmin(SimpleHistoryAdmin):
                 'paid': str(paid),
                 'recent_payments': recent_payments_data,
                 'battery_numbers': battery_numbers,
-                'start_date': start_date.strftime('%d.%m.%Y') if start_date else '-',
+                'start_date': timezone.localtime(start_at).strftime('%d.%m.%Y %H:%M') if start_at else '-',
             })
             
         except Rental.DoesNotExist:

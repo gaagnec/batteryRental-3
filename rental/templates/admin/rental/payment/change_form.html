@@ -215,36 +215,47 @@
     }
     
     /* Стили для компактного чекбокса "Показать все договора" */
+    #rental-filter-compact-wrapper {
+        max-width: fit-content;
+        margin-bottom: 0.75rem;
+    }
+    
     .rental-filter-compact {
         display: inline-flex;
         align-items: center;
-        gap: 0.5rem;
-        background-color: rgba(138, 208, 255, 0.08) !important;
-        border: 1px solid #2a2e41 !important;
-        border-radius: 4px;
-        padding: 0.4rem 0.75rem;
-        margin-bottom: 0.5rem;
+        gap: 0.6rem;
+        background: linear-gradient(135deg, rgba(138, 208, 255, 0.05) 0%, rgba(138, 208, 255, 0.08) 100%) !important;
+        border: 1px solid rgba(138, 208, 255, 0.2) !important;
+        border-radius: 6px;
+        padding: 0.5rem 0.9rem;
         cursor: pointer;
-        transition: all 0.2s ease;
+        transition: all 0.25s ease;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        min-width: 280px;
     }
     
     .rental-filter-compact:hover {
-        background-color: rgba(138, 208, 255, 0.12) !important;
-        border-color: #8ad0ff !important;
+        background: linear-gradient(135deg, rgba(138, 208, 255, 0.12) 0%, rgba(138, 208, 255, 0.15) 100%) !important;
+        border-color: rgba(138, 208, 255, 0.4) !important;
+        box-shadow: 0 3px 8px rgba(138, 208, 255, 0.15);
+        transform: translateY(-1px);
     }
     
     .rental-filter-compact input[type="checkbox"] {
-        width: 16px;
-        height: 16px;
+        width: 17px;
+        height: 17px;
         cursor: pointer;
         margin: 0;
+        accent-color: #8ad0ff;
+        flex-shrink: 0;
     }
     
-    .rental-filter-compact span {
-        color: #9fa6bc !important;
+    .rental-filter-compact > span {
+        color: #c9d1e0 !important;
         font-size: 0.875rem;
         font-weight: 500;
         user-select: none;
+        white-space: nowrap;
     }
     
     .rental-status-badge {
