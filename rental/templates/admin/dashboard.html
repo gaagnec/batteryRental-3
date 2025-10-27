@@ -311,7 +311,7 @@
                       {% if debt.debt_last_week != 0 %}
                       <div style="margin-top: 0.35rem;">
                         <span style="font-size: 0.7rem; color: #6e7891; font-weight: 400;">
-                          за неделю: 
+                          за прошлую неделю: 
                           {% if debt.debt_last_week > 0 %}
                             <span style="color: #ff6b6b;">+{{ debt.debt_last_week|floatformat:0 }}</span>
                           {% elif debt.debt_last_week < 0 %}
