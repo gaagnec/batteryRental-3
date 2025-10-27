@@ -35,10 +35,59 @@
     /* Оранжевый цвет ссылки Payments в левом меню */
     .app-rental .model-payment a { color: #fd7e14 !important; }
     .admin-sidebar .app-dashboard a::before { content: "📊 "; }
+    
+    /* Добавляем ссылку на Dashboard в низ левого меню */
+    #content-related {
+      position: relative;
+    }
+    
+    .dashboard-link-sidebar {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white !important;
+      padding: 12px 20px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 1000;
+    }
+    
+    .dashboard-link-sidebar:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+      color: white !important;
+    }
+    
+    .dashboard-link-sidebar::before {
+      content: "📊";
+      font-size: 1.2em;
+    }
+    
+    /* Для маленьких экранов */
+    @media (max-width: 768px) {
+      .dashboard-link-sidebar {
+        bottom: 10px;
+        left: 10px;
+        padding: 10px 16px;
+        font-size: 0.9em;
+      }
+    }
   </style>
 {% endblock %}
 
 {% block footer %}
   {{ block.super }}
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+  
+  <!-- Кнопка Dashboard в левом нижнем углу -->
+  <a href="{% url 'admin-dashboard' %}" class="dashboard-link-sidebar">
+    Dashboard
+  </a>
 {% endblock %}
