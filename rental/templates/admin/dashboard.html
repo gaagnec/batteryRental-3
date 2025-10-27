@@ -5,6 +5,12 @@
 
 {% block content %}
 <div class="container-fluid" style="background-color: #0b0d1a; padding-bottom: 1rem; padding-top: 1rem;">
+  <!-- Навигационные ссылки -->
+  <div class="mb-3">
+    <a href="{% url 'admin:rental_rental_changelist' %}" class="btn btn-sm btn-outline-success me-2" style="color: #a8e2a8; border-color: #a8e2a8;">📋 Договора</a>
+    <a href="{% url 'admin:rental_payment_changelist' %}" class="btn btn-sm btn-outline-warning" style="color: #ffd28a; border-color: #ffd28a;">💳 Платежи</a>
+  </div>
+  
   <h1 class="h3 mb-4" style="color: #e3e6ed; font-weight: 600;">Dashboard</h1>
 
   <!-- Три колонки сверху -->
@@ -293,18 +299,29 @@
                       <span style="color: #6e7891; font-size: 0.85em;"> PLN</span>
                     </td>
                     <td class="text-end" style="padding: 0.875rem 1rem; vertical-align: middle; border: none;">
-                      {% if debt.debt > 0 %}
-                        <span class="badge" style="background-color: rgba(240, 68, 56, 0.15); color: #ff6b6b; font-size: 0.8125rem; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 500;">
-                          <i class="bi bi-exclamation-circle" style="margin-right: 3px;"></i>{{ debt.debt|floatformat:0 }} PLN
+                      <div>
+                        {% if debt.debt > 0 %}
+                          <span class="badge" style="background-color: rgba(240, 68, 56, 0.15); color: #ff6b6b; font-size: 0.8125rem; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 500;">
+                            <i class="bi bi-exclamation-circle" style="margin-right: 3px;"></i>{{ debt.debt|floatformat:0 }} PLN
+                          </span>
+                        {% elif debt.debt < 0 %}
+                          <span class="badge" style="background-color: rgba(0, 210, 122, 0.15); color: #00d27a; font-size: 0.8125rem; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 500;">
+                            <i class="bi bi-check-circle" style="margin-right: 3px;"></i>{{ debt.debt|floatformat:0 }} PLN
+                          </span>
+                        {% else %}
+                          <span class="badge" style="background-color: rgba(159, 166, 188, 0.15); color: #9fa6bc; font-size: 0.8125rem; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 500;">
+                            <i class="bi bi-dash-circle" style="margin-right: 3px;"></i>{{ debt.debt|floatformat:0 }} PLN
+                          </span>
+                        {% endif %}
+                      </div>
+                      {% if debt.collected_last_week != 0 %}
+                      <div style="margin-top: 0.35rem;">
+                        <span style="font-size: 0.7rem; color: #6e7891; font-weight: 400;">
+                          за прошлую неделю: 
+                          <span style="color: #00d27a;">{{ debt.collected_last_week|floatformat:0 }}</span>
+                          PLN
                         </span>
-                      {% elif debt.debt < 0 %}
-                        <span class="badge" style="background-color: rgba(0, 210, 122, 0.15); color: #00d27a; font-size: 0.8125rem; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 500;">
-                          <i class="bi bi-check-circle" style="margin-right: 3px;"></i>{{ debt.debt|floatformat:0 }} PLN
-                        </span>
-                      {% else %}
-                        <span class="badge" style="background-color: rgba(159, 166, 188, 0.15); color: #9fa6bc; font-size: 0.8125rem; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 500;">
-                          <i class="bi bi-dash-circle" style="margin-right: 3px;"></i>{{ debt.debt|floatformat:0 }} PLN
-                        </span>
+                      </div>
                       {% endif %}
                     </td>
                   </tr>

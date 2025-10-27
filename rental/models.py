@@ -328,9 +328,10 @@ class Repair(TimeStampedModel):
 
 class BatteryStatusLog(TimeStampedModel):
     class Kind(models.TextChoices):
-        RENTAL = "rental", "Аренда"
-        REPAIR = "repair", "Ремонт"
-        IDLE = "idle", "Простой"
+        RENTED = "rented", "В аренде"
+        SERVICE = "service", "Сервис"
+        AVAILABLE = "available", "Доступный"
+        SOLD = "sold", "Продана"
 
     battery = models.ForeignKey(Battery, on_delete=models.CASCADE, related_name="status_logs")
     kind = models.CharField(max_length=16, choices=Kind.choices)

@@ -27,10 +27,10 @@ def create_groups(sender, **kwargs):
 # --- BatteryStatusLog automation ---
 @receiver(post_save, sender=RentalBatteryAssignment)
 def assignment_to_statuslog(sender, instance: RentalBatteryAssignment, created, **kwargs):
-    # Upsert RENTAL status for this assignment
+    # Upsert RENTED status for this assignment
     log, _ = BatteryStatusLog.objects.get_or_create(
         battery=instance.battery,
-        kind=BatteryStatusLog.Kind.RENTAL,
+        kind=BatteryStatusLog.Kind.RENTED,
         rental=instance.rental,
         start_at=instance.start_at,
         defaults={
@@ -51,7 +51,7 @@ def assignment_to_statuslog(sender, instance: RentalBatteryAssignment, created, 
 def assignment_delete_statuslog(sender, instance: RentalBatteryAssignment, **kwargs):
     BatteryStatusLog.objects.filter(
         battery=instance.battery,
-        kind=BatteryStatusLog.Kind.RENTAL,
+        kind=BatteryStatusLog.Kind.RENTED,
         rental=instance.rental,
         start_at=instance.start_at,
     ).delete()
@@ -90,7 +90,7 @@ def expense_to_contribution(sender, instance: Expense, created, **kwargs):
 def repair_to_statuslog(sender, instance: Repair, created, **kwargs):
     log, _ = BatteryStatusLog.objects.get_or_create(
         battery=instance.battery,
-        kind=BatteryStatusLog.Kind.REPAIR,
+        kind=BatteryStatusLog.Kind.SERVICE,
         repair=instance,
         start_at=instance.start_at,
         defaults={
@@ -108,7 +108,7 @@ def repair_to_statuslog(sender, instance: Repair, created, **kwargs):
 def repair_delete_statuslog(sender, instance: Repair, **kwargs):
     BatteryStatusLog.objects.filter(
         battery=instance.battery,
-        kind=BatteryStatusLog.Kind.REPAIR,
+        kind=BatteryStatusLog.Kind.SERVICE,
         repair=instance,
         start_at=instance.start_at,
     ).delete()
