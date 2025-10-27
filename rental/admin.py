@@ -943,13 +943,12 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
         # ========================================
         
         # Payments (RENT + SOLD) с cutoff даты
-        # Привязываем к модератору договора (rental__created_by_id)
         payments_by_user = dict(
             Payment.objects
             .filter(date__gte=cutoff, type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD])
-            .values('rental__created_by_id')
+            .values('created_by_id')
             .annotate(total=Sum('amount'))
-            .values_list('rental__created_by_id', 'total')
+            .values_list('created_by_id', 'total')
         )
         
         # Входящие переводы ОТ модераторов К владельцам
