@@ -21,3 +21,6 @@ server.log
 # IDE
 .vscode/
 .idea/
+
+# Temporary documentation files
+SUMMARY.md
