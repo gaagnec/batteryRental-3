@@ -5,6 +5,160 @@
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'admin/css/autocomplete.css' %}">
   <link rel="stylesheet" href="{% static 'admin/css/custom.css' %}">
+  <style>
+    /* Стили таблицы как на dashboard */
+    #result_list {
+      background-color: #1c1e2d !important;
+      border: 1px solid #2a2e41 !important;
+      border-radius: 8px !important;
+      overflow: hidden !important;
+    }
+    
+    #result_list thead th {
+      background-color: #0e1018 !important;
+      color: #9fa6bc !important;
+      font-weight: 500 !important;
+      font-size: 0.875rem !important;
+      padding: 0.75rem 1rem !important;
+      border: none !important;
+      border-bottom: 1px solid #2a2e41 !important;
+    }
+    
+    #result_list thead th a {
+      color: #9fa6bc !important;
+    }
+    
+    #result_list tbody tr {
+      background-color: #1c1e2d !important;
+      border-bottom: 1px solid #2a2e41 !important;
+      transition: background-color 0.2s ease;
+    }
+    
+    #result_list tbody tr:hover {
+      background-color: rgba(138, 208, 255, 0.05) !important;
+    }
+    
+    #result_list tbody td {
+      padding: 0.75rem 1rem !important;
+      color: #e3e6ed !important;
+      border: none !important;
+      font-size: 0.875rem !important;
+    }
+    
+    #result_list tbody td a {
+      color: #8ad0ff !important;
+    }
+    
+    #result_list tbody td a:hover {
+      color: #a0dcff !important;
+    }
+    
+    /* Чекбоксы */
+    #result_list input[type="checkbox"] {
+      accent-color: #8ad0ff;
+    }
+    
+    /* Badges в таблице */
+    #result_list .badge {
+      font-size: 0.75rem !important;
+      padding: 0.25rem 0.5rem !important;
+      border-radius: 4px !important;
+    }
+    
+    /* Стили для карточек статистики */
+    .stats-panel {
+      background-color: #1c1e2d !important;
+      border-color: #2a2e41 !important;
+    }
+    
+    .stats-panel .card-body {
+      background-color: #1c1e2d !important;
+    }
+    
+    .stats-panel h4 {
+      color: #e3e6ed !important;
+      background-color: transparent !important;
+      border: none !important;
+    }
+    
+    .stats-panel .text-primary {
+      color: #8ad0ff !important;
+    }
+    
+    .stats-panel .text-success {
+      color: #a8e2a8 !important;
+    }
+    
+    .stats-panel .text-info {
+      color: #9bb2ff !important;
+    }
+    
+    .stats-panel .text-muted {
+      color: #6e7891 !important;
+    }
+    
+    /* Карточка выбранного договора */
+    .selected-rental-card {
+      background-color: #1c1e2d !important;
+      border-color: #2a2e41 !important;
+    }
+    
+    .selected-rental-card .card-body {
+      background-color: #1c1e2d !important;
+    }
+    
+    .selected-rental-card h6 {
+      color: #e3e6ed !important;
+      background-color: transparent !important;
+      border: none !important;
+    }
+    
+    .selected-rental-card .text-muted {
+      color: #9fa6bc !important;
+    }
+    
+    /* Фильтры */
+    #changelist-filter {
+      background-color: #1c1e2d !important;
+      border-left: 1px solid #2a2e41 !important;
+    }
+    
+    #changelist-filter h2, #changelist-filter h3 {
+      background-color: #0e1018 !important;
+      color: #e3e6ed !important;
+      padding: 0.75rem 1rem !important;
+    }
+    
+    #changelist-filter li {
+      border-bottom: 1px solid #2a2e41;
+    }
+    
+    #changelist-filter li a {
+      color: #9fa6bc !important;
+      padding: 0.5rem 1rem;
+      display: block;
+    }
+    
+    #changelist-filter li.selected a {
+      color: #8ad0ff !important;
+      font-weight: 600 !important;
+      background-color: rgba(138, 208, 255, 0.1) !important;
+    }
+    
+    #changelist-filter li a:hover {
+      background-color: rgba(138, 208, 255, 0.05) !important;
+    }
+    
+    /* Actions bar */
+    .actions {
+      background-color: #1c1e2d !important;
+      border-color: #2a2e41 !important;
+    }
+    
+    .actions label, .actions select {
+      color: #e3e6ed !important;
+    }
+  </style>
 {% endblock %}
 
 {% block extrahead %}
