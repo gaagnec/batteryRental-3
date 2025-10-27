@@ -2114,6 +2114,7 @@ class PaymentAdmin(SimpleHistoryAdmin):
     readonly_fields = ("updated_by",)
     date_hierarchy = 'date'
     list_per_page = 50
+    change_form_template = 'admin/rental/payment/change_form.html'
     
     fieldsets = (
         ('Основная информация', {
@@ -2239,6 +2240,35 @@ class PaymentAdmin(SimpleHistoryAdmin):
                 field.required = False
                 field.help_text = "Автоматически заполняется текущим пользователем"
         return form
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "rental":
+            from .models import Rental
+            
+            # Проверяем параметр show_all_rentals в GET или POST
+            show_all = request.GET.get('show_all_rentals') == '1' or request.POST.get('show_all_rentals') == '1'
+            
+            if show_all:
+                # Показываем все договора, отсортированные от большего к меньшему
+                kwargs["queryset"] = Rental.objects.select_related('client').order_by('-id')
+            else:
+                # По умолчанию показываем только активные договора последней версии
+                # Последняя версия = договор не имеет детей (children)
+                from django.db.models import Count, Q
+                queryset = Rental.objects.select_related('client').annotate(
+                    children_count=Count('children')
+                ).filter(
+                    Q(status=Rental.Status.ACTIVE) & Q(children_count=0)
+                ).order_by('-id')
+                kwargs["queryset"] = queryset
+        
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+    
+    def render_change_form(self, request, context, add=False, change=False, form_url='', obj=None):
+        # Добавляем информацию о состоянии галочки "показать все договора"
+        show_all = request.GET.get('show_all_rentals') == '1'
+        context['show_all_rentals'] = show_all
+        return super().render_change_form(request, context, add, change, form_url, obj)
 
     @admin.display(ordering='rental', description='Договор')
     def rental_link(self, obj):

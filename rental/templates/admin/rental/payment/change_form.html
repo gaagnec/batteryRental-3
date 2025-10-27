@@ -4,9 +4,295 @@
 {% block extrastyle %}
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'admin/css/custom.css' %}">
+  <style>
+    /* Темная тема как на dashboard */
+    body {
+        background-color: #0b0d1a !important;
+    }
+    
+    #content {
+        background-color: #0b0d1a !important;
+    }
+    
+    .module, .card {
+        background-color: #1c1e2d !important;
+        border-color: #2a2e41 !important;
+        color: #e3e6ed !important;
+    }
+    
+    .module h2, .module caption, .inline-group h2 {
+        background-color: #0e1018 !important;
+        color: #e3e6ed !important;
+        border-bottom: 1px solid #2a2e41 !important;
+    }
+    
+    fieldset {
+        background-color: #1c1e2d !important;
+        border-color: #2a2e41 !important;
+    }
+    
+    fieldset h2 {
+        background-color: #0e1018 !important;
+        color: #e3e6ed !important;
+        border-bottom: 1px solid #2a2e41 !important;
+        padding: 0.75rem 1rem !important;
+        font-weight: 500 !important;
+    }
+    
+    .form-row label, .form-row .help, .help, label {
+        color: #9fa6bc !important;
+    }
+    
+    input, select, textarea {
+        background-color: #0e1018 !important;
+        border-color: #2a2e41 !important;
+        color: #e3e6ed !important;
+    }
+    
+    input:focus, select:focus, textarea:focus {
+        border-color: #8ad0ff !important;
+        background-color: #1c1e2d !important;
+    }
+    
+    .submit-row {
+        background-color: #1c1e2d !important;
+        border-top: 1px solid #2a2e41 !important;
+        padding: 1rem !important;
+    }
+    
+    .submit-row input[type="submit"] {
+        background-color: #00d27a !important;
+        border-color: #00d27a !important;
+        color: #0b0d1a !important;
+        font-weight: 600 !important;
+    }
+    
+    .submit-row input[type="submit"]:hover {
+        background-color: #00b368 !important;
+    }
+    
+    .deletelink, .deletelink-box {
+        background-color: #ff6b6b !important;
+        border-color: #ff6b6b !important;
+    }
+    
+    .breadcrumbs {
+        background-color: #1c1e2d !important;
+        border-bottom: 1px solid #2a2e41 !important;
+        color: #9fa6bc !important;
+    }
+    
+    .breadcrumbs a {
+        color: #8ad0ff !important;
+    }
+    
+    /* Card стили */
+    .card {
+        box-shadow: 0 0 10px rgba(0,0,0,0.3) !important;
+    }
+    
+    .card-header {
+        background-color: #0e1018 !important;
+        color: #e3e6ed !important;
+        border-bottom: 1px solid #2a2e41 !important;
+    }
+    
+    .card-header.bg-primary {
+        background-color: #8ad0ff !important;
+        color: #0b0d1a !important;
+    }
+    
+    .card-body {
+        background-color: #1c1e2d !important;
+        color: #e3e6ed !important;
+    }
+    
+    .text-muted {
+        color: #6e7891 !important;
+    }
+    
+    .list-group-item {
+        background-color: #1c1e2d !important;
+        border-color: #2a2e41 !important;
+        color: #e3e6ed !important;
+    }
+    
+    .balance-indicator {
+        background-color: rgba(138, 208, 255, 0.1);
+        border: 1px solid #8ad0ff;
+        border-radius: 4px;
+        padding: 1rem;
+        text-align: center;
+    }
+    
+    .balance-indicator h4 {
+        color: #9fa6bc;
+        font-size: 0.875rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .balance-indicator h2 {
+        color: #e3e6ed;
+        font-size: 2rem;
+        font-weight: 600;
+    }
+    
+    .balance-indicator small {
+        color: #6e7891;
+    }
+    
+    /* Кнопки */
+    .btn {
+        border-color: #2a2e41 !important;
+    }
+    
+    .btn-outline-secondary {
+        color: #9fa6bc !important;
+        border-color: #2a2e41 !important;
+        background-color: #1c1e2d !important;
+    }
+    
+    .btn-outline-secondary:hover {
+        background-color: #2a2e41 !important;
+        color: #e3e6ed !important;
+    }
+    
+    .btn-outline-primary {
+        color: #8ad0ff !important;
+        border-color: #8ad0ff !important;
+        background-color: rgba(138, 208, 255, 0.1) !important;
+    }
+    
+    .btn-outline-primary:hover {
+        background-color: #8ad0ff !important;
+        color: #0b0d1a !important;
+    }
+    
+    /* Alert стили */
+    .alert-info {
+        background-color: rgba(138, 208, 255, 0.1) !important;
+        border-color: #8ad0ff !important;
+        color: #e3e6ed !important;
+    }
+    
+    /* Стили для чекбокса "Показать все договора" */
+    .rental-filter-box {
+        background-color: #1c1e2d !important;
+        border: 1px solid #2a2e41 !important;
+        border-radius: 4px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .rental-filter-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #e3e6ed !important;
+        font-weight: 500;
+        cursor: pointer;
+        user-select: none;
+    }
+    
+    .rental-filter-checkbox {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        accent-color: #8ad0ff;
+    }
+    
+    .rental-filter-help {
+        color: #6e7891 !important;
+        font-size: 0.875rem;
+        margin-top: 0.5rem;
+        margin-left: 26px;
+    }
+    
+    /* Информационный badge */
+    .info-badge {
+        background-color: rgba(138, 208, 255, 0.1);
+        border: 1px solid #8ad0ff;
+        color: #8ad0ff;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        font-size: 0.875rem;
+        display: inline-block;
+        margin-bottom: 1rem;
+    }
+    
+    /* Select2 темная тема (если используется) */
+    .select2-container--admin-autocomplete .select2-selection--single,
+    .select2-container--admin-autocomplete .select2-selection--multiple {
+        background-color: #0e1018 !important;
+        border-color: #2a2e41 !important;
+    }
+    
+    .select2-container--admin-autocomplete .select2-selection__rendered {
+        color: #e3e6ed !important;
+    }
+    
+    .select2-dropdown {
+        background-color: #1c1e2d !important;
+        border-color: #2a2e41 !important;
+    }
+    
+    .select2-container--admin-autocomplete .select2-results__option {
+        background-color: #1c1e2d !important;
+        color: #e3e6ed !important;
+    }
+    
+    .select2-container--admin-autocomplete .select2-results__option--highlighted {
+        background-color: #2a2e41 !important;
+        color: #8ad0ff !important;
+    }
+    
+    .select2-search__field {
+        background-color: #0e1018 !important;
+        border-color: #2a2e41 !important;
+        color: #e3e6ed !important;
+    }
+    
+    /* Дополнительно для мобильных */
+    @media (max-width: 768px) {
+        .rental-filter-box {
+            padding: 0.75rem;
+        }
+        
+        .rental-filter-help {
+            margin-left: 0;
+        }
+    }
+  </style>
 {% endblock %}
 
 {% block field_sets %}
+  <!-- Фильтр для показа всех договоров -->
+  <div class="rental-filter-box">
+    <label class="rental-filter-label">
+      <input 
+        type="checkbox" 
+        class="rental-filter-checkbox" 
+        id="show_all_rentals_checkbox"
+        {% if show_all_rentals %}checked{% endif %}
+      >
+      <span>Показать все договора</span>
+    </label>
+    <div class="rental-filter-help">
+      По умолчанию отображаются только активные договора с последней версией. 
+      Отметьте галочку, чтобы увидеть все договора.
+    </div>
+  </div>
+  
+  {% if not show_all_rentals %}
+    <div class="info-badge">
+      ℹ️ Отображаются только активные договора (последняя версия)
+    </div>
+  {% else %}
+    <div class="info-badge">
+      ℹ️ Отображаются все договора
+    </div>
+  {% endif %}
+
   <!-- AJAX-карточка с информацией о договоре -->
   <div id="rental-info-card" class="card mb-3" style="display:none;">
     <div class="card-header bg-primary text-white">
@@ -79,6 +365,24 @@
   {{ block.super }}
   <script>
     document.addEventListener('DOMContentLoaded', function() {
+      // Обработчик для чекбокса "Показать все договора"
+      const showAllCheckbox = document.getElementById('show_all_rentals_checkbox');
+      if (showAllCheckbox) {
+        showAllCheckbox.addEventListener('change', function() {
+          const isChecked = this.checked;
+          const currentUrl = new URL(window.location.href);
+          
+          if (isChecked) {
+            currentUrl.searchParams.set('show_all_rentals', '1');
+          } else {
+            currentUrl.searchParams.delete('show_all_rentals');
+          }
+          
+          // Перезагружаем страницу с новым параметром
+          window.location.href = currentUrl.toString();
+        });
+      }
+      
       const rentalField = document.getElementById('id_rental');
       const amountField = document.getElementById('id_amount');
       const typeField = document.getElementById('id_type');
