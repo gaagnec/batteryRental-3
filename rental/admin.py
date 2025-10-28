@@ -2287,7 +2287,7 @@ class PaymentAdmin(SimpleHistoryAdmin):
     @admin.display(ordering='amount', description='Сумма')
     def amount_display(self, obj):
         return format_html(
-            '<strong style="font-size: 1.05em;">{}</strong> <small class="text-muted">PLN</small>',
+            '<span style="font-size: 1.05em;">{}</span> <small class="text-muted">PLN</small>',
             obj.amount
         )
     

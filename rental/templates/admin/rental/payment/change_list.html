@@ -6,6 +6,11 @@
   <link rel="stylesheet" href="{% static 'admin/css/autocomplete.css' %}">
   <link rel="stylesheet" href="{% static 'admin/css/custom.css' %}">
   <style>
+    /* Основной фон body */
+    body {
+      background-color: #0b0d1a !important;
+    }
+    
     /* Стили таблицы как на dashboard */
     #result_list {
       background-color: #1c1e2d !important;
@@ -39,10 +44,11 @@
     }
     
     #result_list tbody td {
-      padding: 0.75rem 1rem !important;
+      padding: 0.5rem 1rem !important;
       color: #e3e6ed !important;
       border: none !important;
       font-size: 0.875rem !important;
+      vertical-align: middle !important;
     }
     
     #result_list tbody td a {
@@ -94,7 +100,7 @@
     }
     
     .stats-panel .text-muted {
-      color: #6e7891 !important;
+      color: #9fa6bc !important;
     }
     
     /* Карточка выбранного договора */
