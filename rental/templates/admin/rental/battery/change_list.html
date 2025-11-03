@@ -69,6 +69,51 @@
       border-radius: 4px !important;
     }
     
+    /* Компактные колонки - ширина по содержимому */
+    #result_list th,
+    #result_list td {
+      white-space: nowrap !important;
+      width: auto !important;
+    }
+    
+    /* Особенно узкие колонки для short_code и cost_price */
+    #result_list .field-short_code {
+      width: 1% !important;
+      min-width: 80px !important;
+    }
+    
+    #result_list .field-cost_price {
+      width: 1% !important;
+      min-width: 90px !important;
+      text-align: right !important;
+    }
+    
+    #result_list .field-id {
+      width: 1% !important;
+      min-width: 50px !important;
+    }
+    
+    #result_list .field-serial_number {
+      width: 1% !important;
+      min-width: 100px !important;
+    }
+    
+    #result_list .field-status_display {
+      width: 1% !important;
+      min-width: 100px !important;
+    }
+    
+    #result_list .field-created_at {
+      width: 1% !important;
+      min-width: 120px !important;
+    }
+    
+    /* Колонка usage_now может быть шире */
+    #result_list .field-usage_now {
+      width: auto !important;
+      white-space: normal !important;
+    }
+    
     /* Стили для карточек статистики */
     .stats-panel {
       background-color: #1c1e2d !important;

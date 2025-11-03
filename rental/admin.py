@@ -1462,6 +1462,7 @@ class BatteryAdmin(SimpleHistoryAdmin):
     list_filter = ("status",)
     change_list_template = 'admin/rental/battery/change_list.html'
     list_per_page = 50
+    ordering = ['id']  # Сортировка по умолчанию от меньшего к большему
 
     def usage_now(self, obj):
         # Активные договоры сейчас, где батарея назначена
@@ -1624,53 +1625,61 @@ class BatteryAdmin(SimpleHistoryAdmin):
     roi_progress.short_description = "Окупаемость"
 
     def changelist_view(self, request, extra_context=None):
-        """Добавляем статистику в контекст списка батарей"""
+        """Добавляем статистику в контекст списка батарей с кэшированием"""
+        from django.core.cache import cache
+        
         extra_context = extra_context or {}
         
-        # Получаем все батареи с учетом фильтров
-        from django.contrib.admin.views.main import ChangeList
-        cl = self.get_changelist_instance(request)
+        # Кэш на 24 часа (86400 секунд)
+        cache_key = 'battery_admin_stats'
+        cached_stats = cache.get(cache_key)
         
-        # Статистика по статусам
-        from django.db.models import Count, Sum
-        status_stats = Battery.objects.values('status').annotate(
-            count=Count('id'),
-            total_cost=Sum('cost_price')
-        ).order_by('status')
+        if cached_stats is None:
+            # Статистика по статусам
+            from django.db.models import Count, Sum
+            status_stats = Battery.objects.values('status').annotate(
+                count=Count('id'),
+                total_cost=Sum('cost_price')
+            ).order_by('status')
+            
+            # Общая статистика
+            total_batteries = Battery.objects.count()
+            total_cost = Battery.objects.aggregate(total=Sum('cost_price'))['total'] or 0
+            
+            # Форматируем статистику по статусам
+            formatted_stats = []
+            status_labels = {
+                'rented': 'В аренде',
+                'service': 'Сервис',
+                'available': 'Доступны',
+                'sold': 'Продано'
+            }
+            status_colors = {
+                'rented': 'success',
+                'service': 'warning',
+                'available': 'primary',
+                'sold': 'info'
+            }
+            
+            for stat in status_stats:
+                if stat['status']:
+                    formatted_stats.append({
+                        'label': status_labels.get(stat['status'], stat['status']),
+                        'count': stat['count'],
+                        'total_cost': stat['total_cost'] or 0,
+                        'color': status_colors.get(stat['status'], 'secondary')
+                    })
+            
+            cached_stats = {
+                'total_batteries': total_batteries,
+                'total_cost': total_cost,
+                'status_breakdown': formatted_stats
+            }
+            
+            # Кэшируем на 24 часа
+            cache.set(cache_key, cached_stats, 86400)
         
-        # Общая статистика
-        total_batteries = Battery.objects.count()
-        total_cost = Battery.objects.aggregate(total=Sum('cost_price'))['total'] or 0
-        
-        # Форматируем статистику по статусам
-        formatted_stats = []
-        status_labels = {
-            'rented': 'В аренде',
-            'service': 'Сервис',
-            'available': 'Доступны',
-            'sold': 'Продано'
-        }
-        status_colors = {
-            'rented': 'success',
-            'service': 'warning',
-            'available': 'primary',
-            'sold': 'info'
-        }
-        
-        for stat in status_stats:
-            if stat['status']:
-                formatted_stats.append({
-                    'label': status_labels.get(stat['status'], stat['status']),
-                    'count': stat['count'],
-                    'total_cost': stat['total_cost'] or 0,
-                    'color': status_colors.get(stat['status'], 'secondary')
-                })
-        
-        extra_context['battery_stats'] = {
-            'total_batteries': total_batteries,
-            'total_cost': total_cost,
-            'status_breakdown': formatted_stats
-        }
+        extra_context['battery_stats'] = cached_stats
         
         return super().changelist_view(request, extra_context)
 
