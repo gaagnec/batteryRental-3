@@ -1,0 +1,287 @@
+{% extends "admin/change_list.html" %}
+{% load static %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <style>
+    /* Основной фон body */
+    body {
+      background-color: #0b0d1a !important;
+    }
+    
+    /* Стили таблицы как на dashboard */
+    #result_list {
+      background-color: #1c1e2d !important;
+      border: 1px solid #2a2e41 !important;
+      border-radius: 8px !important;
+      overflow: hidden !important;
+    }
+    
+    #result_list thead th {
+      background-color: #0e1018 !important;
+      color: #9fa6bc !important;
+      font-weight: 500 !important;
+      font-size: 0.875rem !important;
+      padding: 0.75rem 1rem !important;
+      border: none !important;
+      border-bottom: 1px solid #2a2e41 !important;
+    }
+    
+    #result_list thead th a {
+      color: #9fa6bc !important;
+    }
+    
+    #result_list tbody tr {
+      background-color: #1c1e2d !important;
+      border-bottom: 1px solid #2a2e41 !important;
+      transition: background-color 0.2s ease;
+    }
+    
+    #result_list tbody tr:hover {
+      background-color: rgba(138, 208, 255, 0.05) !important;
+    }
+    
+    #result_list tbody td {
+      padding: 0.5rem 1rem !important;
+      color: #e3e6ed !important;
+      border: none !important;
+      font-size: 0.875rem !important;
+      vertical-align: middle !important;
+    }
+    
+    #result_list tbody td a {
+      color: #8ad0ff !important;
+    }
+    
+    #result_list tbody td a:hover {
+      color: #a0dcff !important;
+    }
+    
+    /* Чекбоксы */
+    #result_list input[type="checkbox"] {
+      accent-color: #8ad0ff;
+    }
+    
+    /* Badges в таблице */
+    #result_list .badge {
+      font-size: 0.75rem !important;
+      padding: 0.25rem 0.5rem !important;
+      border-radius: 4px !important;
+    }
+    
+    /* Компактные колонки - ширина по содержимому */
+    #result_list th,
+    #result_list td {
+      white-space: nowrap !important;
+      width: auto !important;
+    }
+    
+    /* Особенно узкие колонки для short_code и cost_price */
+    #result_list .field-short_code {
+      width: 1% !important;
+      min-width: 80px !important;
+    }
+    
+    #result_list .field-cost_price {
+      width: 1% !important;
+      min-width: 90px !important;
+      text-align: right !important;
+    }
+    
+    #result_list .field-id {
+      width: 1% !important;
+      min-width: 50px !important;
+    }
+    
+    #result_list .field-serial_number {
+      width: 1% !important;
+      min-width: 100px !important;
+    }
+    
+    #result_list .field-status_display {
+      width: 1% !important;
+      min-width: 100px !important;
+    }
+    
+    #result_list .field-created_at {
+      width: 1% !important;
+      min-width: 120px !important;
+    }
+    
+    /* Колонка usage_now может быть шире */
+    #result_list .field-usage_now {
+      width: auto !important;
+      white-space: normal !important;
+    }
+    
+    /* Стили для карточек статистики */
+    .stats-panel {
+      background-color: #1c1e2d !important;
+      border: 1px solid #2a2e41 !important;
+      border-radius: 8px !important;
+      margin: 0.5rem !important;
+    }
+    
+    .stats-panel .card-body {
+      background-color: #1c1e2d !important;
+      padding: 1rem !important;
+    }
+    
+    .stats-panel h4 {
+      color: #e3e6ed !important;
+      margin-bottom: 0 !important;
+    }
+    
+    .stats-panel .text-primary {
+      color: #8ad0ff !important;
+    }
+    
+    .stats-panel .text-success {
+      color: #a8e2a8 !important;
+    }
+    
+    .stats-panel .text-warning {
+      color: #ffcc80 !important;
+    }
+    
+    .stats-panel .text-info {
+      color: #9bb2ff !important;
+    }
+    
+    .stats-panel .text-muted {
+      color: #9fa6bc !important;
+    }
+    
+    .stats-panel small {
+      color: #9fa6bc !important;
+      font-size: 0.8rem;
+    }
+    
+    /* Status breakdown */
+    .status-breakdown {
+      background-color: #1c1e2d !important;
+      border: 1px solid #2a2e41 !important;
+      border-radius: 8px !important;
+      margin: 0.5rem !important;
+      padding: 1rem !important;
+    }
+    
+    .status-breakdown h5 {
+      color: #e3e6ed !important;
+      margin-bottom: 1rem !important;
+      font-size: 1rem !important;
+    }
+    
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #2a2e41;
+    }
+    
+    .status-item:last-child {
+      border-bottom: none;
+    }
+    
+    .status-label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .status-count {
+      color: #e3e6ed !important;
+      font-weight: 600;
+    }
+    
+    /* Фильтры */
+    #changelist-filter {
+      background-color: #1c1e2d !important;
+      border-left: 1px solid #2a2e41 !important;
+    }
+    
+    #changelist-filter h2, #changelist-filter h3 {
+      background-color: #0e1018 !important;
+      color: #e3e6ed !important;
+      padding: 0.75rem 1rem !important;
+    }
+    
+    #changelist-filter li {
+      border-bottom: 1px solid #2a2e41;
+    }
+    
+    #changelist-filter li a {
+      color: #9fa6bc !important;
+      padding: 0.5rem 1rem;
+      display: block;
+    }
+    
+    #changelist-filter li.selected a {
+      color: #8ad0ff !important;
+      font-weight: 600 !important;
+      background-color: rgba(138, 208, 255, 0.1) !important;
+    }
+    
+    #changelist-filter li a:hover {
+      background-color: rgba(138, 208, 255, 0.05) !important;
+    }
+    
+    /* Actions bar */
+    .actions {
+      background-color: #1c1e2d !important;
+      border-color: #2a2e41 !important;
+    }
+    
+    .actions label, .actions select {
+      color: #e3e6ed !important;
+    }
+    
+    /* Pagination */
+    .paginator {
+      color: #9fa6bc !important;
+    }
+    
+    .paginator a {
+      color: #8ad0ff !important;
+    }
+  </style>
+{% endblock %}
+
+{% block toplinks %}
+  <!-- Панель статистики -->
+  {% if battery_stats %}
+  <div class="stats-panel card mb-3">
+    <div class="card-body">
+      <div class="row text-center">
+        <div class="col-md-6">
+          <h4 class="mb-0 text-primary">{{ battery_stats.total_batteries }}</h4>
+          <small class="text-muted">Всего батарей</small>
+        </div>
+        <div class="col-md-6">
+          <h4 class="mb-0 text-success">{{ battery_stats.total_cost|floatformat:2 }} <small class="text-muted">PLN</small></h4>
+          <small class="text-muted">Общая стоимость</small>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Разбивка по статусам -->
+  {% if battery_stats.status_breakdown %}
+  <div class="status-breakdown">
+    <h5>Статусы батарей</h5>
+    {% for stat in battery_stats.status_breakdown %}
+    <div class="status-item">
+      <div class="status-label">
+        <span class="badge bg-{{ stat.color }}">{{ stat.label }}</span>
+        <span class="status-count">{{ stat.count }} шт.</span>
+      </div>
+      <div>
+        <small class="text-muted">{{ stat.total_cost|floatformat:2 }} PLN</small>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endif %}
+{% endblock %}
