@@ -249,7 +249,7 @@ class Payment(TimeStampedModel):
         REVOLUT = "revolut", "Revolut"
         OTHER = "other", "Другое"
 
-    rental = models.ForeignKey(Rental, on_delete=models.CASCADE, related_name="payments")
+    rental = models.ForeignKey(Rental, on_delete=models.CASCADE, related_name="payments", verbose_name="Аренда")
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     date = models.DateField(default=timezone.localdate)
     type = models.CharField(max_length=32, choices=PaymentType.choices, default=PaymentType.RENT)

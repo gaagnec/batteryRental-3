@@ -2114,6 +2114,7 @@ class PaymentAdmin(SimpleHistoryAdmin):
     readonly_fields = ("updated_by",)
     date_hierarchy = 'date'
     list_per_page = 50
+    change_form_template = 'admin/rental/payment/change_form.html'
     
     fieldsets = (
         ('Основная информация', {
@@ -2240,6 +2241,35 @@ class PaymentAdmin(SimpleHistoryAdmin):
                 field.help_text = "Автоматически заполняется текущим пользователем"
         return form
 
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "rental":
+            from .models import Rental
+            
+            # Проверяем параметр show_all_rentals в GET или POST
+            show_all = request.GET.get('show_all_rentals') == '1' or request.POST.get('show_all_rentals') == '1'
+            
+            if show_all:
+                # Показываем все договора, отсортированные от большего к меньшему
+                kwargs["queryset"] = Rental.objects.select_related('client').order_by('-id')
+            else:
+                # По умолчанию показываем только активные договора последней версии
+                # Последняя версия = договор не имеет детей (children)
+                from django.db.models import Count, Q
+                queryset = Rental.objects.select_related('client').annotate(
+                    children_count=Count('children')
+                ).filter(
+                    Q(status=Rental.Status.ACTIVE) & Q(children_count=0)
+                ).order_by('-id')
+                kwargs["queryset"] = queryset
+        
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+    
+    def render_change_form(self, request, context, add=False, change=False, form_url='', obj=None):
+        # Добавляем информацию о состоянии галочки "показать все договора"
+        show_all = request.GET.get('show_all_rentals') == '1'
+        context['show_all_rentals'] = show_all
+        return super().render_change_form(request, context, add, change, form_url, obj)
+
     @admin.display(ordering='rental', description='Договор')
     def rental_link(self, obj):
         if not obj.rental:
@@ -2257,7 +2287,7 @@ class PaymentAdmin(SimpleHistoryAdmin):
     @admin.display(ordering='amount', description='Сумма')
     def amount_display(self, obj):
         return format_html(
-            '<strong style="font-size: 1.05em;">{}</strong> <small class="text-muted">PLN</small>',
+            '<span style="font-size: 1.05em;">{}</span> <small class="text-muted">PLN</small>',
             obj.amount
         )
     
@@ -2358,6 +2388,26 @@ class PaymentAdmin(SimpleHistoryAdmin):
                 for p in recent_payments
             ]
             
+            # Получаем номера батарей через assignments (активные на данный момент)
+            battery_numbers = []
+            if rental.status == Rental.Status.ACTIVE:
+                # Получаем активные батареи (где end_at is NULL или в будущем)
+                active_assignments = rental.assignments.filter(
+                    Q(end_at__isnull=True) | Q(end_at__gt=now_dt)
+                ).select_related('battery')
+                battery_numbers = [a.battery.short_code for a in active_assignments]
+                battery_numbers.sort()
+            
+            # Получаем дату старта от первой версии (root)
+            if rental.root_id:
+                try:
+                    root_rental = Rental.objects.get(pk=rental.root_id)
+                    start_at = root_rental.start_at
+                except Rental.DoesNotExist:
+                    start_at = rental.start_at
+            else:
+                start_at = rental.start_at
+            
             return JsonResponse({
                 'success': True,
                 'client_name': rental.client.name if rental.client else '-',
@@ -2368,6 +2418,8 @@ class PaymentAdmin(SimpleHistoryAdmin):
                 'charges': str(charges),
                 'paid': str(paid),
                 'recent_payments': recent_payments_data,
+                'battery_numbers': battery_numbers,
+                'start_date': timezone.localtime(start_at).strftime('%d.%m.%Y %H:%M') if start_at else '-',
             })
             
         except Rental.DoesNotExist:

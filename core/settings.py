@@ -92,12 +92,16 @@ DATABASES = {
         'PASSWORD': 'MXc6@qpJy&TvxF1F',
         'HOST': 'aws-1-eu-central-1.pooler.supabase.com',
         'PORT': '6543',
-        'CONN_MAX_AGE': 120,  # keep DB connections for 2 minutes to reduce churn
+        'CONN_MAX_AGE': 0,  # Don't reuse connections with Transaction Pooler to avoid "connection closed" errors
         'CONN_HEALTH_CHECKS': True,  # validate reused connections once per request
         'OPTIONS': {
             'sslmode': 'require',
-            'connect_timeout': 5,
-            'options': '-c statement_timeout=20000',  # 20s per statement safety limit
+            'connect_timeout': 10,  # Increased timeout for better stability
+            'options': '-c statement_timeout=30000',  # 30s per statement safety limit
+            'keepalives': 1,  # Enable TCP keepalives
+            'keepalives_idle': 30,  # Start keepalive probes after 30s of idle
+            'keepalives_interval': 10,  # Send keepalive probe every 10s
+            'keepalives_count': 5,  # Close connection after 5 failed probes
         },
     }
 }

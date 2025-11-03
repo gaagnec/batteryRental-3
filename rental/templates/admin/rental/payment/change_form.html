@@ -4,9 +4,339 @@
 {% block extrastyle %}
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'admin/css/custom.css' %}">
+  <style>
+    /* Темная тема как на dashboard */
+    body {
+        background-color: #0b0d1a !important;
+    }
+    
+    #content {
+        background-color: #0b0d1a !important;
+    }
+    
+    .module, .card {
+        background-color: #1c1e2d !important;
+        border-color: #2a2e41 !important;
+        color: #e3e6ed !important;
+    }
+    
+    .module h2, .module caption, .inline-group h2 {
+        background-color: #0e1018 !important;
+        color: #e3e6ed !important;
+        border-bottom: 1px solid #2a2e41 !important;
+    }
+    
+    fieldset {
+        background-color: #1c1e2d !important;
+        border-color: #2a2e41 !important;
+    }
+    
+    fieldset h2 {
+        background-color: #0e1018 !important;
+        color: #e3e6ed !important;
+        border-bottom: 1px solid #2a2e41 !important;
+        padding: 0.75rem 1rem !important;
+        font-weight: 500 !important;
+    }
+    
+    .form-row label, .form-row .help, .help, label {
+        color: #9fa6bc !important;
+    }
+    
+    input, select, textarea {
+        background-color: #0e1018 !important;
+        border-color: #2a2e41 !important;
+        color: #e3e6ed !important;
+    }
+    
+    input:focus, select:focus, textarea:focus {
+        border-color: #8ad0ff !important;
+        background-color: #1c1e2d !important;
+    }
+    
+    .submit-row {
+        background-color: #1c1e2d !important;
+        border-top: 1px solid #2a2e41 !important;
+        padding: 1rem !important;
+    }
+    
+    .submit-row input[type="submit"],
+    .submit-row button[type="submit"] {
+        background-color: #8ad0ff !important;
+        border-color: #8ad0ff !important;
+        color: #0b0d1a !important;
+        font-weight: 600 !important;
+        padding: 0.5rem 1.5rem !important;
+        border-radius: 6px !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .submit-row input[type="submit"]:hover,
+    .submit-row button[type="submit"]:hover {
+        background-color: #6ec0f0 !important;
+        border-color: #6ec0f0 !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(138, 208, 255, 0.3) !important;
+    }
+    
+    .submit-row .deletelink,
+    .submit-row .deletelink-box,
+    .submit-row input[name="_delete"],
+    .submit-row a.deletelink {
+        background-color: #ff6b6b !important;
+        border-color: #ff6b6b !important;
+        color: #fff !important;
+        padding: 0.5rem 1.5rem !important;
+        border-radius: 6px !important;
+        text-decoration: none !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .submit-row .deletelink:hover,
+    .submit-row .deletelink-box:hover,
+    .submit-row a.deletelink:hover {
+        background-color: #ff5252 !important;
+        border-color: #ff5252 !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(255, 107, 107, 0.3) !important;
+    }
+    
+    .submit-row input[name="_continue"],
+    .submit-row input[name="_addanother"] {
+        background-color: #2a2e41 !important;
+        border-color: #2a2e41 !important;
+        color: #9fa6bc !important;
+    }
+    
+    .submit-row input[name="_continue"]:hover,
+    .submit-row input[name="_addanother"]:hover {
+        background-color: #363c54 !important;
+        border-color: #363c54 !important;
+        color: #e3e6ed !important;
+    }
+    
+    .breadcrumbs {
+        background-color: #1c1e2d !important;
+        border-bottom: 1px solid #2a2e41 !important;
+        color: #9fa6bc !important;
+    }
+    
+    .breadcrumbs a {
+        color: #8ad0ff !important;
+    }
+    
+    /* Card стили */
+    .card {
+        box-shadow: 0 0 10px rgba(0,0,0,0.3) !important;
+    }
+    
+    .card-header {
+        background-color: #0e1018 !important;
+        color: #e3e6ed !important;
+        border-bottom: 1px solid #2a2e41 !important;
+    }
+    
+    .card-header.bg-primary {
+        background-color: #8ad0ff !important;
+        color: #0b0d1a !important;
+    }
+    
+    .card-body {
+        background-color: #1c1e2d !important;
+        color: #e3e6ed !important;
+    }
+    
+    .text-muted {
+        color: #6e7891 !important;
+    }
+    
+    .list-group-item {
+        background-color: #1c1e2d !important;
+        border-color: #2a2e41 !important;
+        color: #e3e6ed !important;
+    }
+    
+    .balance-indicator {
+        background-color: rgba(138, 208, 255, 0.1);
+        border: 1px solid #8ad0ff;
+        border-radius: 4px;
+        padding: 1rem;
+        text-align: center;
+    }
+    
+    .balance-indicator h4 {
+        color: #9fa6bc;
+        font-size: 0.875rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .balance-indicator h2 {
+        color: #e3e6ed;
+        font-size: 2rem;
+        font-weight: 600;
+    }
+    
+    .balance-indicator small {
+        color: #6e7891;
+    }
+    
+    /* Кнопки */
+    .btn {
+        border-color: #2a2e41 !important;
+    }
+    
+    .btn-outline-secondary {
+        color: #9fa6bc !important;
+        border-color: #2a2e41 !important;
+        background-color: #1c1e2d !important;
+    }
+    
+    .btn-outline-secondary:hover {
+        background-color: #2a2e41 !important;
+        color: #e3e6ed !important;
+    }
+    
+    .btn-outline-primary {
+        color: #8ad0ff !important;
+        border-color: #8ad0ff !important;
+        background-color: rgba(138, 208, 255, 0.1) !important;
+    }
+    
+    .btn-outline-primary:hover {
+        background-color: #8ad0ff !important;
+        color: #0b0d1a !important;
+    }
+    
+    /* Alert стили */
+    .alert-info {
+        background-color: rgba(138, 208, 255, 0.1) !important;
+        border-color: #8ad0ff !important;
+        color: #e3e6ed !important;
+    }
+    
+    /* Стили для компактного чекбокса "Показать все договора" */
+    #rental-filter-compact-wrapper {
+        max-width: fit-content !important;
+        margin-bottom: 0.75rem !important;
+    }
+    
+    .rental-filter-compact {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 0.6rem !important;
+        background: linear-gradient(135deg, rgba(138, 208, 255, 0.05) 0%, rgba(138, 208, 255, 0.08) 100%) !important;
+        border: 1px solid rgba(138, 208, 255, 0.2) !important;
+        border-radius: 6px !important;
+        padding: 0.5rem 0.9rem !important;
+        cursor: pointer !important;
+        transition: all 0.25s ease !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+        min-width: 400px !important;
+        width: 400px !important;
+    }
+    
+    .rental-filter-compact:hover {
+        background: linear-gradient(135deg, rgba(138, 208, 255, 0.12) 0%, rgba(138, 208, 255, 0.15) 100%) !important;
+        border-color: rgba(138, 208, 255, 0.4) !important;
+        box-shadow: 0 3px 8px rgba(138, 208, 255, 0.15) !important;
+        transform: translateY(-1px) !important;
+    }
+    
+    .rental-filter-compact input[type="checkbox"] {
+        width: 17px !important;
+        height: 17px !important;
+        cursor: pointer !important;
+        margin: 0 !important;
+        accent-color: #8ad0ff !important;
+        flex-shrink: 0 !important;
+    }
+    
+    .rental-filter-compact > span {
+        color: #c9d1e0 !important;
+        font-size: 0.875rem !important;
+        font-weight: 500 !important;
+        user-select: none !important;
+        white-space: nowrap !important;
+    }
+    
+    .rental-status-badge {
+        background-color: rgba(138, 208, 255, 0.15);
+        color: #8ad0ff;
+        padding: 0.15rem 0.5rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+        border-radius: 3px;
+        margin-left: 0.5rem;
+    }
+    
+    .rental-status-badge.active {
+        background-color: rgba(0, 210, 122, 0.15);
+        color: #00d27a;
+    }
+    
+    .rental-status-badge.all {
+        background-color: rgba(159, 166, 188, 0.15);
+        color: #9fa6bc;
+    }
+    
+    /* Select2 темная тема (если используется) */
+    .select2-container--admin-autocomplete .select2-selection--single,
+    .select2-container--admin-autocomplete .select2-selection--multiple {
+        background-color: #0e1018 !important;
+        border-color: #2a2e41 !important;
+    }
+    
+    .select2-container--admin-autocomplete .select2-selection__rendered {
+        color: #e3e6ed !important;
+    }
+    
+    .select2-dropdown {
+        background-color: #1c1e2d !important;
+        border-color: #2a2e41 !important;
+    }
+    
+    .select2-container--admin-autocomplete .select2-results__option {
+        background-color: #1c1e2d !important;
+        color: #e3e6ed !important;
+    }
+    
+    .select2-container--admin-autocomplete .select2-results__option--highlighted {
+        background-color: #2a2e41 !important;
+        color: #8ad0ff !important;
+    }
+    
+    .select2-search__field {
+        background-color: #0e1018 !important;
+        border-color: #2a2e41 !important;
+        color: #e3e6ed !important;
+    }
+    
+    /* Дополнительно для мобильных */
+    @media (max-width: 768px) {
+        .rental-filter-box {
+            padding: 0.75rem;
+        }
+        
+        .rental-filter-help {
+            margin-left: 0;
+        }
+    }
+  </style>
 {% endblock %}
 
 {% block field_sets %}
+  <!-- Компактный фильтр для показа всех договоров (будет перемещен через JS) -->
+  <div id="rental-filter-compact-wrapper" style="display: none;">
+    <label class="rental-filter-compact">
+      <input 
+        type="checkbox" 
+        id="show_all_rentals_checkbox"
+        {% if show_all_rentals %}checked{% endif %}
+      >
+      <span>Показать все договора</span>
+    </label>
+  </div>
+
   <!-- AJAX-карточка с информацией о договоре -->
   <div id="rental-info-card" class="card mb-3" style="display:none;">
     <div class="card-header bg-primary text-white">
@@ -18,6 +348,8 @@
           <p class="mb-2"><strong>Клиент:</strong> <span id="client-name" class="text-muted">-</span></p>
           <p class="mb-2"><strong>Договор:</strong> <span id="contract-code" class="text-muted">-</span></p>
           <p class="mb-2"><strong>Статус:</strong> <span id="rental-status" class="badge bg-secondary">-</span></p>
+          <p class="mb-2"><strong>Дата старта:</strong> <span id="rental-start-date" class="text-muted">-</span></p>
+          <p class="mb-2"><strong>🔋 Батареи:</strong> <span id="battery-numbers" class="text-muted">-</span></p>
         </div>
         <div class="col-md-6">
           <div class="balance-indicator">
@@ -79,6 +411,41 @@
   {{ block.super }}
   <script>
     document.addEventListener('DOMContentLoaded', function() {
+      // Перемещаем чекбокс в начало блока "Основная информация"
+      const filterWrapper = document.getElementById('rental-filter-compact-wrapper');
+      const firstFieldset = document.querySelector('fieldset.module');
+      
+      if (filterWrapper && firstFieldset) {
+        // Находим первый элемент внутри fieldset (после заголовка h2)
+        const firstFieldsetH2 = firstFieldset.querySelector('h2');
+        if (firstFieldsetH2) {
+          // Вставляем после заголовка
+          firstFieldsetH2.insertAdjacentElement('afterend', filterWrapper);
+          filterWrapper.style.display = 'block';
+          filterWrapper.style.marginTop = '0.75rem';
+          filterWrapper.style.marginBottom = '0.75rem';
+          filterWrapper.style.marginLeft = '1rem';
+        }
+      }
+      
+      // Обработчик для чекбокса "Показать все договора"
+      const showAllCheckbox = document.getElementById('show_all_rentals_checkbox');
+      if (showAllCheckbox) {
+        showAllCheckbox.addEventListener('change', function() {
+          const isChecked = this.checked;
+          const currentUrl = new URL(window.location.href);
+          
+          if (isChecked) {
+            currentUrl.searchParams.set('show_all_rentals', '1');
+          } else {
+            currentUrl.searchParams.delete('show_all_rentals');
+          }
+          
+          // Перезагружаем страницу с новым параметром
+          window.location.href = currentUrl.toString();
+        });
+      }
+      
       const rentalField = document.getElementById('id_rental');
       const amountField = document.getElementById('id_amount');
       const typeField = document.getElementById('id_type');
@@ -191,6 +558,20 @@
               const statusBadge = document.getElementById('rental-status');
               statusBadge.textContent = data.status_display || '-';
               statusBadge.className = 'badge bg-' + (data.status === 'active' ? 'success' : 'secondary');
+              
+              // Дата старта (от первой версии)
+              document.getElementById('rental-start-date').textContent = data.start_date || '-';
+              
+              // Номера батарей
+              const batteryNumbers = data.battery_numbers || [];
+              const batteryElem = document.getElementById('battery-numbers');
+              if (batteryNumbers.length > 0) {
+                batteryElem.innerHTML = batteryNumbers.map(num => 
+                  `<span class="badge bg-info text-dark me-1">${num}</span>`
+                ).join('');
+              } else {
+                batteryElem.textContent = '-';
+              }
               
               // Баланс
               const balance = parseFloat(data.balance) || 0;

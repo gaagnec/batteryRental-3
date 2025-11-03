@@ -30,15 +30,250 @@
   <!-- Bootstrap 5 CSS: глобально для всех страниц админки -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
   <style>
+    /* =================================
+       ГЛОБАЛЬНАЯ ТЕМНАЯ ТЕМА ДЛЯ ВСЕХ СТРАНИЦ
+       ================================= */
+    
+    /* Основной фон */
+    body {
+      background-color: #0b0d1a !important;
+    }
+    
+    #content, #content-main {
+      background-color: #0b0d1a !important;
+    }
+    
+    /* Карточки и модули */
+    .module, .card, fieldset {
+      background-color: #1c1e2d !important;
+      border-color: #2a2e41 !important;
+      color: #e3e6ed !important;
+    }
+    
+    /* Заголовки */
+    .module h2, .module caption, .inline-group h2, fieldset h2, 
+    .card-header, h1, h2, h3, h4, h5, h6 {
+      background-color: #0e1018 !important;
+      color: #e3e6ed !important;
+      border-bottom: 1px solid #2a2e41 !important;
+    }
+    
+    /* Таблицы */
+    table, thead, tbody, tr, td, th {
+      background-color: #1c1e2d !important;
+      border-color: #2a2e41 !important;
+      color: #e3e6ed !important;
+    }
+    
+    thead th {
+      background-color: #0e1018 !important;
+      color: #8ad0ff !important;
+      font-weight: 600 !important;
+      border-bottom: 2px solid #2a2e41 !important;
+    }
+    
+    tbody tr:hover {
+      background-color: rgba(138, 208, 255, 0.05) !important;
+    }
+    
+    /* Формы */
+    .form-row label, .form-row .help, .help, label {
+      color: #9fa6bc !important;
+    }
+    
+    input, select, textarea, .vTextField, .vDateField, .vTimeField, 
+    .vURLField, .vIntegerField, .vPositiveSmallIntegerField, 
+    .vForeignKeyRawIdAdminField {
+      background-color: #0e1018 !important;
+      border-color: #2a2e41 !important;
+      color: #e3e6ed !important;
+    }
+    
+    input:focus, select:focus, textarea:focus {
+      background-color: #0e1018 !important;
+      border-color: #8ad0ff !important;
+      color: #e3e6ed !important;
+    }
+    
+    /* Кнопки */
+    .button, input[type="submit"], input[type="button"], .submit-row input, 
+    button, .btn {
+      background-color: #2a2e41 !important;
+      border-color: #3a3e51 !important;
+      color: #e3e6ed !important;
+    }
+    
+    .button:hover, input[type="submit"]:hover, input[type="button"]:hover, 
+    button:hover, .btn:hover {
+      background-color: #3a3e51 !important;
+      border-color: #4a4e61 !important;
+    }
+    
+    .button.default, input[type="submit"].default, .submit-row input.default {
+      background-color: #8ad0ff !important;
+      color: #0b0d1a !important;
+      border-color: #8ad0ff !important;
+    }
+    
+    .button.default:hover {
+      background-color: #a0dcff !important;
+      color: #0b0d1a !important;
+    }
+    
+    /* Ссылки */
+    a {
+      color: #8ad0ff !important;
+    }
+    
+    a:hover {
+      color: #a0dcff !important;
+    }
+    
+    /* Changelist (списки) */
+    #changelist {
+      background-color: #0b0d1a !important;
+    }
+    
+    #changelist-form {
+      background-color: #0b0d1a !important;
+    }
+    
+    .results {
+      background-color: #1c1e2d !important;
+    }
+    
+    /* Пагинация */
+    .paginator {
+      color: #9fa6bc !important;
+      background-color: #1c1e2d !important;
+      border-color: #2a2e41 !important;
+    }
+    
+    .paginator a {
+      color: #8ad0ff !important;
+    }
+    
+    /* Фильтры */
+    #changelist-filter {
+      background-color: #1c1e2d !important;
+      border-left: 1px solid #2a2e41 !important;
+    }
+    
+    #changelist-filter h2, #changelist-filter h3 {
+      background-color: #0e1018 !important;
+      color: #e3e6ed !important;
+    }
+    
+    #changelist-filter li.selected a {
+      color: #8ad0ff !important;
+      font-weight: 600 !important;
+    }
+    
+    /* Breadcrumbs */
+    .breadcrumbs {
+      background-color: #1c1e2d !important;
+      color: #9fa6bc !important;
+      border-bottom: 1px solid #2a2e41 !important;
+    }
+    
+    .breadcrumbs a {
+      color: #8ad0ff !important;
+    }
+    
+    /* Сообщения */
+    .messagelist {
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    
+    .messagelist li {
+      background-color: #1c1e2d !important;
+      border-color: #2a2e41 !important;
+      color: #e3e6ed !important;
+    }
+    
+    .messagelist .success {
+      background-color: rgba(168, 226, 168, 0.2) !important;
+      border-left: 4px solid #a8e2a8 !important;
+    }
+    
+    .messagelist .error {
+      background-color: rgba(255, 107, 107, 0.2) !important;
+      border-left: 4px solid #ff6b6b !important;
+    }
+    
+    .messagelist .warning {
+      background-color: rgba(255, 210, 138, 0.2) !important;
+      border-left: 4px solid #ffd28a !important;
+    }
+    
+    /* Sidebar */
+    #content-related {
+      background-color: #1c1e2d !important;
+    }
+    
+    /* =================================
+       СПЕЦИФИЧЕСКИЕ СТИЛИ
+       ================================= */
+    
     /* Зелёный цвет ссылки Rentals в левом меню */
     .app-rental .model-rental a { color: #198754 !important; }
     /* Оранжевый цвет ссылки Payments в левом меню */
     .app-rental .model-payment a { color: #fd7e14 !important; }
     .admin-sidebar .app-dashboard a::before { content: "📊 "; }
+    
+    /* Добавляем ссылку на Dashboard в низ левого меню */
+    #content-related {
+      position: relative;
+    }
+    
+    .dashboard-link-sidebar {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white !important;
+      padding: 12px 20px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 1000;
+    }
+    
+    .dashboard-link-sidebar:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+      color: white !important;
+    }
+    
+    .dashboard-link-sidebar::before {
+      content: "📊";
+      font-size: 1.2em;
+    }
+    
+    /* Для маленьких экранов */
+    @media (max-width: 768px) {
+      .dashboard-link-sidebar {
+        bottom: 10px;
+        left: 10px;
+        padding: 10px 16px;
+        font-size: 0.9em;
+      }
+    }
   </style>
 {% endblock %}
 
 {% block footer %}
   {{ block.super }}
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+  
+  <!-- Кнопка Dashboard в левом нижнем углу -->
+  <a href="{% url 'admin-dashboard' %}" class="dashboard-link-sidebar">
+    Dashboard
+  </a>
 {% endblock %}
