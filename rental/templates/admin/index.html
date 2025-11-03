@@ -1,0 +1,51 @@
+{% extends "admin/index.html" %}
+{% load i18n static %}
+
+{% block sidebar %}
+{{ block.super }}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Находим блок app-rental module
+    const rentalModule = document.querySelector('.app-rental.module');
+    
+    if (rentalModule) {
+        // Создаём новый блок для Dashboard
+        const dashboardHTML = `
+            <div class="app-dashboard module">
+                <table>
+                    <caption>
+                        <a href="/admin/dashboard/" class="section" title="Модели в приложении Dashboard">📊 Dashboard</a>
+                    </caption>
+                    <tr class="model-dashboard">
+                        <th scope="row">
+                            <a href="/admin/dashboard/">Dashboard</a>
+                        </th>
+                    </tr>
+                </table>
+            </div>
+        `;
+        
+        // Вставляем Dashboard перед блоком Rental
+        rentalModule.insertAdjacentHTML('beforebegin', dashboardHTML);
+    }
+});
+</script>
+
+<style>
+    /* Стиль для ссылки Dashboard */
+    .app-dashboard .section {
+        font-size: 1.1em;
+        font-weight: 600;
+    }
+    
+    .app-dashboard .model-dashboard a {
+        color: #667eea !important;
+        font-weight: 500;
+    }
+    
+    .app-dashboard .model-dashboard a:hover {
+        color: #764ba2 !important;
+    }
+</style>
+{% endblock %}
