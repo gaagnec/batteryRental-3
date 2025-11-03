@@ -1457,8 +1457,11 @@ class ClientAdmin(SimpleHistoryAdmin):
 @admin.register(Battery)
 class BatteryAdmin(SimpleHistoryAdmin):
     # Убираем тяжёлые колонки roi_progress из списка, возвращаем в detail
-    list_display = ("id", "short_code", "usage_now", "serial_number", "cost_price", "created_at")
+    list_display = ("id", "short_code", "status_display", "usage_now", "serial_number", "cost_price", "created_at")
     search_fields = ("short_code", "serial_number")
+    list_filter = ("status",)
+    change_list_template = 'admin/rental/battery/change_list.html'
+    list_per_page = 50
 
     def usage_now(self, obj):
         # Активные договоры сейчас, где батарея назначена
@@ -1497,6 +1500,37 @@ class BatteryAdmin(SimpleHistoryAdmin):
         content = format_html(', '.join(['{}'] * len(parts)), *parts) if parts else '-'
         return format_html('<span class="badge bg-{}" style="background-color:{}; color:#000;">{}</span>', bg, bg_color, content)
     usage_now.short_description = "В аренде"
+
+    @admin.display(ordering='status', description='Статус')
+    def status_display(self, obj):
+        """Отображение статуса батареи с бэджами"""
+        if not obj.status:
+            return format_html('<span class="badge bg-secondary">Не указан</span>')
+        
+        # Цвета для статусов (Bootstrap 5)
+        colors = {
+            'rented': 'success',      # Зелёный - в аренде
+            'service': 'warning',     # Жёлтый - на сервисе
+            'available': 'primary',   # Синий - доступен
+            'sold': 'info'            # Голубой - продана
+        }
+        
+        # Русские названия статусов из BatteryStatusLog.Kind
+        labels = {
+            'rented': 'В аренде',
+            'service': 'Сервис',
+            'available': 'Доступный',
+            'sold': 'Продана'
+        }
+        
+        color = colors.get(obj.status, 'secondary')
+        label = labels.get(obj.status, obj.status)
+        
+        return format_html(
+            '<span class="badge bg-{}">{}</span>',
+            color,
+            label
+        )
 
     def roi_progress(self, obj):
         # Окупаемость по фактическим оплатам: распределяем оплаты по доле "нагрузки" батареи
@@ -1588,6 +1622,57 @@ class BatteryAdmin(SimpleHistoryAdmin):
             bar_class, width, bar_style, pct, pct, days_total
         )
     roi_progress.short_description = "Окупаемость"
+
+    def changelist_view(self, request, extra_context=None):
+        """Добавляем статистику в контекст списка батарей"""
+        extra_context = extra_context or {}
+        
+        # Получаем все батареи с учетом фильтров
+        from django.contrib.admin.views.main import ChangeList
+        cl = self.get_changelist_instance(request)
+        
+        # Статистика по статусам
+        from django.db.models import Count, Sum
+        status_stats = Battery.objects.values('status').annotate(
+            count=Count('id'),
+            total_cost=Sum('cost_price')
+        ).order_by('status')
+        
+        # Общая статистика
+        total_batteries = Battery.objects.count()
+        total_cost = Battery.objects.aggregate(total=Sum('cost_price'))['total'] or 0
+        
+        # Форматируем статистику по статусам
+        formatted_stats = []
+        status_labels = {
+            'rented': 'В аренде',
+            'service': 'Сервис',
+            'available': 'Доступны',
+            'sold': 'Продано'
+        }
+        status_colors = {
+            'rented': 'success',
+            'service': 'warning',
+            'available': 'primary',
+            'sold': 'info'
+        }
+        
+        for stat in status_stats:
+            if stat['status']:
+                formatted_stats.append({
+                    'label': status_labels.get(stat['status'], stat['status']),
+                    'count': stat['count'],
+                    'total_cost': stat['total_cost'] or 0,
+                    'color': status_colors.get(stat['status'], 'secondary')
+                })
+        
+        extra_context['battery_stats'] = {
+            'total_batteries': total_batteries,
+            'total_cost': total_cost,
+            'status_breakdown': formatted_stats
+        }
+        
+        return super().changelist_view(request, extra_context)
 
 
 
