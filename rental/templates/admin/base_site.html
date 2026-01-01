@@ -607,4 +607,34 @@
 {% block footer %}
   {{ block.super }}
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+  <script>
+    // Move sidebar into container for flexbox layout
+    (function() {
+      function moveSidebar() {
+        const sidebar = document.querySelector('.phoenix-sidebar');
+        const container = document.querySelector('#container');
+        if (sidebar && container) {
+          if (!container.contains(sidebar)) {
+            container.insertBefore(sidebar, container.firstChild);
+            console.log('Sidebar moved into container (base_site.html)');
+          }
+          if (container) {
+            container.style.display = 'flex';
+            container.style.flexDirection = 'row';
+          }
+        }
+      }
+      
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        moveSidebar();
+      } else {
+        document.addEventListener('DOMContentLoaded', moveSidebar);
+      }
+      
+      window.addEventListener('load', moveSidebar);
+      setTimeout(moveSidebar, 50);
+      setTimeout(moveSidebar, 200);
+      setTimeout(moveSidebar, 500);
+    })();
+  </script>
 {% endblock %}
