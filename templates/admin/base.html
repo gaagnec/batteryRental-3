@@ -661,5 +661,14 @@
     // Force dark mode
     document.documentElement.style.colorScheme = 'dark';
     document.body.style.colorScheme = 'dark';
+    
+    // Move sidebar into container for flexbox layout
+    (function() {
+      const sidebar = document.querySelector('.phoenix-sidebar');
+      const container = document.querySelector('#container');
+      if (sidebar && container && !container.contains(sidebar)) {
+        container.insertBefore(sidebar, container.firstChild);
+      }
+    })();
   </script>
 {% endblock %}
