@@ -1,0 +1,363 @@
+{% extends "admin/index.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+  .admin-menu-section {
+    background-color: #1c1e2d;
+    border: 1px solid #2a2e41;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+  }
+  
+  .admin-menu-section-header {
+    background: linear-gradient(135deg, #0e1018 0%, #1a1c2a 100%);
+    padding: 1rem 1.25rem;
+    border-bottom: 2px solid #2a2e41;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: #e3e6ed;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  
+  .admin-menu-section-header .icon {
+    font-size: 1.3rem;
+  }
+  
+  .admin-menu-items {
+    padding: 0.75rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 0.75rem;
+  }
+  
+  .admin-menu-item {
+    background-color: #0e1018;
+    border: 1px solid #2a2e41;
+    border-radius: 6px;
+    padding: 1rem;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: block;
+    color: #e3e6ed;
+  }
+  
+  .admin-menu-item:hover {
+    background-color: #2a2e41;
+    border-color: #8ad0ff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(138, 208, 255, 0.2);
+    color: #e3e6ed;
+    text-decoration: none;
+  }
+  
+  .admin-menu-item-title {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+    color: #e3e6ed;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .admin-menu-item-title .icon {
+    font-size: 1.1rem;
+  }
+  
+  .admin-menu-item-description {
+    font-size: 0.85rem;
+    color: #9fa6bc;
+    margin-top: 0.25rem;
+  }
+  
+  .admin-menu-item-actions {
+    margin-top: 0.5rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  
+  .admin-menu-item-actions a {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
+    background-color: #2a2e41;
+    border: 1px solid #3a3e51;
+    border-radius: 4px;
+    color: #8ad0ff;
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+  
+  .admin-menu-item-actions a:hover {
+    background-color: #3a3e51;
+    border-color: #8ad0ff;
+    color: #a0dcff;
+  }
+  
+  .admin-menu-item-actions a.add-link {
+    background-color: #198754;
+    border-color: #198754;
+    color: white;
+  }
+  
+  .admin-menu-item-actions a.add-link:hover {
+    background-color: #157347;
+    border-color: #157347;
+  }
+  
+  .admin-menu-item.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  
+  .admin-welcome {
+    background: linear-gradient(135deg, #1c1e2d 0%, #2a2e41 100%);
+    border: 1px solid #2a2e41;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    color: #e3e6ed;
+  }
+  
+  .admin-welcome h1 {
+    color: #e3e6ed;
+    font-size: 1.75rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .admin-welcome p {
+    color: #9fa6bc;
+    margin: 0;
+  }
+</style>
+
+<div class="admin-welcome">
+  <h1>Добро пожаловать в админ-панель</h1>
+  <p>Управление системой аренды батарей</p>
+</div>
+
+{% if app_list %}
+  {% for app in app_list %}
+    {% if app.app_label == "rental" and app.models %}
+      
+      <!-- Главная -->
+      <div class="admin-menu-section">
+        <div class="admin-menu-section-header">
+          <span class="icon">🏠</span>
+          <span>Главная</span>
+        </div>
+        <div class="admin-menu-items">
+          {% for model in app.models %}
+            {% if model.object_name|lower == "dashboard" %}
+              <a href="{{ model.admin_url }}" class="admin-menu-item">
+                <div class="admin-menu-item-title">
+                  <span class="icon">📊</span>
+                  <span>{{ model.name }}</span>
+                </div>
+                <div class="admin-menu-item-description">Главная панель с аналитикой и статистикой</div>
+              </a>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      
+      <!-- Клиенты и договоры -->
+      <div class="admin-menu-section">
+        <div class="admin-menu-section-header">
+          <span class="icon">👥</span>
+          <span>Клиенты и договоры</span>
+        </div>
+        <div class="admin-menu-items">
+          {% for model in app.models %}
+            {% if model.object_name|lower == "client" or model.object_name|lower == "rental" or model.object_name|lower == "rentalbatteryassignment" %}
+              <div class="admin-menu-item {% if not model.perms.view %}disabled{% endif %}">
+                <div class="admin-menu-item-title">
+                  {% if model.object_name|lower == "client" %}
+                    <span class="icon">👤</span>
+                  {% elif model.object_name|lower == "rental" %}
+                    <span class="icon">📋</span>
+                  {% elif model.object_name|lower == "rentalbatteryassignment" %}
+                    <span class="icon">🔗</span>
+                  {% endif %}
+                  <span>{{ model.name }}</span>
+                </div>
+                <div class="admin-menu-item-description">
+                  {% if model.object_name|lower == "client" %}
+                    Управление клиентами
+                  {% elif model.object_name|lower == "rental" %}
+                    Договоры аренды
+                  {% elif model.object_name|lower == "rentalbatteryassignment" %}
+                    Привязка батарей к договорам
+                  {% endif %}
+                </div>
+                {% if model.perms.view %}
+                  <div class="admin-menu-item-actions">
+                    <a href="{{ model.admin_url }}">Список</a>
+                    {% if model.perms.add %}
+                      <a href="{{ model.admin_url }}add/" class="add-link">+ Добавить</a>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      
+      <!-- Батареи -->
+      <div class="admin-menu-section">
+        <div class="admin-menu-section-header">
+          <span class="icon">🔋</span>
+          <span>Батареи</span>
+        </div>
+        <div class="admin-menu-items">
+          {% for model in app.models %}
+            {% if model.object_name|lower == "battery" or model.object_name|lower == "batterystatuslog" or model.object_name|lower == "repair" %}
+              <div class="admin-menu-item {% if not model.perms.view %}disabled{% endif %}">
+                <div class="admin-menu-item-title">
+                  {% if model.object_name|lower == "battery" %}
+                    <span class="icon">🔋</span>
+                  {% elif model.object_name|lower == "batterystatuslog" %}
+                    <span class="icon">📝</span>
+                  {% elif model.object_name|lower == "repair" %}
+                    <span class="icon">🔧</span>
+                  {% endif %}
+                  <span>{{ model.name }}</span>
+                </div>
+                <div class="admin-menu-item-description">
+                  {% if model.object_name|lower == "battery" %}
+                    Управление батареями
+                  {% elif model.object_name|lower == "batterystatuslog" %}
+                    История статусов батарей
+                  {% elif model.object_name|lower == "repair" %}
+                    Ремонты батарей
+                  {% endif %}
+                </div>
+                {% if model.perms.view %}
+                  <div class="admin-menu-item-actions">
+                    <a href="{{ model.admin_url }}">Список</a>
+                    {% if model.perms.add %}
+                      <a href="{{ model.admin_url }}add/" class="add-link">+ Добавить</a>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      
+      <!-- Финансы -->
+      <div class="admin-menu-section">
+        <div class="admin-menu-section-header">
+          <span class="icon">💰</span>
+          <span>Финансы</span>
+        </div>
+        <div class="admin-menu-items">
+          {% for model in app.models %}
+            {% if model.object_name|lower == "payment" or model.object_name|lower == "expense" or model.object_name|lower == "expensecategory" or model.object_name|lower == "financeoverviewproxy" or model.object_name|lower == "financeoverviewproxy2" %}
+              <div class="admin-menu-item {% if not model.perms.view %}disabled{% endif %}">
+                <div class="admin-menu-item-title">
+                  {% if model.object_name|lower == "payment" %}
+                    <span class="icon">💳</span>
+                  {% elif model.object_name|lower == "expense" %}
+                    <span class="icon">📉</span>
+                  {% elif model.object_name|lower == "expensecategory" %}
+                    <span class="icon">📁</span>
+                  {% elif model.object_name|lower == "financeoverviewproxy" %}
+                    <span class="icon">📊</span>
+                  {% elif model.object_name|lower == "financeoverviewproxy2" %}
+                    <span class="icon">📚</span>
+                  {% endif %}
+                  <span>{{ model.name }}</span>
+                </div>
+                <div class="admin-menu-item-description">
+                  {% if model.object_name|lower == "payment" %}
+                    Платежи от клиентов
+                  {% elif model.object_name|lower == "expense" %}
+                    Расходы компании
+                  {% elif model.object_name|lower == "expensecategory" %}
+                    Категории расходов
+                  {% elif model.object_name|lower == "financeoverviewproxy" %}
+                    Финансовый обзор
+                  {% elif model.object_name|lower == "financeoverviewproxy2" %}
+                    Бухгалтерский учёт
+                  {% endif %}
+                </div>
+                {% if model.perms.view %}
+                  <div class="admin-menu-item-actions">
+                    <a href="{{ model.admin_url }}">Список</a>
+                    {% if model.perms.add %}
+                      <a href="{{ model.admin_url }}add/" class="add-link">+ Добавить</a>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      
+      <!-- Финансовые партнёры -->
+      <div class="admin-menu-section">
+        <div class="admin-menu-section-header">
+          <span class="icon">🤝</span>
+          <span>Финансовые партнёры</span>
+        </div>
+        <div class="admin-menu-items">
+          {% for model in app.models %}
+            {% if model.object_name|lower == "financepartner" or model.object_name|lower == "ownercontribution" or model.object_name|lower == "ownerwithdrawal" or model.object_name|lower == "moneytransfer" or model.object_name|lower == "financeadjustment" %}
+              <div class="admin-menu-item {% if not model.perms.view %}disabled{% endif %}">
+                <div class="admin-menu-item-title">
+                  {% if model.object_name|lower == "financepartner" %}
+                    <span class="icon">👥</span>
+                  {% elif model.object_name|lower == "ownercontribution" %}
+                    <span class="icon">💵</span>
+                  {% elif model.object_name|lower == "ownerwithdrawal" %}
+                    <span class="icon">💸</span>
+                  {% elif model.object_name|lower == "moneytransfer" %}
+                    <span class="icon">🔄</span>
+                  {% elif model.object_name|lower == "financeadjustment" %}
+                    <span class="icon">⚙️</span>
+                  {% endif %}
+                  <span>{{ model.name }}</span>
+                </div>
+                <div class="admin-menu-item-description">
+                  {% if model.object_name|lower == "financepartner" %}
+                    Управление партнёрами
+                  {% elif model.object_name|lower == "ownercontribution" %}
+                    Взносы владельцев
+                  {% elif model.object_name|lower == "ownerwithdrawal" %}
+                    Выводы владельцев
+                  {% elif model.object_name|lower == "moneytransfer" %}
+                    Денежные переводы
+                  {% elif model.object_name|lower == "financeadjustment" %}
+                    Финансовые корректировки
+                  {% endif %}
+                </div>
+                {% if model.perms.view %}
+                  <div class="admin-menu-item-actions">
+                    <a href="{{ model.admin_url }}">Список</a>
+                    {% if model.perms.add %}
+                      <a href="{{ model.admin_url }}add/" class="add-link">+ Добавить</a>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      
+    {% endif %}
+  {% endfor %}
+{% else %}
+  <p>У вас нет доступа к админ-панели.</p>
+{% endif %}
+
+{% endblock %}
