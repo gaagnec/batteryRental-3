@@ -678,22 +678,35 @@
       function moveSidebar() {
         const sidebar = document.querySelector('.phoenix-sidebar');
         const container = document.querySelector('#container');
-        if (sidebar && container && !container.contains(sidebar)) {
-          container.insertBefore(sidebar, container.firstChild);
+        if (sidebar && container) {
+          // Only move if sidebar is not already in container
+          if (!container.contains(sidebar)) {
+            // Insert sidebar as first child of container
+            container.insertBefore(sidebar, container.firstChild);
+            console.log('Sidebar moved into container');
+          }
+          // Ensure container has flex display
+          if (container) {
+            container.style.display = 'flex';
+            container.style.flexDirection = 'row';
+          }
         }
       }
       
       // Try immediately
-      moveSidebar();
-      
-      // Also try on DOMContentLoaded and load events
-      if (document.readyState === 'loading') {
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        moveSidebar();
+      } else {
         document.addEventListener('DOMContentLoaded', moveSidebar);
       }
+      
+      // Also try on load event
       window.addEventListener('load', moveSidebar);
       
-      // Fallback: try after a short delay
-      setTimeout(moveSidebar, 100);
+      // Fallback: try multiple times with delays
+      setTimeout(moveSidebar, 50);
+      setTimeout(moveSidebar, 200);
+      setTimeout(moveSidebar, 500);
     })();
   </script>
 {% endblock %}
