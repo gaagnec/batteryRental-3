@@ -49,6 +49,13 @@
       display: none !important;
     }
     
+    /* Hide breadcrumbs everywhere */
+    .breadcrumbs,
+    nav[aria-label="Хлебные крошки"],
+    nav[aria-label="Breadcrumbs"] {
+      display: none !important;
+    }
+    
     /* Top Navigation Bar */
     .phoenix-navbar {
       position: fixed;
@@ -269,12 +276,15 @@
     }
     
     #content {
-      flex: 1;
+      flex: 1 1 auto;
+      width: 100%;
+      max-width: 100%;
       background-color: var(--phoenix-content-bg) !important;
       padding: 2rem;
       min-height: calc(100vh - 64px);
       color: var(--phoenix-text) !important;
       overflow-x: auto;
+      box-sizing: border-box;
     }
     
     #content-main {
