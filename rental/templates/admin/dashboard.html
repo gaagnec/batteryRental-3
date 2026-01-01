@@ -4,14 +4,35 @@
 {% block title %}Dashboard | {{ block.super }}{% endblock %}
 
 {% block content %}
-<div class="container-fluid" style="background-color: #0b0d1a; padding-bottom: 1rem; padding-top: 1rem;">
-  <!-- Навигационные ссылки -->
-  <div class="mb-3">
-    <a href="{% url 'admin:rental_rental_changelist' %}" class="btn btn-sm btn-outline-success me-2" style="color: #a8e2a8; border-color: #a8e2a8;">📋 Договора</a>
-    <a href="{% url 'admin:rental_payment_changelist' %}" class="btn btn-sm btn-outline-warning" style="color: #ffd28a; border-color: #ffd28a;">💳 Платежи</a>
-  </div>
+<style>
+  /* Hide breadcrumbs on dashboard */
+  .breadcrumbs {
+    display: none !important;
+  }
   
-  <h1 class="h3 mb-4" style="color: #e3e6ed; font-weight: 600;">Dashboard</h1>
+  /* Fix dashboard width - full width with proper padding */
+  .dashboard-container {
+    width: 100%;
+    max-width: 100%;
+    padding: 2rem;
+    margin: 0;
+    background-color: var(--phoenix-content-bg);
+    box-sizing: border-box;
+  }
+  
+  .dashboard-container .row {
+    margin-left: -0.75rem;
+    margin-right: -0.75rem;
+  }
+  
+  .dashboard-container .row > * {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+</style>
+
+<div class="dashboard-container" style="background-color: var(--phoenix-content-bg); padding: 2rem;">
+  <h1 class="h3 mb-4" style="color: var(--phoenix-text); font-weight: 600;">Dashboard</h1>
 
   <!-- Три колонки сверху -->
   <div class="row g-3">
@@ -416,6 +437,10 @@
 </div>
 {% endblock %}
 
+{% block breadcrumbs %}
+  {# Hide breadcrumbs on dashboard #}
+{% endblock %}
+
 {% block extrastyle %}
   {{ block.super }}
   <style>
@@ -590,12 +615,6 @@
       }
     }
     
-    /* Уменьшение боковых padding в container-fluid */
-    .container-fluid {
-      --bs-gutter-x: 1rem; /* Уменьшено с 1.5rem */
-      padding-right: calc(var(--bs-gutter-x) * 0.5);
-      padding-left: calc(var(--bs-gutter-x) * 0.5);
-    }
   </style>
 {% endblock %}
 
