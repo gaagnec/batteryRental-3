@@ -30,12 +30,15 @@
     }
     
     body {
+      display: flex;
+      flex-direction: column;
       background-color: var(--phoenix-content-bg) !important;
       color: var(--phoenix-text) !important;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       margin: 0;
       padding: 0;
       overflow-x: hidden;
+      min-height: 100vh;
     }
     
     /* Hide default Django admin header and sidebar */
@@ -145,17 +148,14 @@
     
     /* Sidebar - Compact Phoenix Style */
     .phoenix-sidebar {
-      position: fixed;
-      left: 0;
-      top: 64px;
       width: 256px;
-      height: calc(100vh - 64px);
+      flex-shrink: 0;
       background-color: var(--phoenix-sidebar-bg);
       border-right: 1px solid var(--phoenix-border);
       overflow-y: auto;
       overflow-x: hidden;
-      z-index: 1020;
       padding: 0.75rem 0;
+      height: calc(100vh - 64px);
     }
     
     .phoenix-sidebar::-webkit-scrollbar {
@@ -237,18 +237,28 @@
       text-overflow: ellipsis;
     }
     
-    /* Main Content Area */
+    /* Main Content Area - Flexbox Layout */
     #container {
-      margin-left: 256px !important;
-      padding-top: 64px !important;
-      min-height: 100vh;
+      display: flex;
+      flex: 1;
+      margin-top: 64px !important;
+      margin-left: 0 !important;
+      padding: 0 !important;
+      min-height: calc(100vh - 64px);
+    }
+    
+    /* Sidebar positioning for flex layout */
+    .phoenix-sidebar {
+      order: -1;
     }
     
     #content {
+      flex: 1;
       background-color: var(--phoenix-content-bg) !important;
       padding: 2rem;
       min-height: calc(100vh - 64px);
       color: var(--phoenix-text) !important;
+      overflow-x: auto;
     }
     
     #content-main {
