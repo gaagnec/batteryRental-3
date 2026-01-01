@@ -212,16 +212,25 @@
       font-size: 0.8125rem;
       font-weight: 500;
       line-height: 1.4;
+      position: relative;
     }
     
     .phoenix-sidebar-link:hover {
       background-color: var(--phoenix-sidebar-hover);
       color: var(--phoenix-text) !important;
+      transform: translateX(2px);
     }
     
     .phoenix-sidebar-link.active {
-      background-color: var(--phoenix-primary);
-      color: white !important;
+      background-color: rgba(56, 116, 255, 0.15);
+      color: var(--phoenix-primary) !important;
+      font-weight: 600;
+      border-left: 3px solid var(--phoenix-primary);
+      padding-left: calc(0.75rem - 3px);
+    }
+    
+    .phoenix-sidebar-link.active i {
+      color: var(--phoenix-primary) !important;
     }
     
     .phoenix-sidebar-link i {
@@ -229,6 +238,11 @@
       text-align: center;
       font-size: 1rem;
       flex-shrink: 0;
+      transition: transform 0.15s ease;
+    }
+    
+    .phoenix-sidebar-link:hover i {
+      transform: scale(1.1);
     }
     
     .phoenix-sidebar-link span {
