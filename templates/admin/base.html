@@ -560,12 +560,6 @@
           <span>Договора</span>
         </a>
       </li>
-      <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_rentalbatteryassignment_changelist' %}" class="phoenix-sidebar-link {% if 'rentalbatteryassignment' in request.resolver_match.url_name %}active{% endif %}">
-          <i class="bi bi-link-45deg"></i>
-          <span>Привязки батарей</span>
-        </a>
-      </li>
       
       <li class="phoenix-sidebar-section">Батареи</li>
       <li class="phoenix-sidebar-item">
@@ -575,7 +569,7 @@
         </a>
       </li>
       <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_batterystatuslog_changelist' %}" class="phoenix-sidebar-link {% if 'batterystatuslog' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'admin:rental_batterystatuslog_changelist' %}" class="phoenix-sidebar-link {% if 'batterystatuslog' in request.resolver_match.url_name or 'rental_batterystatuslog' in request.resolver_match.url_name %}active{% endif %}">
           <i class="bi bi-clock-history"></i>
           <span>Логи статусов</span>
         </a>
@@ -601,19 +595,19 @@
         </a>
       </li>
       <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_expensecategory_changelist' %}" class="phoenix-sidebar-link {% if 'expensecategory' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'admin:rental_expensecategory_changelist' %}" class="phoenix-sidebar-link {% if 'expensecategory' in request.resolver_match.url_name or 'rental_expensecategory' in request.resolver_match.url_name %}active{% endif %}">
           <i class="bi bi-folder"></i>
           <span>Категории расходов</span>
         </a>
       </li>
       <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_financeoverviewproxy_changelist' %}" class="phoenix-sidebar-link {% if 'financeoverviewproxy' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'admin:rental_financeoverviewproxy_changelist' %}" class="phoenix-sidebar-link {% if 'financeoverviewproxy' in request.resolver_match.url_name or 'rental_financeoverviewproxy' in request.resolver_match.url_name %}active{% endif %}">
           <i class="bi bi-graph-up-arrow"></i>
           <span>Финансы</span>
         </a>
       </li>
       <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_financeoverviewproxy2_changelist' %}" class="phoenix-sidebar-link {% if 'financeoverviewproxy2' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'admin:rental_financeoverviewproxy2_changelist' %}" class="phoenix-sidebar-link {% if 'financeoverviewproxy2' in request.resolver_match.url_name or 'rental_financeoverviewproxy2' in request.resolver_match.url_name %}active{% endif %}">
           <i class="bi bi-journal-text"></i>
           <span>Бухучёт</span>
         </a>
@@ -622,25 +616,25 @@
       {% if user.is_superuser %}
       <li class="phoenix-sidebar-section">Финансовые партнёры</li>
       <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_financepartner_changelist' %}" class="phoenix-sidebar-link {% if 'financepartner' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'admin:rental_financepartner_changelist' %}" class="phoenix-sidebar-link {% if 'financepartner' in request.resolver_match.url_name or 'rental_financepartner' in request.resolver_match.url_name %}active{% endif %}">
           <i class="bi bi-people"></i>
           <span>Партнёры</span>
         </a>
       </li>
       <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_ownerwithdrawal_changelist' %}" class="phoenix-sidebar-link {% if 'ownerwithdrawal' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'admin:rental_ownerwithdrawal_changelist' %}" class="phoenix-sidebar-link {% if 'ownerwithdrawal' in request.resolver_match.url_name or 'rental_ownerwithdrawal' in request.resolver_match.url_name %}active{% endif %}">
           <i class="bi bi-dash-circle"></i>
           <span>Выводы владельцев</span>
         </a>
       </li>
       <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_moneytransfer_changelist' %}" class="phoenix-sidebar-link {% if 'moneytransfer' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'admin:rental_moneytransfer_changelist' %}" class="phoenix-sidebar-link {% if 'moneytransfer' in request.resolver_match.url_name or 'rental_moneytransfer' in request.resolver_match.url_name %}active{% endif %}">
           <i class="bi bi-arrow-left-right"></i>
           <span>Денежные переводы</span>
         </a>
       </li>
       <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_financeadjustment_changelist' %}" class="phoenix-sidebar-link {% if 'financeadjustment' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'admin:rental_financeadjustment_changelist' %}" class="phoenix-sidebar-link {% if 'financeadjustment' in request.resolver_match.url_name or 'rental_financeadjustment' in request.resolver_match.url_name %}active{% endif %}">
           <i class="bi bi-sliders"></i>
           <span>Корректировки</span>
         </a>
