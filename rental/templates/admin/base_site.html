@@ -242,6 +242,16 @@
       box-sizing: border-box;
     }
     
+    /* Login page - no navbar/sidebar */
+    body.login #container {
+      margin-top: 0 !important;
+    }
+    
+    body.login .phoenix-navbar,
+    body.login .phoenix-sidebar {
+      display: none !important;
+    }
+    
     /* Sidebar positioning for flex layout */
     .phoenix-sidebar {
       width: 280px;
