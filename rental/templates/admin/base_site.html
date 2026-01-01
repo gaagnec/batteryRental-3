@@ -6,334 +6,451 @@
 {% block extrastyle %}
   {{ block.super }}
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
   <style>
     /* =================================
-       КЛАССИЧЕСКОЕ МЕНЮ: SIDEBAR + TOP NAV
+       PHOENIX-STYLE ADMIN THEME
        ================================= */
     
-    /* Основной layout */
+    :root {
+      --phoenix-primary: #3874ff;
+      --phoenix-primary-hover: #2d5fd9;
+      --phoenix-sidebar-bg: #1a1c2e;
+      --phoenix-sidebar-hover: #252840;
+      --phoenix-topnav-bg: #0f1117;
+      --phoenix-content-bg: #0f1117;
+      --phoenix-card-bg: #1a1c2e;
+      --phoenix-border: #2d3142;
+      --phoenix-text: #e9ecef;
+      --phoenix-text-muted: #8b92a7;
+      --phoenix-text-light: #6c757d;
+    }
+    
+    /* Reset and base */
+    * {
+      box-sizing: border-box;
+    }
+    
     body {
-      background-color: #0b0d1a !important;
+      background-color: var(--phoenix-content-bg) !important;
+      color: var(--phoenix-text) !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       margin: 0;
       padding: 0;
+      overflow-x: hidden;
     }
     
-    /* Sidebar слева */
-    .admin-sidebar {
-      position: fixed;
-      left: 0;
-      top: 0;
-      width: 250px;
-      height: 100vh;
-      background-color: #1c1e2d;
-      border-right: 1px solid #2a2e41;
-      overflow-y: auto;
-      z-index: 1000;
-      padding-top: 60px; /* Отступ для top nav */
+    /* Hide default Django admin header and sidebar */
+    #header,
+    #nav-sidebar,
+    #toggle-nav-sidebar {
+      display: none !important;
     }
     
-    .admin-sidebar-menu {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-    
-    .admin-sidebar-menu li {
-      margin: 0;
-      padding: 0;
-    }
-    
-    .admin-sidebar-menu a {
-      display: block;
-      padding: 12px 20px;
-      color: #9fa6bc;
-      text-decoration: none;
-      border-left: 3px solid transparent;
-      transition: all 0.2s ease;
-    }
-    
-    .admin-sidebar-menu a:hover {
-      background-color: #2a2e41;
-      color: #e3e6ed;
-      border-left-color: #8ad0ff;
-    }
-    
-    .admin-sidebar-menu a.active {
-      background-color: #2a2e41;
-      color: #8ad0ff;
-      border-left-color: #8ad0ff;
-      font-weight: 600;
-    }
-    
-    .admin-sidebar-section {
-      padding: 15px 20px 10px;
-      color: #6b7280;
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    
-    /* Top navigation */
-    .admin-top-nav {
+    /* Top Navigation Bar */
+    .phoenix-navbar {
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
-      height: 60px;
-      background-color: #0e1018;
-      border-bottom: 1px solid #2a2e41;
-      z-index: 999;
+      height: 64px;
+      background-color: var(--phoenix-topnav-bg);
+      border-bottom: 1px solid var(--phoenix-border);
+      z-index: 1030;
       display: flex;
       align-items: center;
-      padding: 0 20px;
-      gap: 20px;
+      padding: 0 1.5rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
     }
     
-    .admin-top-nav-left {
-      flex: 1;
+    .phoenix-navbar-brand {
       display: flex;
       align-items: center;
-      gap: 20px;
-    }
-    
-    .admin-top-nav-logo {
+      gap: 0.75rem;
       font-size: 1.25rem;
       font-weight: 600;
-      color: #e3e6ed;
+      color: var(--phoenix-text) !important;
       text-decoration: none;
+      margin-right: 2rem;
     }
     
-    .admin-top-nav-menu {
+    .phoenix-navbar-brand:hover {
+      color: var(--phoenix-primary) !important;
+    }
+    
+    .phoenix-navbar-nav {
       display: flex;
-      gap: 10px;
       list-style: none;
       margin: 0;
       padding: 0;
+      gap: 0.5rem;
+      flex: 1;
     }
     
-    .admin-top-nav-menu a {
-      padding: 8px 16px;
-      color: #9fa6bc;
-      text-decoration: none;
-      border-radius: 4px;
-      transition: all 0.2s ease;
-    }
-    
-    .admin-top-nav-menu a:hover {
-      background-color: #2a2e41;
-      color: #e3e6ed;
-    }
-    
-    .admin-top-nav-menu a.active {
-      background-color: #2a2e41;
-      color: #8ad0ff;
-    }
-    
-    .admin-top-nav-right {
+    .phoenix-navbar-nav a {
       display: flex;
       align-items: center;
-      gap: 15px;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      color: var(--phoenix-text-muted) !important;
+      text-decoration: none;
+      border-radius: 0.375rem;
+      transition: all 0.2s ease;
+      font-size: 0.875rem;
+      font-weight: 500;
     }
     
-    /* Основной контент с отступом */
+    .phoenix-navbar-nav a:hover {
+      background-color: var(--phoenix-sidebar-hover);
+      color: var(--phoenix-text) !important;
+    }
+    
+    .phoenix-navbar-nav a.active {
+      background-color: var(--phoenix-primary);
+      color: white !important;
+    }
+    
+    .phoenix-navbar-right {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-left: auto;
+    }
+    
+    .phoenix-user-menu {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem 1rem;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    
+    .phoenix-user-menu:hover {
+      background-color: var(--phoenix-sidebar-hover);
+    }
+    
+    .phoenix-user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--phoenix-primary), #6c5ce7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+      font-size: 0.875rem;
+    }
+    
+    /* Sidebar */
+    .phoenix-sidebar {
+      position: fixed;
+      left: 0;
+      top: 64px;
+      width: 280px;
+      height: calc(100vh - 64px);
+      background-color: var(--phoenix-sidebar-bg);
+      border-right: 1px solid var(--phoenix-border);
+      overflow-y: auto;
+      overflow-x: hidden;
+      z-index: 1020;
+      padding: 1.5rem 0;
+    }
+    
+    .phoenix-sidebar::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    .phoenix-sidebar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    .phoenix-sidebar::-webkit-scrollbar-thumb {
+      background: var(--phoenix-border);
+      border-radius: 3px;
+    }
+    
+    .phoenix-sidebar::-webkit-scrollbar-thumb:hover {
+      background: #3d4154;
+    }
+    
+    .phoenix-sidebar-menu {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    
+    .phoenix-sidebar-section {
+      padding: 1rem 1.5rem 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--phoenix-text-light);
+      margin-top: 1rem;
+    }
+    
+    .phoenix-sidebar-section:first-child {
+      margin-top: 0;
+    }
+    
+    .phoenix-sidebar-item {
+      margin: 0.25rem 0.75rem;
+    }
+    
+    .phoenix-sidebar-link {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.625rem 1rem;
+      color: var(--phoenix-text-muted) !important;
+      text-decoration: none;
+      border-radius: 0.5rem;
+      transition: all 0.2s ease;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    
+    .phoenix-sidebar-link:hover {
+      background-color: var(--phoenix-sidebar-hover);
+      color: var(--phoenix-text) !important;
+    }
+    
+    .phoenix-sidebar-link.active {
+      background-color: var(--phoenix-primary);
+      color: white !important;
+    }
+    
+    .phoenix-sidebar-link i {
+      width: 20px;
+      text-align: center;
+      font-size: 1.125rem;
+    }
+    
+    /* Main Content Area */
     #container {
-      margin-left: 250px;
-      padding-top: 60px;
+      margin-left: 280px;
+      padding-top: 64px;
+      min-height: 100vh;
     }
     
     #content {
-      background-color: #0b0d1a !important;
-      padding: 20px;
-      min-height: calc(100vh - 60px);
+      background-color: var(--phoenix-content-bg) !important;
+      padding: 2rem;
+      min-height: calc(100vh - 64px);
     }
     
     #content-main {
-      background-color: #0b0d1a !important;
+      background-color: var(--phoenix-content-bg) !important;
     }
     
-    /* Скрываем стандартный sidebar Django */
-    #nav-sidebar {
-      display: none !important;
+    /* Cards and Modules */
+    .module,
+    .card,
+    fieldset {
+      background-color: var(--phoenix-card-bg) !important;
+      border: 1px solid var(--phoenix-border) !important;
+      border-radius: 0.75rem !important;
+      color: var(--phoenix-text) !important;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
     }
     
-    /* Скрываем стандартную навигацию Django */
-    #header {
-      display: none !important;
+    .module h2,
+    .module caption,
+    .card-header,
+    h1, h2, h3, h4, h5, h6 {
+      background-color: transparent !important;
+      color: var(--phoenix-text) !important;
+      border-bottom: 1px solid var(--phoenix-border) !important;
+      padding: 1rem 1.5rem;
+      margin: 0;
+      font-weight: 600;
     }
     
-    /* Карточки и модули */
-    .module, .card, fieldset {
-      background-color: #1c1e2d !important;
-      border-color: #2a2e41 !important;
-      color: #e3e6ed !important;
-    }
-    
-    /* Заголовки */
-    .module h2, .module caption, .inline-group h2, fieldset h2, 
-    .card-header, h1, h2, h3, h4, h5, h6 {
-      background-color: #0e1018 !important;
-      color: #e3e6ed !important;
-      border-bottom: 1px solid #2a2e41 !important;
-    }
-    
-    /* Таблицы */
-    table, thead, tbody, tr, td, th {
-      background-color: #1c1e2d !important;
-      border-color: #2a2e41 !important;
-      color: #e3e6ed !important;
+    /* Tables */
+    table,
+    thead,
+    tbody,
+    tr,
+    td,
+    th {
+      background-color: var(--phoenix-card-bg) !important;
+      border-color: var(--phoenix-border) !important;
+      color: var(--phoenix-text) !important;
     }
     
     thead th {
-      background-color: #0e1018 !important;
-      color: #8ad0ff !important;
+      background-color: var(--phoenix-sidebar-bg) !important;
+      color: var(--phoenix-text) !important;
       font-weight: 600 !important;
-      border-bottom: 2px solid #2a2e41 !important;
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 1rem !important;
+      border-bottom: 2px solid var(--phoenix-border) !important;
+    }
+    
+    tbody tr {
+      border-bottom: 1px solid var(--phoenix-border);
+      transition: background-color 0.15s ease;
     }
     
     tbody tr:hover {
-      background-color: rgba(138, 208, 255, 0.05) !important;
+      background-color: var(--phoenix-sidebar-hover) !important;
     }
     
-    /* Формы */
-    .form-row label, .form-row .help, .help, label {
-      color: #9fa6bc !important;
+    tbody td {
+      padding: 1rem !important;
+      color: var(--phoenix-text) !important;
+      font-size: 0.875rem;
     }
     
-    input, select, textarea, .vTextField, .vDateField, .vTimeField, 
-    .vURLField, .vIntegerField, .vPositiveSmallIntegerField, 
-    .vForeignKeyRawIdAdminField {
-      background-color: #0e1018 !important;
-      border-color: #2a2e41 !important;
-      color: #e3e6ed !important;
+    /* Forms */
+    input,
+    select,
+    textarea,
+    .vTextField,
+    .vDateField {
+      background-color: var(--phoenix-sidebar-bg) !important;
+      border: 1px solid var(--phoenix-border) !important;
+      color: var(--phoenix-text) !important;
+      border-radius: 0.5rem;
+      padding: 0.5rem 0.75rem;
     }
     
-    input:focus, select:focus, textarea:focus {
-      background-color: #0e1018 !important;
-      border-color: #8ad0ff !important;
-      color: #e3e6ed !important;
+    input:focus,
+    select:focus,
+    textarea:focus {
+      background-color: var(--phoenix-sidebar-bg) !important;
+      border-color: var(--phoenix-primary) !important;
+      color: var(--phoenix-text) !important;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(56, 116, 255, 0.1);
     }
     
-    /* Кнопки */
-    .button, input[type="submit"], input[type="button"], .submit-row input, 
-    button, .btn {
-      background-color: #2a2e41 !important;
-      border-color: #3a3e51 !important;
-      color: #e3e6ed !important;
+    label {
+      color: var(--phoenix-text-muted) !important;
+      font-weight: 500;
+      font-size: 0.875rem;
+      margin-bottom: 0.5rem;
     }
     
-    .button:hover, input[type="submit"]:hover, input[type="button"]:hover, 
-    button:hover, .btn:hover {
-      background-color: #3a3e51 !important;
-      border-color: #4a4e61 !important;
+    /* Buttons */
+    .button,
+    input[type="submit"],
+    button,
+    .btn {
+      background-color: var(--phoenix-primary) !important;
+      border: none !important;
+      color: white !important;
+      border-radius: 0.5rem;
+      padding: 0.5rem 1rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
     }
     
-    .button.default, input[type="submit"].default, .submit-row input.default {
-      background-color: #8ad0ff !important;
-      color: #0b0d1a !important;
-      border-color: #8ad0ff !important;
+    .button:hover,
+    button:hover,
+    .btn:hover {
+      background-color: var(--phoenix-primary-hover) !important;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(56, 116, 255, 0.3);
     }
     
-    .button.default:hover {
-      background-color: #a0dcff !important;
-      color: #0b0d1a !important;
+    .button.default {
+      background-color: var(--phoenix-primary) !important;
     }
     
-    /* Ссылки */
+    /* Links */
     a {
-      color: #8ad0ff !important;
+      color: var(--phoenix-primary) !important;
     }
     
     a:hover {
-      color: #a0dcff !important;
-    }
-    
-    /* Changelist */
-    #changelist {
-      background-color: #0b0d1a !important;
-    }
-    
-    #changelist-form {
-      background-color: #0b0d1a !important;
-    }
-    
-    .results {
-      background-color: #1c1e2d !important;
-    }
-    
-    /* Пагинация */
-    .paginator {
-      color: #9fa6bc !important;
-      background-color: #1c1e2d !important;
-      border-color: #2a2e41 !important;
-    }
-    
-    .paginator a {
-      color: #8ad0ff !important;
-    }
-    
-    /* Фильтры */
-    #changelist-filter {
-      background-color: #1c1e2d !important;
-      border-left: 1px solid #2a2e41 !important;
-    }
-    
-    #changelist-filter h2, #changelist-filter h3 {
-      background-color: #0e1018 !important;
-      color: #e3e6ed !important;
-    }
-    
-    #changelist-filter li.selected a {
-      color: #8ad0ff !important;
-      font-weight: 600 !important;
+      color: var(--phoenix-primary-hover) !important;
     }
     
     /* Breadcrumbs */
     .breadcrumbs {
-      background-color: #1c1e2d !important;
-      color: #9fa6bc !important;
-      border-bottom: 1px solid #2a2e41 !important;
+      background-color: transparent !important;
+      color: var(--phoenix-text-muted) !important;
+      border: none !important;
+      padding: 0.5rem 0;
+      margin-bottom: 1rem;
     }
     
     .breadcrumbs a {
-      color: #8ad0ff !important;
+      color: var(--phoenix-primary) !important;
     }
     
-    /* Сообщения */
+    /* Messages */
     .messagelist {
-      margin: 0 !important;
-      padding: 0 !important;
+      margin: 0 0 1.5rem 0;
+      padding: 0;
+      list-style: none;
     }
     
     .messagelist li {
-      background-color: #1c1e2d !important;
-      border-color: #2a2e41 !important;
-      color: #e3e6ed !important;
+      padding: 1rem 1.5rem;
+      border-radius: 0.5rem;
+      margin-bottom: 0.5rem;
+      border-left: 4px solid;
     }
     
     .messagelist .success {
-      background-color: rgba(168, 226, 168, 0.2) !important;
-      border-left: 4px solid #a8e2a8 !important;
+      background-color: rgba(40, 167, 69, 0.1);
+      border-left-color: #28a745;
+      color: #28a745;
     }
     
     .messagelist .error {
-      background-color: rgba(255, 107, 107, 0.2) !important;
-      border-left: 4px solid #ff6b6b !important;
+      background-color: rgba(220, 53, 69, 0.1);
+      border-left-color: #dc3545;
+      color: #dc3545;
     }
     
     .messagelist .warning {
-      background-color: rgba(255, 210, 138, 0.2) !important;
-      border-left: 4px solid #ffd28a !important;
+      background-color: rgba(255, 193, 7, 0.1);
+      border-left-color: #ffc107;
+      color: #ffc107;
     }
     
-    /* Адаптивность */
-    @media (max-width: 768px) {
-      .admin-sidebar {
+    /* Filters */
+    #changelist-filter {
+      background-color: var(--phoenix-card-bg) !important;
+      border: 1px solid var(--phoenix-border) !important;
+      border-radius: 0.75rem;
+    }
+    
+    #changelist-filter h2,
+    #changelist-filter h3 {
+      background-color: transparent !important;
+      color: var(--phoenix-text) !important;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--phoenix-border);
+    }
+    
+    #changelist-filter li a {
+      color: var(--phoenix-text-muted) !important;
+      padding: 0.5rem 1.5rem;
+    }
+    
+    #changelist-filter li.selected a {
+      color: var(--phoenix-primary) !important;
+      font-weight: 600;
+      background-color: rgba(56, 116, 255, 0.1);
+    }
+    
+    /* Responsive */
+    @media (max-width: 992px) {
+      .phoenix-sidebar {
         transform: translateX(-100%);
         transition: transform 0.3s ease;
       }
       
-      .admin-sidebar.open {
+      .phoenix-sidebar.open {
         transform: translateX(0);
       }
       
@@ -344,47 +461,119 @@
   </style>
 {% endblock %}
 
-{% block bodyclass %}{{ block.super }} admin-classic-menu{% endblock %}
+{% block bodyclass %}{{ block.super }} phoenix-admin{% endblock %}
 
 {% block header %}
   <!-- Top Navigation -->
-  <div class="admin-top-nav">
-    <div class="admin-top-nav-left">
-      <a href="{% url 'admin:index' %}" class="admin-top-nav-logo">Админ-панель</a>
-      <ul class="admin-top-nav-menu">
-        <li><a href="{% url 'admin:index' %}" class="{% if request.resolver_match.url_name == 'index' %}active{% endif %}">Главная</a></li>
-        <li><a href="{% url 'admin:rental_rental_changelist' %}" class="{% if 'rental_rental' in request.resolver_match.url_name %}active{% endif %}">Договора</a></li>
-        <li><a href="{% url 'admin:rental_payment_changelist' %}" class="{% if 'rental_payment' in request.resolver_match.url_name %}active{% endif %}">Платежи</a></li>
-        <li><a href="{% url 'admin-dashboard' %}" class="{% if request.resolver_match.url_name == 'admin-dashboard' %}active{% endif %}">Dashboard</a></li>
-      </ul>
-    </div>
-    <div class="admin-top-nav-right">
+  <nav class="phoenix-navbar">
+    <a href="{% url 'admin:index' %}" class="phoenix-navbar-brand">
+      <i class="bi bi-lightning-charge-fill" style="color: var(--phoenix-primary);"></i>
+      <span>Battery Rental</span>
+    </a>
+    
+    <ul class="phoenix-navbar-nav">
+      <li>
+        <a href="{% url 'admin:index' %}" class="{% if request.resolver_match.url_name == 'index' %}active{% endif %}">
+          <i class="bi bi-house-door"></i>
+          <span>Главная</span>
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'admin:rental_rental_changelist' %}" class="{% if 'rental_rental' in request.resolver_match.url_name %}active{% endif %}">
+          <i class="bi bi-file-earmark-text"></i>
+          <span>Договора</span>
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'admin:rental_payment_changelist' %}" class="{% if 'rental_payment' in request.resolver_match.url_name %}active{% endif %}">
+          <i class="bi bi-credit-card"></i>
+          <span>Платежи</span>
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'admin-dashboard' %}" class="{% if request.resolver_match.url_name == 'admin-dashboard' %}active{% endif %}">
+          <i class="bi bi-graph-up"></i>
+          <span>Dashboard</span>
+        </a>
+      </li>
+    </ul>
+    
+    <div class="phoenix-navbar-right">
       {% if user.is_authenticated %}
-        <span style="color: #9fa6bc;">{{ user.get_full_name|default:user.username }}</span>
-        <a href="{% url 'admin:logout' %}" style="color: #9fa6bc; text-decoration: none;">Выйти</a>
+        <div class="phoenix-user-menu">
+          <div class="phoenix-user-avatar">
+            {{ user.first_name|first|default:user.username|first|upper }}
+          </div>
+          <div>
+            <div style="font-size: 0.875rem; font-weight: 500; color: var(--phoenix-text);">
+              {{ user.get_full_name|default:user.username }}
+            </div>
+            <div style="font-size: 0.75rem; color: var(--phoenix-text-muted);">
+              {% if user.is_superuser %}Администратор{% else %}Пользователь{% endif %}
+            </div>
+          </div>
+        </div>
+        <a href="{% url 'admin:logout' %}" style="color: var(--phoenix-text-muted); text-decoration: none; padding: 0.5rem;">
+          <i class="bi bi-box-arrow-right" style="font-size: 1.25rem;"></i>
+        </a>
       {% endif %}
     </div>
-  </div>
+  </nav>
   
   <!-- Sidebar -->
-  <div class="admin-sidebar">
-    <ul class="admin-sidebar-menu">
-      <li class="admin-sidebar-section">Главная</li>
-      <li><a href="{% url 'admin:index' %}" class="{% if request.resolver_match.url_name == 'index' %}active{% endif %}">🏠 Главная</a></li>
-      <li><a href="{% url 'admin-dashboard' %}" class="{% if request.resolver_match.url_name == 'admin-dashboard' %}active{% endif %}">📊 Dashboard</a></li>
+  <aside class="phoenix-sidebar">
+    <ul class="phoenix-sidebar-menu">
+      <li class="phoenix-sidebar-section">Главная</li>
+      <li class="phoenix-sidebar-item">
+        <a href="{% url 'admin:index' %}" class="phoenix-sidebar-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
+          <i class="bi bi-house-door"></i>
+          <span>Главная</span>
+        </a>
+      </li>
+      <li class="phoenix-sidebar-item">
+        <a href="{% url 'admin-dashboard' %}" class="phoenix-sidebar-link {% if request.resolver_match.url_name == 'admin-dashboard' %}active{% endif %}">
+          <i class="bi bi-graph-up"></i>
+          <span>Dashboard</span>
+        </a>
+      </li>
       
-      <li class="admin-sidebar-section">Клиенты и договоры</li>
-      <li><a href="{% url 'admin:rental_client_changelist' %}" class="{% if 'rental_client' in request.resolver_match.url_name %}active{% endif %}">👤 Клиенты</a></li>
-      <li><a href="{% url 'admin:rental_rental_changelist' %}" class="{% if 'rental_rental' in request.resolver_match.url_name %}active{% endif %}">📋 Договора</a></li>
+      <li class="phoenix-sidebar-section">Клиенты и договоры</li>
+      <li class="phoenix-sidebar-item">
+        <a href="{% url 'admin:rental_client_changelist' %}" class="phoenix-sidebar-link {% if 'rental_client' in request.resolver_match.url_name %}active{% endif %}">
+          <i class="bi bi-people"></i>
+          <span>Клиенты</span>
+        </a>
+      </li>
+      <li class="phoenix-sidebar-item">
+        <a href="{% url 'admin:rental_rental_changelist' %}" class="phoenix-sidebar-link {% if 'rental_rental' in request.resolver_match.url_name %}active{% endif %}">
+          <i class="bi bi-file-earmark-text"></i>
+          <span>Договора</span>
+        </a>
+      </li>
       
-      <li class="admin-sidebar-section">Батареи</li>
-      <li><a href="{% url 'admin:rental_battery_changelist' %}" class="{% if 'rental_battery' in request.resolver_match.url_name %}active{% endif %}">🔋 Батареи</a></li>
+      <li class="phoenix-sidebar-section">Батареи</li>
+      <li class="phoenix-sidebar-item">
+        <a href="{% url 'admin:rental_battery_changelist' %}" class="phoenix-sidebar-link {% if 'rental_battery' in request.resolver_match.url_name %}active{% endif %}">
+          <i class="bi bi-battery-full"></i>
+          <span>Батареи</span>
+        </a>
+      </li>
       
-      <li class="admin-sidebar-section">Финансы</li>
-      <li><a href="{% url 'admin:rental_payment_changelist' %}" class="{% if 'rental_payment' in request.resolver_match.url_name %}active{% endif %}">💳 Платежи</a></li>
-      <li><a href="{% url 'admin:rental_expense_changelist' %}" class="{% if 'rental_expense' in request.resolver_match.url_name %}active{% endif %}">📉 Расходы</a></li>
+      <li class="phoenix-sidebar-section">Финансы</li>
+      <li class="phoenix-sidebar-item">
+        <a href="{% url 'admin:rental_payment_changelist' %}" class="phoenix-sidebar-link {% if 'rental_payment' in request.resolver_match.url_name %}active{% endif %}">
+          <i class="bi bi-credit-card"></i>
+          <span>Платежи</span>
+        </a>
+      </li>
+      <li class="phoenix-sidebar-item">
+        <a href="{% url 'admin:rental_expense_changelist' %}" class="phoenix-sidebar-link {% if 'rental_expense' in request.resolver_match.url_name %}active{% endif %}">
+          <i class="bi bi-cash-stack"></i>
+          <span>Расходы</span>
+        </a>
+      </li>
     </ul>
-  </div>
+  </aside>
 {% endblock %}
 
 {% block footer %}
