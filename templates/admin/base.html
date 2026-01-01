@@ -520,6 +520,7 @@
 {% block bodyclass %}{{ block.super }} phoenix-admin dark-mode{% endblock %}
 
 {% block header %}
+  {% if user.is_authenticated %}
   <!-- Top Navigation -->
   <nav class="phoenix-navbar">
     <a href="{% url 'admin:index' %}" class="phoenix-navbar-brand">
@@ -688,6 +689,7 @@
       {% endif %}
     </ul>
   </aside>
+  {% endif %}
 {% endblock %}
 
 {% block footer %}
