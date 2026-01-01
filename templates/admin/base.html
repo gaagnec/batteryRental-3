@@ -465,30 +465,40 @@
       color: #ffc107;
     }
     
-    /* Filters */
+    /* Filters - Hide completely */
     #changelist-filter {
-      background-color: var(--phoenix-card-bg) !important;
-      border: 1px solid var(--phoenix-border) !important;
-      border-radius: 0.75rem;
+      display: none !important;
     }
     
-    #changelist-filter h2,
-    #changelist-filter h3 {
-      background-color: transparent !important;
-      color: var(--phoenix-text) !important;
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid var(--phoenix-border);
+    /* Force full-width responsive layout */
+    .main,
+    .content,
+    #content-main,
+    .colM,
+    .colMS {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 !important;
     }
     
-    #changelist-filter li a {
-      color: var(--phoenix-text-muted) !important;
-      padding: 0.5rem 1.5rem;
+    /* Remove any max-width constraints */
+    .main.shifted > #nav-sidebar + .content {
+      max-width: 100% !important;
+      width: 100% !important;
     }
     
-    #changelist-filter li.selected a {
-      color: var(--phoenix-primary) !important;
-      font-weight: 600;
-      background-color: rgba(56, 116, 255, 0.1);
+    /* Ensure changelist tables are full width */
+    #changelist,
+    #changelist-form,
+    .change-list {
+      width: 100%;
+      max-width: 100%;
+    }
+    
+    /* Make tables responsive */
+    .results {
+      width: 100%;
+      overflow-x: auto;
     }
     
     /* Force dark mode on all elements */
