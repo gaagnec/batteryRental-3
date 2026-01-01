@@ -11,18 +11,20 @@
 /* General */
 .finance-v2-container {
     padding: 20px;
-    max-width: 1400px;
-    margin: 0 auto;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    box-sizing: border-box;
 }
 
 .finance-v2-container h1 {
     font-size: 28px;
     margin-bottom: 10px;
-    color: #333;
+    color: var(--phoenix-text);
 }
 
 .finance-v2-container .subtitle {
-    color: #666;
+    color: var(--phoenix-text-muted);
     margin-bottom: 25px;
     font-size: 14px;
 }
@@ -31,30 +33,30 @@
 .tabs {
     display: flex;
     gap: 10px;
-    border-bottom: 2px solid #ddd;
+    border-bottom: 2px solid var(--phoenix-border);
     margin-bottom: 30px;
 }
 
 .tab {
     padding: 12px 24px;
     cursor: pointer;
-    background: #f5f5f5;
+    background: var(--phoenix-card-bg);
     border: none;
     border-radius: 8px 8px 0 0;
     font-size: 15px;
     font-weight: 500;
     transition: all 0.2s;
-    color: #666;
+    color: var(--phoenix-text-muted);
 }
 
 .tab:hover {
-    background: #e0e0e0;
+    background: var(--phoenix-sidebar-hover);
 }
 
 .tab.active {
-    background: #417690;
+    background: var(--phoenix-primary);
     color: white;
-    border-bottom: 3px solid #417690;
+    border-bottom: 3px solid var(--phoenix-primary);
 }
 
 .tab-content {
@@ -70,14 +72,14 @@
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 30px;
-    background: white;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    background: var(--phoenix-card-bg);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     border-radius: 8px;
     overflow: hidden;
 }
 
 .finance-table thead {
-    background: #417690;
+    background: var(--phoenix-primary);
     color: white;
 }
 
@@ -92,12 +94,13 @@
 
 .finance-table td {
     padding: 12px 16px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--phoenix-border);
     font-size: 14px;
+    color: var(--phoenix-text);
 }
 
 .finance-table tbody tr:hover {
-    background: #f9f9f9;
+    background: var(--phoenix-sidebar-hover);
 }
 
 .finance-table tfoot {
