@@ -239,17 +239,26 @@
     
     /* Main Content Area - Flexbox Layout */
     #container {
-      display: flex;
+      display: flex !important;
+      flex-direction: row !important;
       flex: 1;
       margin-top: 64px !important;
       margin-left: 0 !important;
       padding: 0 !important;
       min-height: calc(100vh - 64px);
+      width: 100%;
+      box-sizing: border-box;
     }
     
     /* Sidebar positioning for flex layout */
-    .phoenix-sidebar {
+    #container > .phoenix-sidebar {
       order: -1;
+      flex-shrink: 0;
+    }
+    
+    /* Ensure sidebar is visible even if not moved yet */
+    .phoenix-sidebar {
+      display: block !important;
     }
     
     #content {
@@ -664,11 +673,25 @@
     
     // Move sidebar into container for flexbox layout
     (function() {
-      const sidebar = document.querySelector('.phoenix-sidebar');
-      const container = document.querySelector('#container');
-      if (sidebar && container && !container.contains(sidebar)) {
-        container.insertBefore(sidebar, container.firstChild);
+      function moveSidebar() {
+        const sidebar = document.querySelector('.phoenix-sidebar');
+        const container = document.querySelector('#container');
+        if (sidebar && container && !container.contains(sidebar)) {
+          container.insertBefore(sidebar, container.firstChild);
+        }
       }
+      
+      // Try immediately
+      moveSidebar();
+      
+      // Also try on DOMContentLoaded and load events
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', moveSidebar);
+      }
+      window.addEventListener('load', moveSidebar);
+      
+      // Fallback: try after a short delay
+      setTimeout(moveSidebar, 100);
     })();
   </script>
 {% endblock %}
