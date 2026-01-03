@@ -1,0 +1,696 @@
+/* Phoenix Admin Theme - Extracted from inline CSS */
+/* Generated automatically for optimization */
+
+    /* =================================
+       PHOENIX-STYLE ADMIN THEME
+       ================================= */
+    
+    /* 1. CSS VARIABLES */
+    :root {
+      --phoenix-primary: #667eea;
+      --phoenix-primary-hover: #5568d3;
+      --phoenix-primary-light: rgba(102, 126, 234, 0.1);
+      --phoenix-sidebar-bg: #1a1c2e;
+      --phoenix-sidebar-hover: #252840;
+      --phoenix-sidebar-width: 256px;
+      --phoenix-topnav-bg: #0f1117;
+      --phoenix-topnav-height: 64px;
+      --phoenix-content-bg: #0f1117;
+      --phoenix-card-bg: #1c1e2d;
+      --phoenix-border: #2d3142;
+      --phoenix-text: #e9ecef;
+      --phoenix-text-muted: #8b92a7;
+      --phoenix-text-light: #6c757d;
+      --phoenix-overlay: rgba(0, 0, 0, 0.5);
+    }
+    
+    /* 2. BASE RESET */
+    * {
+      box-sizing: border-box;
+    }
+    
+    body {
+      background-color: var(--phoenix-content-bg);
+      color: var(--phoenix-text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    
+    /* Remove list markers from all lists */
+    ul, ol {
+      list-style-type: none !important;
+      padding-left: 0;
+      margin: 0;
+    }
+    
+    /* Force remove all list item markers */
+    li {
+      list-style: none !important;
+      list-style-type: none !important;
+    }
+    
+    /* Specifically for navbar and sidebar */
+    .phoenix-navbar-nav,
+    .phoenix-sidebar-menu {
+      list-style: none !important;
+      padding: 0;
+      margin: 0;
+    }
+    
+    .phoenix-navbar-nav li,
+    .phoenix-sidebar-item,
+    .phoenix-sidebar-menu li {
+      list-style: none !important;
+      list-style-type: none !important;
+      padding-left: 0 !important;
+    }
+    
+    /* Remove Bootstrap/browser default markers */
+    ul::marker, ol::marker, li::marker {
+      display: none !important;
+      content: none !important;
+    }
+    
+    /* Hide default Django admin elements */
+    #header,
+    #nav-sidebar,
+    #toggle-nav-sidebar,
+    .breadcrumbs,
+    #changelist-filter {
+      display: none;
+    }
+    
+    /* 3. DJANGO ADMIN OVERRIDES - Dark theme for changelist pages */
+    #content-main,
+    .changelist-form-container,
+    .module,
+    #changelist,
+    .results {
+      background-color: var(--phoenix-content-bg);
+    }
+    
+    .changelist-form-container {
+      background-color: transparent;
+    }
+    
+    #changelist .results {
+      overflow-x: auto;
+    }
+    
+    /* Django admin changelist tables - dark theme */
+    #result_list {
+      background-color: var(--phoenix-card-bg) !important;
+      color: var(--phoenix-text-muted) !important;
+      border: 1px solid var(--phoenix-border) !important;
+    }
+    
+    #result_list tbody tr,
+    #result_list thead tr {
+      background-color: transparent !important;
+    }
+    
+    #result_list th,
+    #result_list td {
+      background-color: var(--phoenix-card-bg) !important;
+      border-color: var(--phoenix-border) !important;
+      color: var(--phoenix-text-muted) !important;
+      padding: 0.75rem !important;
+    }
+    
+    #result_list thead th {
+      background-color: rgba(14, 16, 24, 0.5) !important;
+      color: var(--phoenix-text) !important;
+      font-weight: 600;
+      border-bottom: 2px solid var(--phoenix-border) !important;
+    }
+    
+    #result_list tbody tr:hover {
+      background-color: var(--phoenix-primary-light) !important;
+    }
+    
+    #result_list tbody tr:nth-child(even) {
+      background-color: rgba(14, 16, 24, 0.3) !important;
+    }
+    
+    /* Django admin action checkboxes row */
+    #result_list tr.selected {
+      background-color: rgba(102, 126, 234, 0.2) !important;
+    }
+    
+    /* Django admin table links */
+    #result_list a {
+      color: var(--phoenix-primary) !important;
+    }
+    
+    #result_list a:hover {
+      color: var(--phoenix-primary-hover) !important;
+    }
+    
+    /* Django admin forms and inputs */
+    input[type="text"],
+    input[type="password"],
+    input[type="email"],
+    input[type="number"],
+    input[type="url"],
+    input[type="date"],
+    input[type="datetime-local"],
+    input[type="time"],
+    textarea,
+    select {
+      background-color: var(--phoenix-card-bg);
+      color: var(--phoenix-text);
+      border: 1px solid var(--phoenix-border);
+      border-radius: 0.375rem;
+      padding: 0.5rem;
+    }
+    
+    input[type="text"]:focus,
+    input[type="password"]:focus,
+    input[type="email"]:focus,
+    textarea:focus,
+    select:focus {
+      border-color: var(--phoenix-primary);
+      outline: none;
+      box-shadow: 0 0 0 2px var(--phoenix-primary-light);
+    }
+    
+    /* 4. LAYOUT - Top Navigation Bar */
+    .phoenix-navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: var(--phoenix-topnav-height);
+      background-color: var(--phoenix-topnav-bg);
+      border-bottom: 1px solid var(--phoenix-border);
+      z-index: 1030;
+      display: flex;
+      align-items: center;
+      padding: 0 1rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    }
+    
+    .phoenix-navbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--phoenix-text);
+      text-decoration: none;
+      margin-right: 1.5rem;
+    }
+    
+    .phoenix-navbar-brand:hover {
+      color: var(--phoenix-primary);
+    }
+    
+    .phoenix-navbar-brand i {
+      color: var(--phoenix-primary);
+    }
+    
+    /* Burger button - only visible on mobile */
+    .phoenix-burger {
+      display: none;
+      width: 40px;
+      height: 40px;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: 1px solid var(--phoenix-border);
+      border-radius: 0.375rem;
+      color: var(--phoenix-text-muted);
+      cursor: pointer;
+      margin-right: 1rem;
+      transition: all 0.2s ease;
+    }
+    
+    .phoenix-burger:hover {
+      background-color: var(--phoenix-sidebar-hover);
+      color: var(--phoenix-text);
+    }
+    
+    .phoenix-navbar-nav {
+      display: flex;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      gap: 0.5rem;
+      flex: 1;
+    }
+    
+    .phoenix-navbar-nav a {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      color: var(--phoenix-text-muted);
+      text-decoration: none;
+      border-radius: 0.375rem;
+      transition: all 0.2s ease;
+      font-size: 0.875rem;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    
+    .phoenix-navbar-nav a:hover {
+      background-color: var(--phoenix-sidebar-hover);
+      color: var(--phoenix-text);
+    }
+    
+    .phoenix-navbar-nav a.active {
+      background-color: var(--phoenix-primary);
+      color: white;
+    }
+    
+    .phoenix-navbar-nav a i {
+      font-size: 1.125rem;
+      flex-shrink: 0;
+    }
+    
+    .phoenix-navbar-right {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-left: auto;
+    }
+    
+    .phoenix-user-menu {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem 1rem;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    
+    .phoenix-user-menu:hover {
+      background-color: var(--phoenix-sidebar-hover);
+    }
+    
+    .phoenix-user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--phoenix-primary), #6c5ce7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+      font-size: 0.875rem;
+    }
+    
+    /* 5. LAYOUT - Sidebar */
+    .phoenix-sidebar {
+      position: fixed;
+      top: var(--phoenix-topnav-height);
+      left: 0;
+      width: var(--phoenix-sidebar-width);
+      height: calc(100vh - var(--phoenix-topnav-height));
+      background-color: var(--phoenix-sidebar-bg);
+      border-right: 1px solid var(--phoenix-border);
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 0.75rem 0.5rem;
+      z-index: 1020;
+      transition: transform 0.3s ease;
+    }
+    
+    .phoenix-sidebar::-webkit-scrollbar {
+      width: 4px;
+    }
+    
+    .phoenix-sidebar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    .phoenix-sidebar::-webkit-scrollbar-thumb {
+      background: var(--phoenix-border);
+      border-radius: 2px;
+    }
+    
+    .phoenix-sidebar-menu {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    
+    .phoenix-sidebar-section {
+      padding: 0.75rem 1rem 0.375rem;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--phoenix-text-light);
+      margin-top: 0.5rem;
+    }
+    
+    .phoenix-sidebar-section:first-child {
+      margin-top: 0;
+    }
+    
+    .phoenix-sidebar-item {
+      margin: 0.125rem 0.5rem;
+    }
+    
+    .phoenix-sidebar-link {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      padding: 0.5rem 0.75rem;
+      color: var(--phoenix-text-muted);
+      text-decoration: none;
+      border-radius: 0.375rem;
+      transition: all 0.15s ease;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+    
+    .phoenix-sidebar-link:hover {
+      background-color: var(--phoenix-sidebar-hover);
+      color: var(--phoenix-text);
+      transform: translateX(2px);
+    }
+    
+    .phoenix-sidebar-link.active {
+      background-color: var(--phoenix-primary-light);
+      color: var(--phoenix-primary);
+      font-weight: 600;
+      border-left: 3px solid var(--phoenix-primary);
+      padding-left: calc(0.75rem - 3px);
+    }
+    
+    .phoenix-sidebar-link.active i {
+      color: var(--phoenix-primary);
+    }
+    
+    .phoenix-sidebar-link i {
+      width: 18px;
+      text-align: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    
+    /* Mobile overlay */
+    .phoenix-overlay {
+      display: none;
+      position: fixed;
+      top: var(--phoenix-topnav-height);
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--phoenix-overlay);
+      z-index: 1010;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    
+    .phoenix-overlay.active {
+      opacity: 1;
+    }
+    
+    /* 6. LAYOUT - Main Content Container */
+    /* 6. LAYOUT - Container with fixed sidebar */
+    #container {
+      margin-top: var(--phoenix-topnav-height);
+      margin-left: var(--phoenix-sidebar-width);
+      /* КРИТИЧНО: явно ограничиваем ширину */
+      width: calc(100vw - var(--phoenix-sidebar-width));
+      max-width: calc(100vw - var(--phoenix-sidebar-width));
+      min-height: calc(100vh - var(--phoenix-topnav-height));
+      box-sizing: border-box;
+      overflow-x: hidden; /* Обрезаем всё, что выходит за пределы */
+      transition: margin-left 0.3s ease, width 0.3s ease;
+    }
+    
+    #content {
+      padding: 1.5rem;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      background-color: var(--phoenix-content-bg);
+    }
+    
+    /* Override Django admin default max-width restriction */
+    .main.shifted > #nav-sidebar + .content {
+      max-width: calc(100%) !important;
+    }
+    
+    /* Dashboard container - убираем все ограничения */
+    .dashboard-container {
+      width: 100% !important;
+      max-width: none !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      box-sizing: border-box;
+    }
+    
+    /* Bootstrap row - сбрасываем отрицательные отступы */
+    .dashboard-container .row {
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+      width: 100%;
+    }
+    
+    /* Колонки Bootstrap - добавляем padding обратно */
+    .dashboard-container .row > * {
+      padding-left: 0.75rem !important;
+      padding-right: 0.75rem !important;
+    }
+    
+    /* 7. COMPONENTS - Base Buttons */
+    .button,
+    button,
+    .btn,
+    input[type="submit"],
+    input[type="button"] {
+      background-color: var(--phoenix-primary);
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    
+    .button:hover,
+    button:hover,
+    .btn:hover {
+      background-color: var(--phoenix-primary-hover);
+    }
+    
+    /* 8. COMPONENTS - Tab Buttons (more specific selector) */
+    .client-tabs,
+    .tab-buttons {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background-color: #0e1018;
+      border-bottom: 1px solid #2a2e41;
+      border-radius: 0;
+      margin-bottom: 1.5rem;
+    }
+    
+    .client-tabs .client-tab-btn,
+    .tab-buttons .tab-btn {
+      background-color: transparent;
+      color: #6e7891;
+      border: 1px solid #2a2e41;
+      border-radius: 6px;
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .client-tabs .client-tab-btn:hover,
+    .tab-buttons .tab-btn:hover {
+      background-color: rgba(102, 126, 234, 0.1);
+      color: #9fa6bc;
+      border-color: var(--phoenix-primary);
+    }
+    
+    .client-tabs .client-tab-btn.active,
+    .tab-buttons .tab-btn.active {
+      background-color: var(--phoenix-primary);
+      color: white;
+      border-color: var(--phoenix-primary);
+    }
+    
+    .client-tab-content,
+    .tab-content {
+      display: none;
+    }
+    
+    .client-tab-content.active,
+    .tab-content.active {
+      display: block;
+    }
+    
+    /* 9. COMPONENTS - Cards */
+    .card {
+      background-color: var(--phoenix-card-bg);
+      border: 1px solid var(--phoenix-border);
+      border-radius: 0;
+    }
+    
+    /* 10. COMPONENTS - Tables (Dark Theme) */
+    .table {
+      color: var(--phoenix-text-muted);
+    }
+    
+    .table > :not(caption) > * > * {
+      background-color: var(--phoenix-card-bg);
+      border-bottom-color: var(--phoenix-border);
+      color: var(--phoenix-text-muted);
+    }
+    
+    .table tbody tr {
+      background-color: transparent;
+      transition: background-color 0.2s ease;
+    }
+    
+    .table thead tr {
+      background-color: transparent;
+    }
+    
+    .table-hover tbody tr:hover {
+      background-color: var(--phoenix-primary-light);
+      cursor: pointer;
+    }
+    
+    .table-striped tbody tr:nth-of-type(odd) {
+      background-color: rgba(14, 16, 24, 0.3);
+    }
+    
+    /* Table scrollbars */
+    .table-responsive::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    
+    .table-responsive::-webkit-scrollbar-track {
+      background: var(--phoenix-card-bg);
+    }
+    
+    .table-responsive::-webkit-scrollbar-thumb {
+      background: var(--phoenix-border);
+      border-radius: 4px;
+    }
+    
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+      background: #3a3e51;
+    }
+    
+    /* Custom table wrappers */
+    .clients-table-wrapper {
+      max-height: 820px;
+      overflow-y: auto;
+    }
+    
+    .clients-table-wrapper::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    .clients-table-wrapper::-webkit-scrollbar-track {
+      background: var(--phoenix-card-bg);
+    }
+    
+    .clients-table-wrapper::-webkit-scrollbar-thumb {
+      background: var(--phoenix-border);
+      border-radius: 4px;
+    }
+    
+    .clients-table-wrapper::-webkit-scrollbar-thumb:hover {
+      background: #3a3e51;
+    }
+    
+    /* 11. RESPONSIVE - Mobile (< 992px) */
+    @media (max-width: 991px) {
+      /* Show burger button */
+      .phoenix-burger {
+        display: flex;
+      }
+      
+      /* Hide sidebar by default */
+      .phoenix-sidebar {
+        transform: translateX(-100%);
+      }
+      
+      /* Show sidebar when open */
+      .phoenix-sidebar.open {
+        transform: translateX(0);
+      }
+      
+      /* Show overlay when sidebar open */
+      body.sidebar-open .phoenix-overlay {
+        display: block;
+      }
+      
+      /* Remove left margin from content */
+      #container {
+        margin-left: 0;
+        width: 100vw;
+        max-width: 100vw;
+      }
+      
+      /* Top navbar - hide text, show only icons */
+      .phoenix-navbar {
+        padding: 0 0.75rem;
+      }
+      
+      .phoenix-navbar-brand span {
+        display: none;
+      }
+      
+      .phoenix-navbar-nav a span {
+        display: none;
+      }
+      
+      .phoenix-navbar-nav a {
+        padding: 0.5rem;
+        min-width: 40px;
+        justify-content: center;
+      }
+      
+      .phoenix-navbar-nav {
+        gap: 0.25rem;
+      }
+      
+      .phoenix-user-menu span {
+        display: none;
+      }
+      
+      .phoenix-user-menu {
+        padding: 0.5rem;
+      }
+      
+      /* Content padding */
+      #content {
+        padding: 1rem;
+      }
+    }
+    
+    /* 12. RESPONSIVE - Tablet (768px - 991px) */
+    @media (min-width: 768px) and (max-width: 991px) {
+      .phoenix-navbar-brand span {
+        display: inline;
+      }
+    }
+    
+    /* 13. UTILITIES - Only here we use !important */
+    .d-none {
+      display: none;
+    }
+    
+    .hidden {
+      display: none;
+    }

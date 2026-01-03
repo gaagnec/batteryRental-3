@@ -35,6 +35,12 @@ class FinancePartnerAdmin(SimpleHistoryAdmin):
     list_filter = ("role", "active")
     search_fields = ("user__username", "user__first_name", "user__last_name")
     
+    def get_queryset(self, request):
+        """Оптимизация: предзагрузка user"""
+        qs = super().get_queryset(request)
+        qs = qs.select_related('user')
+        return qs
+    
     def has_module_permission(self, request):
         # Только суперпользователи видят финансовых партнёров
         return request.user.is_superuser
@@ -68,6 +74,12 @@ class OwnerWithdrawalAdmin(SimpleHistoryAdmin):
     autocomplete_fields = ("partner",)
     search_fields = ("note", "partner__user__username")
     
+    def get_queryset(self, request):
+        """Оптимизация: предзагрузка partner"""
+        qs = super().get_queryset(request)
+        qs = qs.select_related('partner__user')
+        return qs
+    
     def has_module_permission(self, request):
         # Только суперпользователи видят выводы владельцев
         return request.user.is_superuser
@@ -79,6 +91,12 @@ class MoneyTransferAdmin(SimpleHistoryAdmin):
     list_filter = ("purpose", "use_collected", "date")
     autocomplete_fields = ("from_partner", "to_partner")
     search_fields = ("note", "from_partner__user__username", "to_partner__user__username")
+    
+    def get_queryset(self, request):
+        """Оптимизация: предзагрузка партнеров"""
+        qs = super().get_queryset(request)
+        qs = qs.select_related('from_partner__user', 'to_partner__user')
+        return qs
     
     def has_module_permission(self, request):
         # Только суперпользователи видят денежные переводы
@@ -1431,7 +1449,7 @@ class ClientAdmin(SimpleHistoryAdmin):
         self.list_filter = (ActiveRentalFilter,)
         if getattr(request, "htmx", False):
             # Для HTMX отдаём только таблицу результатов
-            self.list_display = ("id", "name", "phone", "pesel", "created_at", "has_active", "balance_badge")
+            self.list_display = ("id", "name", "phone", "pesel", "created_at", "has_active")
             response = super().changelist_view(request, extra_context)
             # Заменяем шаблон на частичный список результатов, чтобы не дублировать шапку
             try:
@@ -1440,7 +1458,7 @@ class ClientAdmin(SimpleHistoryAdmin):
                 pass
             return response
         # Не-HTMX: обычная страница
-        self.list_display = ("id", "name", "phone", "pesel", "created_at", "balance_badge")
+        self.list_display = ("id", "name", "phone", "pesel", "created_at", "has_active")
         return super().changelist_view(request, extra_context)
 
     def get_queryset(self, request):
@@ -1463,6 +1481,15 @@ class BatteryAdmin(SimpleHistoryAdmin):
     change_list_template = 'admin/rental/battery/change_list.html'
     list_per_page = 50
     ordering = ['id']  # Сортировка по умолчанию от меньшего к большему
+
+    def get_queryset(self, request):
+        """Оптимизация: предзагрузка assignments для избежания N+1"""
+        qs = super().get_queryset(request)
+        qs = qs.prefetch_related(
+            'assignments__rental__client',
+            'assignments__rental__root'
+        )
+        return qs
 
     def usage_now(self, obj):
         # Активные договоры сейчас, где батарея назначена
@@ -2210,6 +2237,12 @@ class PaymentAdmin(SimpleHistoryAdmin):
     list_per_page = 50
     change_form_template = 'admin/rental/payment/change_form.html'
     
+    def get_queryset(self, request):
+        """Оптимизация: предзагрузка связанных rental и client для избежания N+1"""
+        qs = super().get_queryset(request)
+        qs = qs.select_related('rental__client', 'rental__root', 'created_by')
+        return qs
+    
     fieldsets = (
         ('Основная информация', {
             'fields': ('rental', 'amount', 'date', 'type')
@@ -2555,6 +2588,12 @@ class ExpenseAdmin(SimpleHistoryAdmin):
     search_fields = ("note", "description")
     autocomplete_fields = ("paid_by_partner",)
     
+    def get_queryset(self, request):
+        """Оптимизация: предзагрузка связанных данных"""
+        qs = super().get_queryset(request)
+        qs = qs.select_related('category', 'paid_by_partner__user')
+        return qs
+    
     def has_module_permission(self, request):
         # Только суперпользователи видят расходы
         return request.user.is_superuser
@@ -2564,6 +2603,12 @@ class ExpenseAdmin(SimpleHistoryAdmin):
 class RepairAdmin(SimpleHistoryAdmin):
     list_display = ("id", "battery", "start_at", "end_at", "cost")
     
+    def get_queryset(self, request):
+        """Оптимизация: предзагрузка battery"""
+        qs = super().get_queryset(request)
+        qs = qs.select_related('battery')
+        return qs
+    
     def has_module_permission(self, request):
         # Только суперпользователи видят ремонты
         return request.user.is_superuser
@@ -2572,6 +2617,12 @@ class RepairAdmin(SimpleHistoryAdmin):
 @admin.register(BatteryStatusLog)
 class BatteryStatusLogAdmin(SimpleHistoryAdmin):
     list_display = ("id", "battery", "kind", "start_at", "end_at")
+    
+    def get_queryset(self, request):
+        """Оптимизация: предзагрузка battery"""
+        qs = super().get_queryset(request)
+        qs = qs.select_related('battery')
+        return qs
     
     def has_module_permission(self, request):
         # Только суперпользователи видят логи статусов батарей
