@@ -315,7 +315,7 @@
       border-right: 1px solid var(--phoenix-border);
       overflow-y: auto;
       overflow-x: hidden;
-      padding: 0.75rem 0;
+      padding: 0.75rem 0.5rem;
       z-index: 1020;
       transition: transform 0.3s ease;
     }
