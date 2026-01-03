@@ -2252,7 +2252,7 @@ class PaymentAdmin(SimpleHistoryAdmin):
     def get_queryset(self, request):
         """Оптимизация: предзагрузка связанных rental и client для избежания N+1"""
         qs = super().get_queryset(request)
-        qs = qs.select_related('rental__client', 'rental__root', 'created_by', 'finance_partner')
+        qs = qs.select_related('rental__client', 'rental__root', 'created_by')
         return qs
     
     fieldsets = (
@@ -2603,7 +2603,7 @@ class ExpenseAdmin(SimpleHistoryAdmin):
     def get_queryset(self, request):
         """Оптимизация: предзагрузка связанных данных"""
         qs = super().get_queryset(request)
-        qs = qs.select_related('category', 'paid_by_partner__user', 'paid_source')
+        qs = qs.select_related('category', 'paid_by_partner__user')
         return qs
     
     def has_module_permission(self, request):
