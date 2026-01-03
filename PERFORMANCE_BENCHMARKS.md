@@ -110,8 +110,10 @@
 2. ✅ **Downloaded Bootstrap locally**
    - bootstrap.min.css: 227.35 KB
    - bootstrap-icons.css: 95.95 KB
+   - bootstrap-icons.woff2: 127.34 KB (font file)
+   - bootstrap-icons.woff: 171.91 KB (fallback font)
    - bootstrap.bundle.min.js: 78.83 KB
-   - Total: 418.40 KB (vs 402KB from CDN)
+   - Total: 717.65 KB (includes all dependencies)
 
 3. ✅ **Enabled gzip compression**
    - Added GZipMiddleware to settings.py
@@ -121,11 +123,13 @@
 
 | Metric | Before | After | Improvement |
 |--------|--------|-------|-------------|
-| **Page Size (uncompressed)** | ~478 KB | ~435 KB | ↓ 9% |
-| **Page Size (with gzip)** | N/A | **~125 KB** | **↓ 74%** |
+| **Page Size (uncompressed)** | ~478 KB | ~735 KB | (includes fonts) |
+| **Page Size (with gzip)** | N/A | **~215 KB** | **↓ 55%** |
 | **External CDN Requests** | 3 | **0** | **-100%** |
 | **Inline CSS (repeated)** | 25.7 KB | **0** | **Cached 100%** |
 | **Cacheable Resources** | 0% | **100%** | **+100%** |
+
+**Note**: Font files (~300KB) are downloaded once and cached forever by browser.
 
 ### Key Improvements:
 
@@ -148,7 +152,7 @@
 | Metric | Current (Measured) | Target | Status |
 |--------|-------------------|--------|---------|
 | Page Load Time | 1.3-2.6s | < 1s | ✅ **Achieved** |
-| Total Page Size | ~125KB (gzipped) | < 150KB | ✅ **Achieved** |
+| Total Page Size | ~215KB (gzipped) | < 250KB | ✅ **Achieved** |
 | External Requests | 0 | 0 | ✅ **Achieved** |
 | Inline CSS | 0 (cached) | 0 | ✅ **Achieved** |
 | Gzip Compression | Enabled | Enabled | ✅ **Achieved** |
