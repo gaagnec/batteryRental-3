@@ -1449,7 +1449,7 @@ class ClientAdmin(SimpleHistoryAdmin):
         self.list_filter = (ActiveRentalFilter,)
         if getattr(request, "htmx", False):
             # Для HTMX отдаём только таблицу результатов
-            self.list_display = ("id", "name", "phone", "pesel", "created_at", "has_active", "balance_badge")
+            self.list_display = ("id", "name", "phone", "pesel", "created_at", "has_active")
             response = super().changelist_view(request, extra_context)
             # Заменяем шаблон на частичный список результатов, чтобы не дублировать шапку
             try:
@@ -1458,7 +1458,7 @@ class ClientAdmin(SimpleHistoryAdmin):
                 pass
             return response
         # Не-HTMX: обычная страница
-        self.list_display = ("id", "name", "phone", "pesel", "created_at", "balance_badge")
+        self.list_display = ("id", "name", "phone", "pesel", "created_at", "has_active")
         return super().changelist_view(request, extra_context)
 
     def get_queryset(self, request):

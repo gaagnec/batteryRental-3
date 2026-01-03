@@ -415,35 +415,47 @@
     }
     
     /* 6. LAYOUT - Main Content Container */
+    /* 6. LAYOUT - Container with fixed sidebar */
     #container {
       margin-top: var(--phoenix-topnav-height);
       margin-left: var(--phoenix-sidebar-width);
+      /* КРИТИЧНО: явно ограничиваем ширину */
+      width: calc(100vw - var(--phoenix-sidebar-width));
+      max-width: calc(100vw - var(--phoenix-sidebar-width));
       min-height: calc(100vh - var(--phoenix-topnav-height));
-      transition: margin-left 0.3s ease;
+      box-sizing: border-box;
+      overflow-x: hidden; /* Обрезаем всё, что выходит за пределы */
+      transition: margin-left 0.3s ease, width 0.3s ease;
     }
     
     #content {
       padding: 1.5rem;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
       background-color: var(--phoenix-content-bg);
     }
     
-    /* Dashboard container fix - full width within content */
+    /* Dashboard container - убираем все ограничения */
     .dashboard-container {
-      width: 100%;
-      max-width: 100%;
-      margin: 0;
-      padding: 0;
+      width: 100% !important;
+      max-width: none !important;
+      margin: 0 !important;
+      padding: 0 !important;
       box-sizing: border-box;
     }
     
+    /* Bootstrap row - сбрасываем отрицательные отступы */
     .dashboard-container .row {
-      margin-left: 0;
-      margin-right: 0;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+      width: 100%;
     }
     
+    /* Колонки Bootstrap - добавляем padding обратно */
     .dashboard-container .row > * {
-      padding-left: 0.75rem;
-      padding-right: 0.75rem;
+      padding-left: 0.75rem !important;
+      padding-right: 0.75rem !important;
     }
     
     /* 7. COMPONENTS - Base Buttons */
@@ -621,6 +633,8 @@
       /* Remove left margin from content */
       #container {
         margin-left: 0;
+        width: 100vw;
+        max-width: 100vw;
       }
       
       /* Top navbar - hide text, show only icons */
