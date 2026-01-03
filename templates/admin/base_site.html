@@ -12,54 +12,61 @@
        PHOENIX-STYLE ADMIN THEME
        ================================= */
     
+    /* 1. CSS VARIABLES */
     :root {
-      --phoenix-primary: #3874ff;
-      --phoenix-primary-hover: #2d5fd9;
+      --phoenix-primary: #667eea;
+      --phoenix-primary-hover: #5568d3;
+      --phoenix-primary-light: rgba(102, 126, 234, 0.1);
       --phoenix-sidebar-bg: #1a1c2e;
       --phoenix-sidebar-hover: #252840;
+      --phoenix-sidebar-width: 256px;
       --phoenix-topnav-bg: #0f1117;
+      --phoenix-topnav-height: 64px;
       --phoenix-content-bg: #0f1117;
-      --phoenix-card-bg: #1a1c2e;
+      --phoenix-card-bg: #1c1e2d;
       --phoenix-border: #2d3142;
       --phoenix-text: #e9ecef;
       --phoenix-text-muted: #8b92a7;
       --phoenix-text-light: #6c757d;
+      --phoenix-overlay: rgba(0, 0, 0, 0.5);
     }
     
-    /* Reset and base */
+    /* 2. BASE RESET */
     * {
       box-sizing: border-box;
     }
     
     body {
-      background-color: var(--phoenix-content-bg) !important;
-      color: var(--phoenix-text) !important;
+      background-color: var(--phoenix-content-bg);
+      color: var(--phoenix-text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       margin: 0;
       padding: 0;
       overflow-x: hidden;
     }
     
-    /* Hide default Django admin header and sidebar */
+    /* Hide default Django admin elements */
     #header,
     #nav-sidebar,
-    #toggle-nav-sidebar {
-      display: none !important;
+    #toggle-nav-sidebar,
+    .breadcrumbs,
+    #changelist-filter {
+      display: none;
     }
     
-    /* Top Navigation Bar */
+    /* 3. LAYOUT - Top Navigation Bar */
     .phoenix-navbar {
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
-      height: 64px;
+      height: var(--phoenix-topnav-height);
       background-color: var(--phoenix-topnav-bg);
       border-bottom: 1px solid var(--phoenix-border);
       z-index: 1030;
       display: flex;
       align-items: center;
-      padding: 0 1.5rem;
+      padding: 0 1rem;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
     }
     
@@ -69,13 +76,38 @@
       gap: 0.75rem;
       font-size: 1.25rem;
       font-weight: 600;
-      color: var(--phoenix-text) !important;
+      color: var(--phoenix-text);
       text-decoration: none;
-      margin-right: 2rem;
+      margin-right: 1.5rem;
     }
     
     .phoenix-navbar-brand:hover {
-      color: var(--phoenix-primary) !important;
+      color: var(--phoenix-primary);
+    }
+    
+    .phoenix-navbar-brand i {
+      color: var(--phoenix-primary);
+    }
+    
+    /* Burger button - only visible on mobile */
+    .phoenix-burger {
+      display: none;
+      width: 40px;
+      height: 40px;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: 1px solid var(--phoenix-border);
+      border-radius: 0.375rem;
+      color: var(--phoenix-text-muted);
+      cursor: pointer;
+      margin-right: 1rem;
+      transition: all 0.2s ease;
+    }
+    
+    .phoenix-burger:hover {
+      background-color: var(--phoenix-sidebar-hover);
+      color: var(--phoenix-text);
     }
     
     .phoenix-navbar-nav {
@@ -92,22 +124,28 @@
       align-items: center;
       gap: 0.5rem;
       padding: 0.5rem 1rem;
-      color: var(--phoenix-text-muted) !important;
+      color: var(--phoenix-text-muted);
       text-decoration: none;
       border-radius: 0.375rem;
       transition: all 0.2s ease;
       font-size: 0.875rem;
       font-weight: 500;
+      white-space: nowrap;
     }
     
     .phoenix-navbar-nav a:hover {
       background-color: var(--phoenix-sidebar-hover);
-      color: var(--phoenix-text) !important;
+      color: var(--phoenix-text);
     }
     
     .phoenix-navbar-nav a.active {
       background-color: var(--phoenix-primary);
-      color: white !important;
+      color: white;
+    }
+    
+    .phoenix-navbar-nav a i {
+      font-size: 1.125rem;
+      flex-shrink: 0;
     }
     
     .phoenix-navbar-right {
@@ -144,19 +182,20 @@
       font-size: 0.875rem;
     }
     
-    /* Sidebar - Compact Phoenix Style for Flexbox */
+    /* 4. LAYOUT - Sidebar */
     .phoenix-sidebar {
-      width: 256px;
-      flex-shrink: 0;
-      order: -1;
+      position: fixed;
+      top: var(--phoenix-topnav-height);
+      left: 0;
+      width: var(--phoenix-sidebar-width);
+      height: calc(100vh - var(--phoenix-topnav-height));
       background-color: var(--phoenix-sidebar-bg);
       border-right: 1px solid var(--phoenix-border);
       overflow-y: auto;
       overflow-x: hidden;
       padding: 0.75rem 0;
-      height: 100%;
-      position: relative;
-      display: block !important;
+      z-index: 1020;
+      transition: transform 0.3s ease;
     }
     
     .phoenix-sidebar::-webkit-scrollbar {
@@ -170,10 +209,6 @@
     .phoenix-sidebar::-webkit-scrollbar-thumb {
       background: var(--phoenix-border);
       border-radius: 2px;
-    }
-    
-    .phoenix-sidebar::-webkit-scrollbar-thumb:hover {
-      background: #3d4154;
     }
     
     .phoenix-sidebar-menu {
@@ -205,32 +240,31 @@
       align-items: center;
       gap: 0.625rem;
       padding: 0.5rem 0.75rem;
-      color: var(--phoenix-text-muted) !important;
+      color: var(--phoenix-text-muted);
       text-decoration: none;
       border-radius: 0.375rem;
       transition: all 0.15s ease;
       font-size: 0.8125rem;
       font-weight: 500;
       line-height: 1.4;
-      position: relative;
     }
     
     .phoenix-sidebar-link:hover {
       background-color: var(--phoenix-sidebar-hover);
-      color: var(--phoenix-text) !important;
+      color: var(--phoenix-text);
       transform: translateX(2px);
     }
     
     .phoenix-sidebar-link.active {
-      background-color: rgba(56, 116, 255, 0.15);
-      color: var(--phoenix-primary) !important;
+      background-color: var(--phoenix-primary-light);
+      color: var(--phoenix-primary);
       font-weight: 600;
       border-left: 3px solid var(--phoenix-primary);
       padding-left: calc(0.75rem - 3px);
     }
     
     .phoenix-sidebar-link.active i {
-      color: var(--phoenix-primary) !important;
+      color: var(--phoenix-primary);
     }
     
     .phoenix-sidebar-link i {
@@ -238,266 +272,49 @@
       text-align: center;
       font-size: 1rem;
       flex-shrink: 0;
-      transition: transform 0.15s ease;
     }
     
-    .phoenix-sidebar-link:hover i {
-      transform: scale(1.1);
+    /* Mobile overlay */
+    .phoenix-overlay {
+      display: none;
+      position: fixed;
+      top: var(--phoenix-topnav-height);
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--phoenix-overlay);
+      z-index: 1010;
+      opacity: 0;
+      transition: opacity 0.3s ease;
     }
     
-    .phoenix-sidebar-link span {
-      flex: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    .phoenix-overlay.active {
+      opacity: 1;
     }
     
-    /* Main Content Area - Flexbox */
+    /* 5. LAYOUT - Main Content Container */
     #container {
-      display: flex !important;
-      flex-direction: row !important;
-      flex: 1;
-      margin-top: 64px !important;
-      margin-left: 0 !important;
-      padding: 0 !important;
-      min-height: calc(100vh - 64px);
-      width: 100%;
-      box-sizing: border-box;
-    }
-    
-    /* Login page - no navbar/sidebar */
-    body.login #container {
-      margin-top: 0 !important;
-    }
-    
-    body.login .phoenix-navbar,
-    body.login .phoenix-sidebar {
-      display: none !important;
-    }
-    
-    
-    /* Main content wrapper */
-    #container > .main {
-      flex: 1 1 auto;
+      margin-top: var(--phoenix-topnav-height);
+      margin-left: var(--phoenix-sidebar-width);
+      min-height: calc(100vh - var(--phoenix-topnav-height));
+      transition: margin-left 0.3s ease;
     }
     
     #content {
-      flex: 1 1 auto;
-      width: 100%;
-      max-width: 100%;
-      background-color: var(--phoenix-content-bg) !important;
-      padding: 2rem;
-      min-height: calc(100vh - 64px);
-      box-sizing: border-box;
+      padding: 1.5rem;
+      background-color: var(--phoenix-content-bg);
     }
     
-    #content-main {
-      background-color: var(--phoenix-content-bg) !important;
-    }
-    
-    /* Cards and Modules */
-    .module,
-    .card,
-    fieldset {
-      background-color: var(--phoenix-card-bg) !important;
-      border: 1px solid var(--phoenix-border) !important;
-      border-radius: 0.75rem !important;
-      color: var(--phoenix-text) !important;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-    }
-    
-    .module h2,
-    .module caption,
-    .card-header,
-    h1, h2, h3, h4, h5, h6 {
-      background-color: transparent !important;
-      color: var(--phoenix-text) !important;
-      border-bottom: 1px solid var(--phoenix-border) !important;
-      padding: 1rem 1.5rem;
-      margin: 0;
-      font-weight: 600;
-    }
-    
-    /* Tables */
-    table,
-    thead,
-    tbody,
-    tr,
-    td,
-    th {
-      background-color: var(--phoenix-card-bg) !important;
-      border-color: var(--phoenix-border) !important;
-      color: var(--phoenix-text) !important;
-    }
-    
-    thead th {
-      background-color: var(--phoenix-sidebar-bg) !important;
-      color: var(--phoenix-text) !important;
-      font-weight: 600 !important;
-      font-size: 0.875rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      padding: 1rem !important;
-      border-bottom: 2px solid var(--phoenix-border) !important;
-    }
-    
-    tbody tr {
-      border-bottom: 1px solid var(--phoenix-border);
-      transition: background-color 0.15s ease;
-    }
-    
-    tbody tr:hover {
-      background-color: var(--phoenix-sidebar-hover) !important;
-    }
-    
-    /* Forms */
-    input,
-    textarea,
-    select {
-      background-color: var(--phoenix-card-bg) !important;
-      color: var(--phoenix-text) !important;
-      border: 1px solid var(--phoenix-border) !important;
-      border-radius: 0.375rem;
-      padding: 0.5rem 0.75rem;
-    }
-    
-    input:focus,
-    textarea:focus,
-    select:focus {
-      border-color: var(--phoenix-primary) !important;
-      outline: none;
-      box-shadow: 0 0 0 3px rgba(56, 116, 255, 0.1);
-    }
-    
-    /* Buttons */
+    /* 6. COMPONENTS - Base Buttons */
     .button,
     button,
     .btn,
     input[type="submit"],
     input[type="button"] {
-      background-color: var(--phoenix-primary) !important;
-      color: white !important;
-      border: none !important;
+      background-color: var(--phoenix-primary);
+      color: white;
+      border: none;
       padding: 0.5rem 1rem;
-      border-radius: 0.375rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    
-    .button:hover,
-    button:hover,
-    .btn:hover {
-      background-color: var(--phoenix-primary-hover) !important;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(56, 116, 255, 0.3);
-    }
-    
-    .button.default {
-      background-color: var(--phoenix-primary) !important;
-    }
-    
-    /* Links */
-    a {
-      color: var(--phoenix-primary) !important;
-      text-decoration: none;
-    }
-    
-    a:hover {
-      color: var(--phoenix-primary-hover) !important;
-    }
-    
-    /* Hide breadcrumbs everywhere */
-    .breadcrumbs,
-    nav[aria-label="Хлебные крошки"],
-    nav[aria-label="Breadcrumbs"] {
-      display: none !important;
-    }
-    
-    /* Messages */
-    .messagelist {
-      margin: 0 0 1.5rem 0;
-      padding: 0;
-      list-style: none;
-    }
-    
-    .messagelist li {
-      padding: 1rem 1.5rem;
-      border-radius: 0.5rem;
-      margin-bottom: 0.5rem;
-      border-left: 4px solid;
-    }
-    
-    .messagelist .success {
-      background-color: rgba(40, 167, 69, 0.1);
-      border-left-color: #28a745;
-      color: #28a745;
-    }
-    
-    .messagelist .error {
-      background-color: rgba(220, 53, 69, 0.1);
-      border-left-color: #dc3545;
-      color: #dc3545;
-    }
-    
-    .messagelist .warning {
-      background-color: rgba(255, 193, 7, 0.1);
-      border-left-color: #ffc107;
-      color: #ffc107;
-    }
-    
-    /* Filters - Hide completely */
-    #changelist-filter {
-      display: none !important;
-    }
-    
-    /* Force full-width responsive layout */
-    .main,
-    .content,
-    #content-main,
-    .colM,
-    .colMS {
-      width: 100% !important;
-      max-width: 100% !important;
-      margin: 0 !important;
-    }
-    
-    /* Remove any max-width constraints */
-    .main.shifted > #nav-sidebar + .content {
-      max-width: 100% !important;
-      width: 100% !important;
-    }
-    
-    /* Ensure changelist tables are full width */
-    #changelist,
-    #changelist-form,
-    .change-list {
-      width: 100%;
-      max-width: 100%;
-    }
-    
-    /* Make tables responsive */
-    .results {
-      width: 100%;
-      overflow-x: auto;
-    }
-    
-    /* Tab Styles for Content Switching */
-    .client-tabs,
-    .tab-buttons {
-      display: flex;
-      gap: 0.5rem;
-      padding: 0.75rem 1rem;
-      background-color: var(--phoenix-content-bg);
-      border-bottom: 1px solid var(--phoenix-border);
-    }
-    
-    .client-tab-btn,
-    .tab-btn {
-      padding: 0.5rem 1rem;
-      background-color: transparent;
-      color: var(--phoenix-text-muted);
-      border: 1px solid var(--phoenix-border);
       border-radius: 0.375rem;
       cursor: pointer;
       transition: all 0.2s ease;
@@ -505,17 +322,48 @@
       font-weight: 500;
     }
     
-    .client-tab-btn:hover,
-    .tab-btn:hover {
-      background-color: rgba(56, 116, 255, 0.1);
-      color: var(--phoenix-text);
+    .button:hover,
+    button:hover,
+    .btn:hover {
+      background-color: var(--phoenix-primary-hover);
+    }
+    
+    /* 7. COMPONENTS - Tab Buttons (more specific selector) */
+    .client-tabs,
+    .tab-buttons {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background-color: #0e1018;
+      border-bottom: 1px solid #2a2e41;
+      border-radius: 0.75rem 0.75rem 0 0;
+      margin-bottom: 1.5rem;
+    }
+    
+    .client-tabs .client-tab-btn,
+    .tab-buttons .tab-btn {
+      background-color: transparent;
+      color: #6e7891;
+      border: 1px solid #2a2e41;
+      border-radius: 6px;
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .client-tabs .client-tab-btn:hover,
+    .tab-buttons .tab-btn:hover {
+      background-color: rgba(102, 126, 234, 0.1);
+      color: #9fa6bc;
       border-color: var(--phoenix-primary);
     }
     
-    .client-tab-btn.active,
-    .tab-btn.active {
+    .client-tabs .client-tab-btn.active,
+    .tab-buttons .tab-btn.active {
       background-color: var(--phoenix-primary);
-      color: #fff;
+      color: white;
       border-color: var(--phoenix-primary);
     }
     
@@ -529,20 +377,91 @@
       display: block;
     }
     
-    /* Responsive */
-    @media (max-width: 992px) {
-      .phoenix-sidebar {
-        transform: translateX(-100%);
-        transition: transform 0.3s ease;
+    /* 8. COMPONENTS - Cards */
+    .card {
+      background-color: var(--phoenix-card-bg);
+      border: 1px solid var(--phoenix-border);
+      border-radius: 0.75rem;
+    }
+    
+    /* 9. RESPONSIVE - Mobile (< 992px) */
+    @media (max-width: 991px) {
+      /* Show burger button */
+      .phoenix-burger {
+        display: flex;
       }
       
+      /* Hide sidebar by default */
+      .phoenix-sidebar {
+        transform: translateX(-100%);
+      }
+      
+      /* Show sidebar when open */
       .phoenix-sidebar.open {
         transform: translateX(0);
       }
       
+      /* Show overlay when sidebar open */
+      body.sidebar-open .phoenix-overlay {
+        display: block;
+      }
+      
+      /* Remove left margin from content */
       #container {
         margin-left: 0;
       }
+      
+      /* Top navbar - hide text, show only icons */
+      .phoenix-navbar {
+        padding: 0 0.75rem;
+      }
+      
+      .phoenix-navbar-brand span {
+        display: none;
+      }
+      
+      .phoenix-navbar-nav a span {
+        display: none;
+      }
+      
+      .phoenix-navbar-nav a {
+        padding: 0.5rem;
+        min-width: 40px;
+        justify-content: center;
+      }
+      
+      .phoenix-navbar-nav {
+        gap: 0.25rem;
+      }
+      
+      .phoenix-user-menu span {
+        display: none;
+      }
+      
+      .phoenix-user-menu {
+        padding: 0.5rem;
+      }
+      
+      /* Content padding */
+      #content {
+        padding: 1rem;
+      }
+    }
+    
+    /* 10. RESPONSIVE - Tablet (768px - 991px) */
+    @media (min-width: 768px) and (max-width: 991px) {
+      .phoenix-navbar-brand span {
+        display: inline;
+      }
+    }
+    
+    /* 11. UTILITIES - Only here we use !important */
+    .d-none {
+      display: none;
+    }
+    
+    .hidden {
+      display: none;
     }
   </style>
 {% endblock %}
@@ -553,32 +472,37 @@
   {% if user.is_authenticated %}
   <!-- Top Navigation -->
   <nav class="phoenix-navbar">
+    <!-- Burger Menu Button (Mobile Only) -->
+    <button class="phoenix-burger" id="sidebarToggle" aria-label="Toggle sidebar">
+      <i class="bi bi-list" style="font-size: 1.5rem;"></i>
+    </button>
+    
     <a href="{% url 'admin:index' %}" class="phoenix-navbar-brand">
-      <i class="bi bi-lightning-charge-fill" style="color: var(--phoenix-primary);"></i>
+      <i class="bi bi-lightning-charge-fill"></i>
       <span>Battery Rental</span>
     </a>
     
     <ul class="phoenix-navbar-nav">
       <li>
-        <a href="{% url 'admin:index' %}" class="{% if request.resolver_match.url_name == 'index' %}active{% endif %}">
+        <a href="{% url 'admin:index' %}" class="{% if request.resolver_match.url_name == 'index' %}active{% endif %}" title="Главная">
           <i class="bi bi-house-door"></i>
           <span>Главная</span>
         </a>
       </li>
       <li>
-        <a href="{% url 'admin:rental_rental_changelist' %}" class="{% if 'rental_rental' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'admin:rental_rental_changelist' %}" class="{% if 'rental_rental' in request.resolver_match.url_name %}active{% endif %}" title="Договора">
           <i class="bi bi-file-earmark-text"></i>
           <span>Договора</span>
         </a>
       </li>
       <li>
-        <a href="{% url 'admin:rental_payment_changelist' %}" class="{% if 'rental_payment' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'admin:rental_payment_changelist' %}" class="{% if 'payment' in request.resolver_match.url_name %}active{% endif %}" title="Платежи">
           <i class="bi bi-credit-card"></i>
           <span>Платежи</span>
         </a>
       </li>
       <li>
-        <a href="{% url 'admin-dashboard' %}" class="{% if request.resolver_match.url_name == 'admin-dashboard' %}active{% endif %}">
+        <a href="{% url 'admin-dashboard' %}" class="{% if 'dashboard' in request.path %}active{% endif %}" title="Dashboard">
           <i class="bi bi-graph-up"></i>
           <span>Dashboard</span>
         </a>
@@ -586,47 +510,31 @@
     </ul>
     
     <div class="phoenix-navbar-right">
-      {% if user.is_authenticated %}
-        <div class="phoenix-user-menu">
-          <div class="phoenix-user-avatar">
-            {{ user.first_name|first|default:user.username|first|upper }}
-          </div>
-          <div>
-            <div style="font-size: 0.875rem; font-weight: 500; color: var(--phoenix-text);">
-              {{ user.get_full_name|default:user.username }}
-            </div>
-            <div style="font-size: 0.75rem; color: var(--phoenix-text-muted);">
-              {% if user.is_superuser %}Администратор{% else %}Пользователь{% endif %}
-            </div>
-          </div>
+      <div class="phoenix-user-menu">
+        <div class="phoenix-user-avatar">
+          {{ user.username|slice:":1"|upper }}
         </div>
-        <a href="{% url 'admin:logout' %}" style="color: var(--phoenix-text-muted); text-decoration: none; padding: 0.5rem;">
-          <i class="bi bi-box-arrow-right" style="font-size: 1.25rem;"></i>
-        </a>
-      {% endif %}
+        <span>{{ user.username }}</span>
+      </div>
     </div>
   </nav>
-  
+
   <!-- Sidebar -->
-  <aside class="phoenix-sidebar">
+  <aside class="phoenix-sidebar" id="phoenixSidebar">
     <ul class="phoenix-sidebar-menu">
+      <!-- Главная -->
       <li class="phoenix-sidebar-section">Главная</li>
       <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:index' %}" class="phoenix-sidebar-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
-          <i class="bi bi-house-door"></i>
-          <span>Главная</span>
-        </a>
-      </li>
-      <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin-dashboard' %}" class="phoenix-sidebar-link {% if request.resolver_match.url_name == 'admin-dashboard' %}active{% endif %}">
+        <a href="{% url 'admin-dashboard' %}" class="phoenix-sidebar-link {% if 'dashboard' in request.path %}active{% endif %}">
           <i class="bi bi-graph-up"></i>
           <span>Dashboard</span>
         </a>
       </li>
       
-      <li class="phoenix-sidebar-section">Клиенты и договоры</li>
+      <!-- Основное -->
+      <li class="phoenix-sidebar-section">Основное</li>
       <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_client_changelist' %}" class="phoenix-sidebar-link {% if 'rental_client' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'admin:rental_client_changelist' %}" class="phoenix-sidebar-link {% if 'client' in request.resolver_match.url_name %}active{% endif %}">
           <i class="bi bi-people"></i>
           <span>Клиенты</span>
         </a>
@@ -637,88 +545,74 @@
           <span>Договора</span>
         </a>
       </li>
-      
-      <li class="phoenix-sidebar-section">Батареи</li>
       <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_battery_changelist' %}" class="phoenix-sidebar-link {% if 'rental_battery' in request.resolver_match.url_name %}active{% endif %}">
-          <i class="bi bi-battery-full"></i>
-          <span>Батареи</span>
-        </a>
-      </li>
-      <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_batterystatuslog_changelist' %}" class="phoenix-sidebar-link {% if 'batterystatuslog' in request.resolver_match.url_name or 'rental_batterystatuslog' in request.resolver_match.url_name %}active{% endif %}">
-          <i class="bi bi-clock-history"></i>
-          <span>Логи статусов</span>
-        </a>
-      </li>
-      <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_repair_changelist' %}" class="phoenix-sidebar-link {% if 'rental_repair' in request.resolver_match.url_name %}active{% endif %}">
-          <i class="bi bi-tools"></i>
-          <span>Ремонты</span>
-        </a>
-      </li>
-      
-      <li class="phoenix-sidebar-section">Финансы</li>
-      <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_payment_changelist' %}" class="phoenix-sidebar-link {% if 'rental_payment' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'admin:rental_payment_changelist' %}" class="phoenix-sidebar-link {% if 'payment' in request.resolver_match.url_name %}active{% endif %}">
           <i class="bi bi-credit-card"></i>
           <span>Платежи</span>
         </a>
       </li>
+      
+      <!-- Оборудование -->
+      <li class="phoenix-sidebar-section">Оборудование</li>
       <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_expense_changelist' %}" class="phoenix-sidebar-link {% if 'rental_expense' in request.resolver_match.url_name %}active{% endif %}">
-          <i class="bi bi-cash-stack"></i>
-          <span>Расходы</span>
+        <a href="{% url 'admin:rental_battery_changelist' %}" class="phoenix-sidebar-link {% if 'battery' in request.resolver_match.url_name %}active{% endif %}">
+          <i class="bi bi-battery-charging"></i>
+          <span>Батареи</span>
         </a>
       </li>
       <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_expensecategory_changelist' %}" class="phoenix-sidebar-link {% if 'expensecategory' in request.resolver_match.url_name or 'rental_expensecategory' in request.resolver_match.url_name %}active{% endif %}">
-          <i class="bi bi-folder"></i>
-          <span>Категории расходов</span>
-        </a>
-      </li>
-      <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_financeoverviewproxy_changelist' %}" class="phoenix-sidebar-link {% if 'financeoverviewproxy' in request.resolver_match.url_name or 'rental_financeoverviewproxy' in request.resolver_match.url_name %}active{% endif %}">
-          <i class="bi bi-graph-up-arrow"></i>
-          <span>Финансы</span>
-        </a>
-      </li>
-      <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_financeoverviewproxy2_changelist' %}" class="phoenix-sidebar-link {% if 'financeoverviewproxy2' in request.resolver_match.url_name or 'rental_financeoverviewproxy2' in request.resolver_match.url_name %}active{% endif %}">
-          <i class="bi bi-journal-text"></i>
-          <span>Бухучёт</span>
+        <a href="{% url 'admin:rental_batterymaintenance_changelist' %}" class="phoenix-sidebar-link {% if 'batterymaintenance' in request.resolver_match.url_name %}active{% endif %}">
+          <i class="bi bi-tools"></i>
+          <span>Обслуживание</span>
         </a>
       </li>
       
-      {% if user.is_superuser %}
-      <li class="phoenix-sidebar-section">Финансовые партнёры</li>
+      <!-- Финансы -->
+      <li class="phoenix-sidebar-section">Финансы</li>
       <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_financepartner_changelist' %}" class="phoenix-sidebar-link {% if 'financepartner' in request.resolver_match.url_name or 'rental_financepartner' in request.resolver_match.url_name %}active{% endif %}">
-          <i class="bi bi-people"></i>
-          <span>Партнёры</span>
+        <a href="{% url 'admin:rental_financeoverviewproxy2_changelist' %}" class="phoenix-sidebar-link {% if 'financeoverview' in request.resolver_match.url_name %}active{% endif %}">
+          <i class="bi bi-calculator"></i>
+          <span>Бухучет</span>
         </a>
       </li>
       <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_ownerwithdrawal_changelist' %}" class="phoenix-sidebar-link {% if 'ownerwithdrawal' in request.resolver_match.url_name or 'rental_ownerwithdrawal' in request.resolver_match.url_name %}active{% endif %}">
-          <i class="bi bi-dash-circle"></i>
-          <span>Выводы владельцев</span>
+        <a href="{% url 'admin:rental_investment_changelist' %}" class="phoenix-sidebar-link {% if 'investment' in request.resolver_match.url_name %}active{% endif %}">
+          <i class="bi bi-piggy-bank"></i>
+          <span>Инвестиции</span>
         </a>
       </li>
       <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_moneytransfer_changelist' %}" class="phoenix-sidebar-link {% if 'moneytransfer' in request.resolver_match.url_name or 'rental_moneytransfer' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'admin:rental_moderatortransfer_changelist' %}" class="phoenix-sidebar-link {% if 'moderatortransfer' in request.resolver_match.url_name %}active{% endif %}">
           <i class="bi bi-arrow-left-right"></i>
-          <span>Денежные переводы</span>
+          <span>Переводы</span>
+        </a>
+      </li>
+      
+      <!-- Система -->
+      <li class="phoenix-sidebar-section">Система</li>
+      <li class="phoenix-sidebar-item">
+        <a href="{% url 'admin:rental_partner_changelist' %}" class="phoenix-sidebar-link {% if 'partner' in request.resolver_match.url_name %}active{% endif %}">
+          <i class="bi bi-person-badge"></i>
+          <span>Партнеры</span>
         </a>
       </li>
       <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_financeadjustment_changelist' %}" class="phoenix-sidebar-link {% if 'financeadjustment' in request.resolver_match.url_name or 'rental_financeadjustment' in request.resolver_match.url_name %}active{% endif %}">
-          <i class="bi bi-sliders"></i>
-          <span>Корректировки</span>
+        <a href="{% url 'admin:password_change' %}" class="phoenix-sidebar-link">
+          <i class="bi bi-key"></i>
+          <span>Сменить пароль</span>
         </a>
       </li>
-      {% endif %}
+      <li class="phoenix-sidebar-item">
+        <a href="{% url 'admin:logout' %}" class="phoenix-sidebar-link">
+          <i class="bi bi-box-arrow-right"></i>
+          <span>Выход</span>
+        </a>
+      </li>
     </ul>
   </aside>
+  
+  <!-- Overlay for mobile -->
+  <div class="phoenix-overlay" id="sidebarOverlay"></div>
   {% endif %}
 {% endblock %}
 
@@ -726,34 +620,43 @@
   {{ block.super }}
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
   <script>
-    // Move sidebar into container for flexbox layout
+    // Force dark mode
+    document.documentElement.style.colorScheme = 'dark';
+    document.body.style.colorScheme = 'dark';
+    
+    // Mobile sidebar toggle
     (function() {
-      function moveSidebar() {
-        const sidebar = document.querySelector('.phoenix-sidebar');
-        const container = document.querySelector('#container');
-        if (sidebar && container) {
-          if (!container.contains(sidebar)) {
-            container.insertBefore(sidebar, container.firstChild);
-            console.log('Sidebar moved into container (base_site.html)');
-          }
-          if (container) {
-            container.style.display = 'flex';
-            container.style.flexDirection = 'row';
-          }
+      const burger = document.getElementById('sidebarToggle');
+      const sidebar = document.getElementById('phoenixSidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      
+      if (burger && sidebar && overlay) {
+        // Toggle sidebar
+        burger.addEventListener('click', function() {
+          sidebar.classList.toggle('open');
+          overlay.classList.toggle('active');
+          document.body.classList.toggle('sidebar-open');
+        });
+        
+        // Close sidebar when clicking overlay
+        overlay.addEventListener('click', function() {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('active');
+          document.body.classList.remove('sidebar-open');
+        });
+        
+        // Close sidebar when clicking a link (mobile only)
+        if (window.innerWidth < 992) {
+          const sidebarLinks = sidebar.querySelectorAll('.phoenix-sidebar-link');
+          sidebarLinks.forEach(link => {
+            link.addEventListener('click', function() {
+              sidebar.classList.remove('open');
+              overlay.classList.remove('active');
+              document.body.classList.remove('sidebar-open');
+            });
+          });
         }
       }
-      
-      if (document.readyState === 'complete' || document.readyState === 'interactive') {
-        moveSidebar();
-      } else {
-        document.addEventListener('DOMContentLoaded', moveSidebar);
-      }
-      
-      window.addEventListener('load', moveSidebar);
-      setTimeout(moveSidebar, 50);
-      setTimeout(moveSidebar, 200);
-      setTimeout(moveSidebar, 500);
     })();
   </script>
 {% endblock %}
-
