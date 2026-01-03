@@ -436,6 +436,11 @@
       background-color: var(--phoenix-content-bg);
     }
     
+    /* Override Django admin default max-width restriction */
+    .main.shifted > #nav-sidebar + .content {
+      max-width: calc(100%) !important;
+    }
+    
     /* Dashboard container - убираем все ограничения */
     .dashboard-container {
       width: 100% !important;
