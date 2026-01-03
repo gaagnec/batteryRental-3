@@ -45,6 +45,11 @@
       overflow-x: hidden;
     }
     
+    /* Remove list markers from all lists */
+    ul, ol {
+      list-style-type: none;
+    }
+    
     /* Hide default Django admin elements */
     #header,
     #nav-sidebar,
@@ -54,7 +59,52 @@
       display: none;
     }
     
-    /* 3. LAYOUT - Top Navigation Bar */
+    /* 3. DJANGO ADMIN OVERRIDES - Dark theme for changelist pages */
+    #content-main,
+    .changelist-form-container,
+    .module,
+    #changelist,
+    .results {
+      background-color: var(--phoenix-content-bg);
+    }
+    
+    .changelist-form-container {
+      background-color: transparent;
+    }
+    
+    #changelist .results {
+      overflow-x: auto;
+    }
+    
+    /* Django admin forms and inputs */
+    input[type="text"],
+    input[type="password"],
+    input[type="email"],
+    input[type="number"],
+    input[type="url"],
+    input[type="date"],
+    input[type="datetime-local"],
+    input[type="time"],
+    textarea,
+    select {
+      background-color: var(--phoenix-card-bg);
+      color: var(--phoenix-text);
+      border: 1px solid var(--phoenix-border);
+      border-radius: 0.375rem;
+      padding: 0.5rem;
+    }
+    
+    input[type="text"]:focus,
+    input[type="password"]:focus,
+    input[type="email"]:focus,
+    textarea:focus,
+    select:focus {
+      border-color: var(--phoenix-primary);
+      outline: none;
+      box-shadow: 0 0 0 2px var(--phoenix-primary-light);
+    }
+    
+    /* 4. LAYOUT - Top Navigation Bar */
     .phoenix-navbar {
       position: fixed;
       top: 0;
@@ -182,7 +232,7 @@
       font-size: 0.875rem;
     }
     
-    /* 4. LAYOUT - Sidebar */
+    /* 5. LAYOUT - Sidebar */
     .phoenix-sidebar {
       position: fixed;
       top: var(--phoenix-topnav-height);
@@ -292,7 +342,7 @@
       opacity: 1;
     }
     
-    /* 5. LAYOUT - Main Content Container */
+    /* 6. LAYOUT - Main Content Container */
     #container {
       margin-top: var(--phoenix-topnav-height);
       margin-left: var(--phoenix-sidebar-width);
@@ -305,7 +355,7 @@
       background-color: var(--phoenix-content-bg);
     }
     
-    /* 6. COMPONENTS - Base Buttons */
+    /* 7. COMPONENTS - Base Buttons */
     .button,
     button,
     .btn,
@@ -328,7 +378,7 @@
       background-color: var(--phoenix-primary-hover);
     }
     
-    /* 7. COMPONENTS - Tab Buttons (more specific selector) */
+    /* 8. COMPONENTS - Tab Buttons (more specific selector) */
     .client-tabs,
     .tab-buttons {
       display: flex;
@@ -377,14 +427,14 @@
       display: block;
     }
     
-    /* 8. COMPONENTS - Cards */
+    /* 9. COMPONENTS - Cards */
     .card {
       background-color: var(--phoenix-card-bg);
       border: 1px solid var(--phoenix-border);
       border-radius: 0.75rem;
     }
     
-    /* 9. COMPONENTS - Tables (Dark Theme) */
+    /* 10. COMPONENTS - Tables (Dark Theme) */
     .table {
       color: var(--phoenix-text-muted);
     }
@@ -455,7 +505,7 @@
       background: #3a3e51;
     }
     
-    /* 10. RESPONSIVE - Mobile (< 992px) */
+    /* 11. RESPONSIVE - Mobile (< 992px) */
     @media (max-width: 991px) {
       /* Show burger button */
       .phoenix-burger {
@@ -519,14 +569,14 @@
       }
     }
     
-    /* 11. RESPONSIVE - Tablet (768px - 991px) */
+    /* 12. RESPONSIVE - Tablet (768px - 991px) */
     @media (min-width: 768px) and (max-width: 991px) {
       .phoenix-navbar-brand span {
         display: inline;
       }
     }
     
-    /* 12. UTILITIES - Only here we use !important */
+    /* 13. UTILITIES - Only here we use !important */
     .d-none {
       display: none;
     }
