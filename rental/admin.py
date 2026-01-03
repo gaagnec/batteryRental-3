@@ -1350,18 +1350,6 @@ class ClientAdmin(SimpleHistoryAdmin):
     list_filter = (ActiveRentalFilter,)
     search_fields = ("name", "phone", "pesel")
 
-    def get_queryset(self, request):
-        """Оптимизация: предзагрузка связанных данных для списка клиентов"""
-        qs = super().get_queryset(request)
-        # Добавляем аннотацию для has_active без N+1 запросов
-        from django.db.models import Exists, OuterRef
-        active_rentals = Rental.objects.filter(
-            client=OuterRef('pk'),
-            status=Rental.Status.ACTIVE
-        )
-        qs = qs.annotate(has_active=Exists(active_rentals))
-        return qs
-
     def has_active(self, obj):
         return getattr(obj, "has_active", False)
     has_active.boolean = True
