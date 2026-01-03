@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure--_$^stbr_y##gx(!ciu_3bjr2#jf&_=#$=_##y_i5#@7j92f4j'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False  # Performance optimization: disabled for production
 
 ALLOWED_HOSTS = ["*"]
 
@@ -184,7 +184,7 @@ LOGGING = {
     'loggers': {
         'django.db.backends': {
             'handlers': ['console'],
-            'level': 'DEBUG',  # shows SQL and duration
+            'level': 'INFO',  # Performance: reduced from DEBUG to INFO
             'propagate': False,
         },
     },
