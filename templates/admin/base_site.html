@@ -561,9 +561,15 @@
         </a>
       </li>
       <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_batterymaintenance_changelist' %}" class="phoenix-sidebar-link {% if 'batterymaintenance' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'admin:rental_repair_changelist' %}" class="phoenix-sidebar-link {% if 'repair' in request.resolver_match.url_name %}active{% endif %}">
           <i class="bi bi-tools"></i>
-          <span>Обслуживание</span>
+          <span>Ремонты</span>
+        </a>
+      </li>
+      <li class="phoenix-sidebar-item">
+        <a href="{% url 'admin:rental_batterystatuslog_changelist' %}" class="phoenix-sidebar-link {% if 'batterystatuslog' in request.resolver_match.url_name %}active{% endif %}">
+          <i class="bi bi-clock-history"></i>
+          <span>Логи статусов</span>
         </a>
       </li>
       
@@ -576,22 +582,34 @@
         </a>
       </li>
       <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_investment_changelist' %}" class="phoenix-sidebar-link {% if 'investment' in request.resolver_match.url_name %}active{% endif %}">
-          <i class="bi bi-piggy-bank"></i>
-          <span>Инвестиции</span>
+        <a href="{% url 'admin:rental_ownerwithdrawal_changelist' %}" class="phoenix-sidebar-link {% if 'ownerwithdrawal' in request.resolver_match.url_name %}active{% endif %}">
+          <i class="bi bi-cash-coin"></i>
+          <span>Выплаты</span>
         </a>
       </li>
       <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_moderatortransfer_changelist' %}" class="phoenix-sidebar-link {% if 'moderatortransfer' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'admin:rental_moneytransfer_changelist' %}" class="phoenix-sidebar-link {% if 'moneytransfer' in request.resolver_match.url_name %}active{% endif %}">
           <i class="bi bi-arrow-left-right"></i>
           <span>Переводы</span>
+        </a>
+      </li>
+      <li class="phoenix-sidebar-item">
+        <a href="{% url 'admin:rental_financeadjustment_changelist' %}" class="phoenix-sidebar-link {% if 'financeadjustment' in request.resolver_match.url_name %}active{% endif %}">
+          <i class="bi bi-pencil-square"></i>
+          <span>Корректировки</span>
+        </a>
+      </li>
+      <li class="phoenix-sidebar-item">
+        <a href="{% url 'admin:rental_expense_changelist' %}" class="phoenix-sidebar-link {% if 'expense' in request.resolver_match.url_name %}active{% endif %}">
+          <i class="bi bi-receipt"></i>
+          <span>Расходы</span>
         </a>
       </li>
       
       <!-- Система -->
       <li class="phoenix-sidebar-section">Система</li>
       <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:rental_partner_changelist' %}" class="phoenix-sidebar-link {% if 'partner' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'admin:rental_financepartner_changelist' %}" class="phoenix-sidebar-link {% if 'financepartner' in request.resolver_match.url_name %}active{% endif %}">
           <i class="bi bi-person-badge"></i>
           <span>Партнеры</span>
         </a>
