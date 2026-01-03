@@ -384,7 +384,78 @@
       border-radius: 0.75rem;
     }
     
-    /* 9. RESPONSIVE - Mobile (< 992px) */
+    /* 9. COMPONENTS - Tables (Dark Theme) */
+    .table {
+      color: var(--phoenix-text-muted);
+    }
+    
+    .table > :not(caption) > * > * {
+      background-color: var(--phoenix-card-bg);
+      border-bottom-color: var(--phoenix-border);
+      color: var(--phoenix-text-muted);
+    }
+    
+    .table tbody tr {
+      background-color: transparent;
+      transition: background-color 0.2s ease;
+    }
+    
+    .table thead tr {
+      background-color: transparent;
+    }
+    
+    .table-hover tbody tr:hover {
+      background-color: var(--phoenix-primary-light);
+      cursor: pointer;
+    }
+    
+    .table-striped tbody tr:nth-of-type(odd) {
+      background-color: rgba(14, 16, 24, 0.3);
+    }
+    
+    /* Table scrollbars */
+    .table-responsive::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    
+    .table-responsive::-webkit-scrollbar-track {
+      background: var(--phoenix-card-bg);
+    }
+    
+    .table-responsive::-webkit-scrollbar-thumb {
+      background: var(--phoenix-border);
+      border-radius: 4px;
+    }
+    
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+      background: #3a3e51;
+    }
+    
+    /* Custom table wrappers */
+    .clients-table-wrapper {
+      max-height: 820px;
+      overflow-y: auto;
+    }
+    
+    .clients-table-wrapper::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    .clients-table-wrapper::-webkit-scrollbar-track {
+      background: var(--phoenix-card-bg);
+    }
+    
+    .clients-table-wrapper::-webkit-scrollbar-thumb {
+      background: var(--phoenix-border);
+      border-radius: 4px;
+    }
+    
+    .clients-table-wrapper::-webkit-scrollbar-thumb:hover {
+      background: #3a3e51;
+    }
+    
+    /* 10. RESPONSIVE - Mobile (< 992px) */
     @media (max-width: 991px) {
       /* Show burger button */
       .phoenix-burger {
@@ -448,14 +519,14 @@
       }
     }
     
-    /* 10. RESPONSIVE - Tablet (768px - 991px) */
+    /* 11. RESPONSIVE - Tablet (768px - 991px) */
     @media (min-width: 768px) and (max-width: 991px) {
       .phoenix-navbar-brand span {
         display: inline;
       }
     }
     
-    /* 11. UTILITIES - Only here we use !important */
+    /* 12. UTILITIES - Only here we use !important */
     .d-none {
       display: none;
     }
