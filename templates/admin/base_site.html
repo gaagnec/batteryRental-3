@@ -47,7 +47,17 @@
     
     /* Remove list markers from all lists */
     ul, ol {
-      list-style-type: none;
+      list-style-type: none !important;
+      padding-left: 0;
+      margin: 0;
+    }
+    
+    /* Specifically for navbar and sidebar */
+    .phoenix-navbar-nav,
+    .phoenix-sidebar-menu {
+      list-style: none !important;
+      padding: 0;
+      margin: 0;
     }
     
     /* Hide default Django admin elements */
