@@ -52,12 +52,32 @@
       margin: 0;
     }
     
+    /* Force remove all list item markers */
+    li {
+      list-style: none !important;
+      list-style-type: none !important;
+    }
+    
     /* Specifically for navbar and sidebar */
     .phoenix-navbar-nav,
     .phoenix-sidebar-menu {
       list-style: none !important;
       padding: 0;
       margin: 0;
+    }
+    
+    .phoenix-navbar-nav li,
+    .phoenix-sidebar-item,
+    .phoenix-sidebar-menu li {
+      list-style: none !important;
+      list-style-type: none !important;
+      padding-left: 0 !important;
+    }
+    
+    /* Remove Bootstrap/browser default markers */
+    ul::marker, ol::marker, li::marker {
+      display: none !important;
+      content: none !important;
     }
     
     /* Hide default Django admin elements */
@@ -84,6 +104,55 @@
     
     #changelist .results {
       overflow-x: auto;
+    }
+    
+    /* Django admin changelist tables - dark theme */
+    #result_list {
+      background-color: var(--phoenix-card-bg) !important;
+      color: var(--phoenix-text-muted) !important;
+      border: 1px solid var(--phoenix-border) !important;
+    }
+    
+    #result_list tbody tr,
+    #result_list thead tr {
+      background-color: transparent !important;
+    }
+    
+    #result_list th,
+    #result_list td {
+      background-color: var(--phoenix-card-bg) !important;
+      border-color: var(--phoenix-border) !important;
+      color: var(--phoenix-text-muted) !important;
+      padding: 0.75rem !important;
+    }
+    
+    #result_list thead th {
+      background-color: rgba(14, 16, 24, 0.5) !important;
+      color: var(--phoenix-text) !important;
+      font-weight: 600;
+      border-bottom: 2px solid var(--phoenix-border) !important;
+    }
+    
+    #result_list tbody tr:hover {
+      background-color: var(--phoenix-primary-light) !important;
+    }
+    
+    #result_list tbody tr:nth-child(even) {
+      background-color: rgba(14, 16, 24, 0.3) !important;
+    }
+    
+    /* Django admin action checkboxes row */
+    #result_list tr.selected {
+      background-color: rgba(102, 126, 234, 0.2) !important;
+    }
+    
+    /* Django admin table links */
+    #result_list a {
+      color: var(--phoenix-primary) !important;
+    }
+    
+    #result_list a:hover {
+      color: var(--phoenix-primary-hover) !important;
     }
     
     /* Django admin forms and inputs */
