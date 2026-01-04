@@ -391,6 +391,25 @@ class BatteryTransfer(TimeStampedModel):
         """Подтверждает перенос и меняет city батареи"""
         if self.status != self.Status.PENDING:
             raise ValidationError("Можно подтвердить только запросы в статусе PENDING")
+        
+        # Проверка активной аренды перед подтверждением
+        from django.utils import timezone
+        from django.db.models import Q
+        from .models import RentalBatteryAssignment, Rental
+        
+        now = timezone.now()
+        active_assignments = RentalBatteryAssignment.objects.filter(
+            battery=self.battery,
+            start_at__lte=now
+        ).filter(
+            Q(end_at__isnull=True) | Q(end_at__gt=now)
+        ).filter(
+            rental__status=Rental.Status.ACTIVE
+        ).exists()
+        
+        if active_assignments:
+            raise ValidationError(f"Батарея {self.battery.short_code} находится в активной аренде. Перенос невозможен.")
+        
         self.status = self.Status.APPROVED
         self.approved_by = approved_by_user
         self.battery.city = self.to_city

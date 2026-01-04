@@ -1623,8 +1623,29 @@ class BatteryAdmin(SimpleHistoryAdmin):
                             messages.warning(request, f"Батарея {battery.short_code} не привязана к городу")
                             continue
                         
+                        # Валидация: модератор может переносить только из своего города
+                        if not request.user.is_superuser:
+                            if battery_from_city.id != from_city.id:
+                                messages.error(request, f"Модератор может переносить батареи только из своего города ({from_city.name})")
+                                continue
+                        
                         if battery_from_city.id == to_city.id:
                             messages.warning(request, f"Батарея {battery.short_code} уже в городе {to_city.name}")
+                            continue
+                        
+                        # Проверка активной аренды
+                        now = timezone.now()
+                        active_assignments = RentalBatteryAssignment.objects.filter(
+                            battery=battery,
+                            start_at__lte=now
+                        ).filter(
+                            Q(end_at__isnull=True) | Q(end_at__gt=now)
+                        ).filter(
+                            rental__status=Rental.Status.ACTIVE
+                        ).exists()
+                        
+                        if active_assignments:
+                            messages.warning(request, f"Батарея {battery.short_code} находится в активной аренде. Перенос невозможен.")
                             continue
                         
                         # Создаем запрос на перенос
