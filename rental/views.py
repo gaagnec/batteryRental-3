@@ -8,7 +8,7 @@ from django.db.models import Prefetch, Q
 
 from decimal import Decimal
 
-from .models import Client, Rental, Battery, Payment, Repair, RentalBatteryAssignment, FinancePartner, MoneyTransfer
+from .models import Client, Rental, Battery, Payment, Repair, RentalBatteryAssignment, FinancePartner, MoneyTransfer, City
 
 
 def calculate_balances_for_rentals(rentals, tz, now_dt):
@@ -81,6 +81,25 @@ def calculate_balances_for_rentals(rentals, tz, now_dt):
 
 @staff_member_required
 def dashboard(request):
+    # Определяем город для фильтрации (для модераторов - их город, для админов - из параметра)
+    filter_city = None
+    if not request.user.is_superuser:
+        # Модераторы видят только свой город
+        try:
+            finance_partner = FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.MODERATOR).first()
+            if finance_partner and finance_partner.city:
+                filter_city = finance_partner.city
+        except Exception:
+            pass
+    else:
+        # Админы могут фильтровать по городу из параметра
+        city_id = request.GET.get('city')
+        if city_id:
+            try:
+                filter_city = City.objects.get(id=city_id)
+            except City.DoesNotExist:
+                pass
+    
     # Активные клиенты: есть хотя бы один активный рентал
     # Активные клиенты с предзагрузкой назначений батарей
     now = timezone.now()
@@ -90,9 +109,12 @@ def dashboard(request):
     active_rentals = (
         Rental.objects
         .filter(status=Rental.Status.ACTIVE)
-        .select_related('client')
+        .select_related('client', 'city')
         .prefetch_related(Prefetch('assignments', queryset=active_assignments_qs, to_attr='active_assignments'))
     )
+    # Фильтрация по городу
+    if filter_city:
+        active_rentals = active_rentals.filter(city=filter_city)
     active_clients_ids = active_rentals.values_list('client_id', flat=True).distinct()
     active_clients_count = active_clients_ids.count()
 
@@ -325,13 +347,23 @@ def dashboard(request):
     # Используем ту же дату cutoff, что и на странице financeoverviewproxy2
     cutoff = timezone.datetime(2025, 9, 1).date()
     
-    partners = FinancePartner.objects.filter(active=True).select_related('user')
+    partners = FinancePartner.objects.filter(active=True).select_related('user', 'city')
     moderators = [p for p in partners if p.role == FinancePartner.Role.MODERATOR]
     
-    # Платежи, собранные модераторами (RENT + SOLD)
+    # Фильтрация модераторов по городу
+    if filter_city:
+        moderators = [m for m in moderators if m.city_id == filter_city.id]
+    
+    # Платежи, собранные модераторами (RENT + SOLD) с фильтрацией по городу
+    payments_qs = Payment.objects.filter(
+        date__gte=cutoff, 
+        type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD]
+    )
+    if filter_city:
+        payments_qs = payments_qs.filter(city=filter_city)
+    
     payments_by_user = dict(
-        Payment.objects
-        .filter(date__gte=cutoff, type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD])
+        payments_qs
         .values('created_by_id')
         .annotate(total=Sum('amount'))
         .values_list('created_by_id', 'total')
@@ -356,14 +388,17 @@ def dashboard(request):
     last_week_end = current_week_monday - timedelta(days=1)  # воскресенье прошлой недели
     last_week_start = last_week_end - timedelta(days=6)  # понедельник прошлой недели
     
-    # Платежи за последнюю неделю
+    # Платежи за последнюю неделю с фильтрацией по городу
+    payments_last_week_qs = Payment.objects.filter(
+        date__gte=last_week_start, 
+        date__lte=last_week_end,
+        type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD]
+    )
+    if filter_city:
+        payments_last_week_qs = payments_last_week_qs.filter(city=filter_city)
+    
     payments_last_week_by_user = dict(
-        Payment.objects
-        .filter(
-            date__gte=last_week_start, 
-            date__lte=last_week_end,
-            type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD]
-        )
+        payments_last_week_qs
         .values('created_by_id')
         .annotate(total=Sum('amount'))
         .values_list('created_by_id', 'total')
@@ -381,12 +416,21 @@ def dashboard(request):
         # Сумма поступлений за последнюю неделю (без вычета переводов)
         collected_last_week = Decimal(payments_last_week_by_user.get(uid, 0))
         
+        # Расчет вознаграждения модератора
+        reward = mod.calculate_reward(cutoff, timezone.localdate())
+        reward_amount = reward
+        reward_percent_display = mod.reward_percent
+        difference = collected - reward_amount
+        
         moderator_debts.append({
             'partner': mod,
             'collected': collected,
             'transferred': transferred,
             'debt': debt,
             'collected_last_week': collected_last_week,
+            'reward': reward_amount,
+            'reward_percent': reward_percent_display,
+            'difference': difference,
         })
     
     # История переводов от модераторов к владельцам (последние 10)
@@ -396,6 +440,11 @@ def dashboard(request):
         .select_related('from_partner__user', 'to_partner__user')
         .order_by('-date', '-id')[:10]
     )
+    
+    # Список городов для фильтра (только для админов)
+    cities = []
+    if request.user.is_superuser:
+        cities = City.objects.filter(active=True).order_by('name')
     
     context = {
         'active_clients_count': active_clients_count,
@@ -414,6 +463,8 @@ def dashboard(request):
         'monthly3_chart': monthly3_chart,
         'moderator_debts': moderator_debts,
         'moderator_transfers_recent': moderator_transfers_recent,
+        'cities': cities,
+        'filter_city': filter_city,
     }
     return render(request, 'admin/dashboard.html', context)
 

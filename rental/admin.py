@@ -2878,12 +2878,26 @@ class RepairAdmin(SimpleHistoryAdmin):
 
 @admin.register(BatteryTransfer)
 class BatteryTransferAdmin(SimpleHistoryAdmin):
-    list_display = ("id", "battery", "from_city", "to_city", "status", "requested_by", "approved_by", "created_at")
+    list_display = ("id", "battery", "from_city", "to_city", "status_display", "requested_by", "approved_by", "created_at")
     list_filter = ("status", "from_city", "to_city", "created_at")
     search_fields = ("battery__short_code", "note")
     readonly_fields = ("created_at", "updated_at")
     autocomplete_fields = ["battery", "from_city", "to_city"]
     actions = ["approve_transfers", "reject_transfers"]
+    
+    def status_display(self, obj):
+        """Цветовая индикация статусов"""
+        colors = {
+            BatteryTransfer.Status.PENDING: ('#ffd28a', 'rgba(255, 210, 138, 0.15)', 'Ожидает подтверждения'),
+            BatteryTransfer.Status.APPROVED: ('#00d27a', 'rgba(0, 210, 122, 0.15)', 'Подтвержден'),
+            BatteryTransfer.Status.REJECTED: ('#ff6b6b', 'rgba(255, 107, 107, 0.15)', 'Отклонен'),
+        }
+        color, bg_color, text = colors.get(obj.status, ('#9fa6bc', 'rgba(159, 166, 188, 0.15)', obj.get_status_display()))
+        return format_html(
+            '<span class="badge" style="background-color: {}; color: {}; font-size: 0.8125rem; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 500;">{}</span>',
+            bg_color, color, text
+        )
+    status_display.short_description = "Статус"
     
     def get_queryset(self, request):
         """Фильтрация по городу для модераторов"""
