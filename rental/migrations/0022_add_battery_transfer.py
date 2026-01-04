@@ -9,7 +9,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('rental', '0021_add_city_fields'),
-        ('auth', '____latest__'),
     ]
 
     operations = [

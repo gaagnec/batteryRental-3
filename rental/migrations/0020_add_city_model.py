@@ -20,7 +20,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('rental', '0019_add_performance_indexes'),
-        ('auth', '____latest__'),
     ]
 
     operations = [
