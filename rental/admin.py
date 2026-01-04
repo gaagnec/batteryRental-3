@@ -25,20 +25,30 @@ from simple_history.admin import SimpleHistoryAdmin
 from .models import (
     Client, Battery, Rental, RentalBatteryAssignment,
     Payment, ExpenseCategory, Expense, Repair, BatteryStatusLog,
-    FinancePartner, OwnerContribution, OwnerWithdrawal, MoneyTransfer, FinanceAdjustment
+    FinancePartner, OwnerContribution, OwnerWithdrawal, MoneyTransfer, FinanceAdjustment,
+    City, BatteryTransfer
 )
+
+
+@admin.register(City)
+class CityAdmin(SimpleHistoryAdmin):
+    list_display = ("id", "name", "code", "active")
+    list_filter = ("active",)
+    search_fields = ("name", "code")
+    ordering = ['name']
 
 
 @admin.register(FinancePartner)
 class FinancePartnerAdmin(SimpleHistoryAdmin):
-    list_display = ("id", "user", "role", "share_percent", "active")
-    list_filter = ("role", "active")
+    list_display = ("id", "user", "role", "city", "share_percent", "reward_percent", "active")
+    list_filter = ("role", "active", "city")
     search_fields = ("user__username", "user__first_name", "user__last_name")
+    autocomplete_fields = ["city"]
     
     def get_queryset(self, request):
-        """Оптимизация: предзагрузка user"""
+        """Оптимизация: предзагрузка user и city"""
         qs = super().get_queryset(request)
-        qs = qs.select_related('user')
+        qs = qs.select_related('user', 'city')
         return qs
     
     def has_module_permission(self, request):
@@ -1346,9 +1356,38 @@ class ActiveRentalFilter(admin.SimpleListFilter):
 
 @admin.register(Client)
 class ClientAdmin(SimpleHistoryAdmin):
-    list_display = ("id", "name", "phone", "pesel", "created_at", "has_active")
-    list_filter = (ActiveRentalFilter,)
+    list_display = ("id", "name", "phone", "pesel", "city", "created_at", "has_active")
+    list_filter = (ActiveRentalFilter, "city")
     search_fields = ("name", "phone", "pesel")
+    autocomplete_fields = ["city"]
+
+    def get_queryset(self, request):
+        """Фильтрация по городу для модераторов"""
+        qs = super().get_queryset(request)
+        qs = qs.select_related('city')
+        
+        # Модераторы видят только клиентов своего города
+        if not request.user.is_superuser:
+            try:
+                finance_partner = FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.MODERATOR).first()
+                if finance_partner and finance_partner.city:
+                    qs = qs.filter(city=finance_partner.city)
+            except Exception:
+                pass
+        
+        return qs
+    
+    def save_model(self, request, obj, form, change):
+        """Автоматически устанавливаем city для модераторов"""
+        if not change and not obj.city:
+            if not request.user.is_superuser:
+                try:
+                    finance_partner = FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.MODERATOR).first()
+                    if finance_partner and finance_partner.city:
+                        obj.city = finance_partner.city
+                except Exception:
+                    pass
+        super().save_model(request, obj, form, change)
 
     def has_active(self, obj):
         return getattr(obj, "has_active", False)
@@ -1475,21 +1514,141 @@ class ClientAdmin(SimpleHistoryAdmin):
 @admin.register(Battery)
 class BatteryAdmin(SimpleHistoryAdmin):
     # Убираем тяжёлые колонки roi_progress из списка, возвращаем в detail
-    list_display = ("id", "short_code", "status_display", "usage_now", "serial_number", "cost_price", "created_at")
+    list_display = ("id", "short_code", "status_display", "usage_now", "serial_number", "city", "cost_price", "created_at")
     search_fields = ("short_code", "serial_number")
-    list_filter = ("status",)
+    list_filter = ("status", "city")
+    autocomplete_fields = ["city"]
     change_list_template = 'admin/rental/battery/change_list.html'
     list_per_page = 50
     ordering = ['id']  # Сортировка по умолчанию от меньшего к большему
+    actions = ["transfer_batteries"]
 
     def get_queryset(self, request):
-        """Оптимизация: предзагрузка assignments для избежания N+1"""
+        """Фильтрация по городу для модераторов и оптимизация"""
         qs = super().get_queryset(request)
+        qs = qs.select_related('city')
         qs = qs.prefetch_related(
             'assignments__rental__client',
             'assignments__rental__root'
         )
+        
+        # Модераторы видят только батареи своего города
+        if not request.user.is_superuser:
+            try:
+                finance_partner = FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.MODERATOR).first()
+                if finance_partner and finance_partner.city:
+                    qs = qs.filter(city=finance_partner.city)
+            except Exception:
+                pass
+        
         return qs
+    
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('transfer-batteries-form/', self.admin_site.admin_view(self.transfer_batteries_form_view), name='transfer_batteries_form'),
+        ]
+        return custom_urls + urls
+    
+    @admin.action(description="Создать запрос на перенос батареи")
+    def transfer_batteries(self, request, queryset):
+        """Создает запрос на перенос выбранных батарей"""
+        if queryset.count() == 0:
+            self.message_user(request, "Выберите батареи для переноса", level=messages.WARNING)
+            return
+        
+        # Определяем город модератора
+        from_city = None
+        if not request.user.is_superuser:
+            try:
+                finance_partner = FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.MODERATOR).first()
+                if finance_partner and finance_partner.city:
+                    from_city = finance_partner.city
+                else:
+                    self.message_user(request, "Модератор должен быть привязан к городу", level=messages.ERROR)
+                    return
+            except Exception:
+                self.message_user(request, "Ошибка при определении города модератора", level=messages.ERROR)
+                return
+        
+        # Сохраняем выбранные ID в сессии
+        battery_ids = list(queryset.values_list('id', flat=True))
+        request.session['transfer_battery_ids'] = battery_ids
+        request.session['transfer_from_city_id'] = from_city.id if from_city else None
+        return HttpResponseRedirect(reverse('admin:transfer_batteries_form'))
+    
+    def transfer_batteries_form_view(self, request):
+        """Форма для создания запроса на перенос батареи"""
+        battery_ids = request.session.get('transfer_battery_ids', [])
+        from_city_id = request.session.get('transfer_from_city_id')
+        
+        if not battery_ids:
+            self.message_user(request, "Не выбраны батареи для переноса", level=messages.ERROR)
+            return HttpResponseRedirect(reverse('admin:rental_battery_changelist'))
+        
+        batteries = Battery.objects.filter(id__in=battery_ids).select_related('city')
+        from_city = None
+        if from_city_id:
+            from_city = City.objects.get(id=from_city_id)
+        
+        if request.method == 'POST':
+            to_city_id = request.POST.get('to_city')
+            note = request.POST.get('note', '')
+            
+            if not to_city_id:
+                messages.error(request, "Выберите город назначения")
+            else:
+                try:
+                    to_city = City.objects.get(id=to_city_id)
+                    created_count = 0
+                    
+                    for battery in batteries:
+                        # Определяем from_city для каждой батареи
+                        battery_from_city = from_city or battery.city
+                        if not battery_from_city:
+                            messages.warning(request, f"Батарея {battery.short_code} не привязана к городу")
+                            continue
+                        
+                        if battery_from_city.id == to_city.id:
+                            messages.warning(request, f"Батарея {battery.short_code} уже в городе {to_city.name}")
+                            continue
+                        
+                        # Создаем запрос на перенос
+                        BatteryTransfer.objects.create(
+                            battery=battery,
+                            from_city=battery_from_city,
+                            to_city=to_city,
+                            requested_by=request.user,
+                            note=note,
+                            status=BatteryTransfer.Status.PENDING
+                        )
+                        created_count += 1
+                    
+                    if created_count > 0:
+                        messages.success(request, f"Создано запросов на перенос: {created_count}")
+                    
+                    # Очищаем сессию
+                    del request.session['transfer_battery_ids']
+                    del request.session['transfer_from_city_id']
+                    
+                    return HttpResponseRedirect(reverse('admin:rental_batterytransfer_changelist'))
+                except City.DoesNotExist:
+                    messages.error(request, "Город не найден")
+        
+        # Получаем список городов для выбора
+        cities = City.objects.filter(active=True).order_by('name')
+        
+        context = {
+            **self.admin_site.each_context(request),
+            'title': 'Создать запрос на перенос батареи',
+            'batteries': batteries,
+            'from_city': from_city,
+            'cities': cities,
+            'opts': self.model._meta,
+            'has_view_permission': self.has_view_permission(request),
+        }
+        
+        return TemplateResponse(request, 'admin/rental/battery/transfer_form.html', context)
 
     def usage_now(self, obj):
         # Активные договоры сейчас, где батарея назначена
@@ -1716,8 +1875,27 @@ class RentalBatteryAssignmentForm(forms.ModelForm):
     class Meta:
         model = RentalBatteryAssignment
         fields = "__all__"
+    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Фильтрация батарей по городу модератора
+        if 'battery' in self.fields:
+            battery_field = self.fields['battery']
+            # Получаем rental из instance или из parent
+            rental = None
+            if self.instance and self.instance.pk:
+                rental = self.instance.rental
+            elif hasattr(self, 'parent_instance') and self.parent_instance:
+                rental = self.parent_instance
+            
+            # Если есть rental, фильтруем батареи по городу rental
+            if rental and rental.city_id:
+                battery_field.queryset = Battery.objects.filter(city=rental.city)
+            else:
+                # Если rental нет или city не установлен, проверяем модератора
+                # Это будет обработано в RentalAdmin.formfield_for_foreignkey
+                pass
+        
         # поле видно, но не обязательно; если оставить пустым при создании — подставим старт договора
         if 'start_at' in self.fields:
             self.fields['start_at'].required = False
@@ -1737,6 +1915,14 @@ class RentalBatteryAssignmentInline(admin.TabularInline):
     extra = 0
     readonly_fields = ("created_by", "updated_by")
     autocomplete_fields = ("battery",)
+    
+    def get_formset(self, request, obj=None, **kwargs):
+        """Передаем rental в форму для фильтрации батарей"""
+        formset = super().get_formset(request, obj, **kwargs)
+        # Сохраняем rental в request для использования в RentalAdmin.formfield_for_foreignkey
+        if obj:
+            request._rental_obj = obj
+        return formset
 
 
 class PaymentInline(admin.TabularInline):
@@ -1778,7 +1964,49 @@ class NewVersionActionForm(ActionForm):
 
 @admin.register(Rental)
 class RentalAdmin(SimpleHistoryAdmin):
-    autocomplete_fields = ('client',)
+    autocomplete_fields = ('client', 'city')
+    list_filter = ('status', 'city')
+    
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """Фильтрация батарей по городу при назначении в inline формах"""
+        if db_field.name == "battery":
+            # Получаем rental из request или из instance inline формы
+            rental = None
+            if hasattr(request, '_obj'):
+                rental = request._obj
+            elif hasattr(request, '_rental_obj'):
+                rental = request._rental_obj
+            
+            if rental and rental.city_id:
+                kwargs["queryset"] = Battery.objects.filter(city=rental.city)
+            elif not request.user.is_superuser:
+                # При создании нового rental - фильтруем по городу модератора
+                try:
+                    finance_partner = FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.MODERATOR).first()
+                    if finance_partner and finance_partner.city:
+                        kwargs["queryset"] = Battery.objects.filter(city=finance_partner.city)
+                except Exception:
+                    pass
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+    
+    def get_form(self, request, obj=None, **kwargs):
+        """Сохраняем obj в request для использования в formfield_for_foreignkey"""
+        request._obj = obj
+        request._rental_obj = obj
+        form = super().get_form(request, obj, **kwargs)
+        return form
+    
+    def get_formset(self, request, obj=None, **kwargs):
+        """Сохраняем rental в request для inline форм"""
+        request._rental_obj = obj
+        return super().get_formset(request, obj, **kwargs)
+    
+    def save_model(self, request, obj, form, change):
+        """Автоматически устанавливаем city из client.city при создании"""
+        if not change and not obj.city and obj.client_id:
+            if hasattr(obj.client, 'city') and obj.client.city:
+                obj.city = obj.client.city
+        super().save_model(request, obj, form, change)
 
     def changelist_view(self, request, extra_context=None):
         if extra_context is None:
@@ -1805,8 +2033,19 @@ class RentalAdmin(SimpleHistoryAdmin):
         qs = super().get_queryset(request)
         # Предзагрузить связанные объекты, чтобы избежать N+1
         from django.db.models import Count
-        qs = qs.select_related('client').prefetch_related('assignments', 'assignments__battery')
+        qs = qs.select_related('client', 'city').prefetch_related('assignments', 'assignments__battery')
         qs = qs.annotate(assignments_count=Count('assignments'))
+        
+        # Модераторы видят только договоры своего города
+        if not request.user.is_superuser:
+            try:
+                finance_partner = FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.MODERATOR).first()
+                if finance_partner and finance_partner.city:
+                    qs = qs.filter(city=finance_partner.city)
+            except Exception:
+                pass
+        
+        return qs
         # Добавить row_class для приглушения строк
         for obj in qs:
             if obj.status in [obj.Status.MODIFIED, obj.Status.CLOSED]:
@@ -2229,19 +2468,42 @@ class PaymentAdmin(SimpleHistoryAdmin):
         title = 'Договор'
         field_name = 'rental'
 
-    list_display = ("id", "rental_link", "date", "amount_display", "type_display", "method_display", "created_by_name")
-    list_filter = (RentalFilter, "type", "method")
+    list_display = ("id", "rental_link", "date", "amount_display", "type_display", "method_display", "city", "created_by_name")
+    list_filter = (RentalFilter, "type", "method", "city")
     search_fields = ("rental__id", "note", "rental__client__name", "created_by__username")
     readonly_fields = ("updated_by",)
+    autocomplete_fields = ["city"]
     date_hierarchy = 'date'
     list_per_page = 50
     change_form_template = 'admin/rental/payment/change_form.html'
     
     def get_queryset(self, request):
-        """Оптимизация: предзагрузка связанных rental и client для избежания N+1"""
+        """Фильтрация по городу для модераторов и оптимизация"""
         qs = super().get_queryset(request)
-        qs = qs.select_related('rental__client', 'rental__root', 'created_by')
+        qs = qs.select_related('rental__client', 'rental__root', 'created_by', 'city')
+        
+        # Модераторы видят только платежи своего города
+        if not request.user.is_superuser:
+            try:
+                finance_partner = FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.MODERATOR).first()
+                if finance_partner and finance_partner.city:
+                    qs = qs.filter(city=finance_partner.city)
+            except Exception:
+                pass
+        
         return qs
+    
+    def save_model(self, request, obj, form, change):
+        """Автоматически устанавливаем city для модераторов"""
+        if not change and not obj.city:
+            if not request.user.is_superuser:
+                try:
+                    finance_partner = FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.MODERATOR).first()
+                    if finance_partner and finance_partner.city:
+                        obj.city = finance_partner.city
+                except Exception:
+                    pass
+        super().save_model(request, obj, form, change)
     
     fieldsets = (
         ('Основная информация', {
@@ -2611,6 +2873,90 @@ class RepairAdmin(SimpleHistoryAdmin):
     
     def has_module_permission(self, request):
         # Только суперпользователи видят ремонты
+        return request.user.is_superuser
+
+
+@admin.register(BatteryTransfer)
+class BatteryTransferAdmin(SimpleHistoryAdmin):
+    list_display = ("id", "battery", "from_city", "to_city", "status", "requested_by", "approved_by", "created_at")
+    list_filter = ("status", "from_city", "to_city", "created_at")
+    search_fields = ("battery__short_code", "note")
+    readonly_fields = ("created_at", "updated_at")
+    autocomplete_fields = ["battery", "from_city", "to_city"]
+    actions = ["approve_transfers", "reject_transfers"]
+    
+    def get_queryset(self, request):
+        """Фильтрация по городу для модераторов"""
+        from django.db.models import Q
+        qs = super().get_queryset(request)
+        qs = qs.select_related('battery', 'from_city', 'to_city', 'requested_by', 'approved_by')
+        
+        # Модераторы видят только трансферы, связанные с их городом
+        if not request.user.is_superuser:
+            try:
+                finance_partner = FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.MODERATOR).first()
+                if finance_partner and finance_partner.city:
+                    # Модератор видит трансферы из своего города или в свой город
+                    qs = qs.filter(
+                        Q(from_city=finance_partner.city) | 
+                        Q(to_city=finance_partner.city)
+                    )
+            except Exception:
+                pass
+        
+        return qs
+    
+    @admin.action(description="Подтвердить выбранные переносы")
+    def approve_transfers(self, request, queryset):
+        """Подтверждает выбранные переносы (только для админов)"""
+        if not request.user.is_superuser:
+            self.message_user(request, "Только администраторы могут подтверждать переносы", level=messages.ERROR)
+            return
+        
+        pending_transfers = queryset.filter(status=BatteryTransfer.Status.PENDING)
+        approved_count = 0
+        for transfer in pending_transfers:
+            try:
+                transfer.approve(request.user)
+                approved_count += 1
+            except Exception as e:
+                self.message_user(request, f"Ошибка при подтверждении переноса {transfer}: {e}", level=messages.ERROR)
+        
+        if approved_count > 0:
+            self.message_user(request, f"Подтверждено переносов: {approved_count}", level=messages.SUCCESS)
+    
+    @admin.action(description="Отклонить выбранные переносы")
+    def reject_transfers(self, request, queryset):
+        """Отклоняет выбранные переносы (только для админов)"""
+        if not request.user.is_superuser:
+            self.message_user(request, "Только администраторы могут отклонять переносы", level=messages.ERROR)
+            return
+        
+        pending_transfers = queryset.filter(status=BatteryTransfer.Status.PENDING)
+        rejected_count = 0
+        for transfer in pending_transfers:
+            try:
+                transfer.reject(request.user)
+                rejected_count += 1
+            except Exception as e:
+                self.message_user(request, f"Ошибка при отклонении переноса {transfer}: {e}", level=messages.ERROR)
+        
+        if rejected_count > 0:
+            self.message_user(request, f"Отклонено переносов: {rejected_count}", level=messages.SUCCESS)
+    
+    def has_add_permission(self, request):
+        """Модераторы и админы могут создавать трансферы"""
+        return request.user.is_staff
+    
+    def has_change_permission(self, request, obj=None):
+        """Только админы могут подтверждать/отклонять"""
+        if obj and obj.status != BatteryTransfer.Status.PENDING:
+            # После подтверждения/отклонения нельзя менять
+            return False
+        return request.user.is_superuser if obj else request.user.is_staff
+    
+    def has_delete_permission(self, request, obj=None):
+        """Только админы могут удалять"""
         return request.user.is_superuser
 
 

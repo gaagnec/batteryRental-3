@@ -1,0 +1,74 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label='rental' %}">Rental</a>
+&rsaquo; <a href="{% url 'admin:rental_battery_changelist' %}">Батареи</a>
+&rsaquo; Перенос батареи
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>Создать запрос на перенос батареи</h1>
+
+<div class="module">
+    <h2>Выбранные батареи:</h2>
+    <ul>
+        {% for battery in batteries %}
+        <li>{{ battery.short_code }} {% if battery.city %}({{ battery.city.name }}){% endif %}</li>
+        {% endfor %}
+    </ul>
+</div>
+
+<form method="post" action="">
+    {% csrf_token %}
+    
+    <fieldset class="module aligned">
+        <div class="form-row">
+            <div>
+                <label for="from_city">Город отправления:</label>
+                {% if from_city %}
+                    <input type="text" value="{{ from_city.name }}" readonly>
+                    <input type="hidden" name="from_city" value="{{ from_city.id }}">
+                {% else %}
+                    <select name="from_city" id="from_city" required>
+                        <option value="">Выберите город</option>
+                        {% for city in cities %}
+                        <option value="{{ city.id }}">{{ city.name }}</option>
+                        {% endfor %}
+                    </select>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div>
+                <label for="to_city">Город назначения:</label>
+                <select name="to_city" id="to_city" required>
+                    <option value="">Выберите город</option>
+                    {% for city in cities %}
+                    {% if not from_city or city.id != from_city.id %}
+                    <option value="{{ city.id }}">{{ city.name }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div>
+                <label for="note">Комментарий:</label>
+                <textarea name="note" id="note" rows="4" cols="40"></textarea>
+            </div>
+        </div>
+    </fieldset>
+    
+    <div class="submit-row">
+        <input type="submit" value="Создать запрос" class="default">
+        <a href="{% url 'admin:rental_battery_changelist' %}" class="button">Отмена</a>
+    </div>
+</form>
+{% endblock %}
+
