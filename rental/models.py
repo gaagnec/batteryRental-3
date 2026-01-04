@@ -433,8 +433,9 @@ class FinancePartner(TimeStampedModel):
 
     def clean(self):
         """Валидация: модератор должен иметь город"""
+        from django.core.exceptions import ValidationError
         if self.role == self.Role.MODERATOR and not self.city:
-            raise ValidationError("Модератор должен быть привязан к городу")
+            raise ValidationError({'city': 'Модератор должен быть привязан к городу'})
         super().clean()
 
     def calculate_reward(self, start_date, end_date):

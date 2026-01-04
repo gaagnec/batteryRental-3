@@ -51,6 +51,20 @@ class FinancePartnerAdmin(SimpleHistoryAdmin):
         qs = qs.select_related('user', 'city')
         return qs
     
+    def save_model(self, request, obj, form, change):
+        """Вызываем clean() для валидации перед сохранением"""
+        from django.core.exceptions import ValidationError
+        try:
+            obj.full_clean()  # Вызывает clean() и другие валидации
+        except ValidationError as e:
+            # Если есть ошибки валидации, показываем их пользователю
+            from django.contrib import messages
+            for field, errors in e.error_dict.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
+            return  # Не сохраняем объект
+        super().save_model(request, obj, form, change)
+    
     def has_module_permission(self, request):
         # Только суперпользователи видят финансовых партнёров
         return request.user.is_superuser

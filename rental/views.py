@@ -406,33 +406,45 @@ def dashboard(request):
     
     moderator_debts = []
     for mod in moderators:
-        uid = mod.user_id
-        pid = mod.id
-        
-        collected = Decimal(payments_by_user.get(uid, 0))
-        transferred = Decimal(outgoing_from_mods.get(pid, 0))
-        debt = collected - transferred
-        
-        # Сумма поступлений за последнюю неделю (без вычета переводов)
-        collected_last_week = Decimal(payments_last_week_by_user.get(uid, 0))
-        
-        # Расчет вознаграждения модератора
-        reward = mod.calculate_reward(cutoff, timezone.localdate())
-        reward_amount = reward
-        reward_percent_display = mod.reward_percent
-        difference = collected - reward_amount
-        
-        moderator_debts.append({
-            'partner': mod,
-            'collected': collected,
-            'transferred': transferred,
-            'debt': debt,
-            'debt_abs': abs(debt),  # Абсолютное значение для отображения
-            'collected_last_week': collected_last_week,
-            'reward': reward_amount,
-            'reward_percent': reward_percent_display,
-            'difference': difference,
-        })
+        try:
+            uid = mod.user_id
+            pid = mod.id
+            
+            collected = Decimal(payments_by_user.get(uid, 0) or 0)
+            transferred = Decimal(outgoing_from_mods.get(pid, 0) or 0)
+            debt = collected - transferred
+            
+            # Сумма поступлений за последнюю неделю (без вычета переводов)
+            collected_last_week = Decimal(payments_last_week_by_user.get(uid, 0) or 0)
+            
+            # Расчет вознаграждения модератора (только если есть город)
+            reward_amount = Decimal('0')
+            reward_percent_display = Decimal('0')
+            difference = collected
+            if mod.city:
+                try:
+                    reward = mod.calculate_reward(cutoff, timezone.localdate())
+                    reward_amount = reward
+                    reward_percent_display = mod.reward_percent or Decimal('0')
+                    difference = collected - reward_amount
+                except Exception as e:
+                    # Если ошибка при расчете вознаграждения, просто пропускаем
+                    pass
+            
+            moderator_debts.append({
+                'partner': mod,
+                'collected': collected,
+                'transferred': transferred,
+                'debt': debt,
+                'debt_abs': abs(debt),  # Абсолютное значение для отображения
+                'collected_last_week': collected_last_week,
+                'reward': reward_amount,
+                'reward_percent': reward_percent_display,
+                'difference': difference,
+            })
+        except Exception as e:
+            # Пропускаем модераторов с ошибками
+            continue
     
     # История переводов от модераторов к владельцам (последние 10)
     moderator_transfers_recent = (
