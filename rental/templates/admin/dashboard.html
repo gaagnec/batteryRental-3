@@ -344,15 +344,6 @@
                 Нет данных о модераторах
               </div>
             {% endif %}
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-{% endblock %}
-            </div>
             
             {% if moderator_transfers_recent %}
             <div style="margin: 1.5rem; border-top: 1px solid #2a2e41; padding-top: 1.5rem;">
@@ -402,20 +393,14 @@
               </div>
             </div>
             {% endif %}
-            {% else %}
-            <div class="text-center py-5" style="color: #6e7891;">
-              <i class="bi bi-info-circle" style="font-size: 3em; opacity: 0.3; color: #6e7891;"></i>
-              <p style="margin-top: 10px; color: #9fa6bc;">Нет данных о модераторах</p>
-            </div>
-            {% endif %}
           </div>
         </div>
       </div>
     </div>
-
-      </div>
-    </div>
   </div>
+</div>
+
+{% endblock %}
 
   {% comment %}<!-- Убраны временно блоки Начислено vs Оплачено и Топ должников -->
   <!-- Нижняя зона на всю ширину -->
