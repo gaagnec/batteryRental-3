@@ -7,11 +7,11 @@
 
 <div class="dashboard-container">
   <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h3 mb-0" style="color: var(--phoenix-text); font-weight: 600;">Dashboard</h1>
+    <h1 class="h3 mb-0 dashboard-title">Dashboard</h1>
     {% if user.is_superuser and cities %}
     <div>
       <form method="get" action="{% url 'admin-dashboard' %}" style="display: inline;">
-        <select name="city" onchange="this.form.submit()" class="form-select form-select-sm" style="background-color: #1c1e2d; border-color: #2a2e41; color: #e3e6ed; min-width: 150px;">
+        <select name="city" onchange="this.form.submit()" class="form-select form-select-sm city-filter-select">
           <option value="">Все города</option>
           {% for city in cities %}
           <option value="{{ city.id }}" {% if filter_city and filter_city.id == city.id %}selected{% endif %}>{{ city.name }}</option>
@@ -26,39 +26,39 @@
   <div class="row g-3">
     <!-- Левая колонка: KPI + half-donut под списком -->
     <div class="col-lg-4 col-md-6">
-      <div class="card shadow-sm" style="background-color: #1c1e2d; border-color: #2a2e41;">
+      <div class="card shadow-sm dashboard-card">
         <div class="card-body card-body-mobile-compact">
           <div class="d-flex justify-content-between align-items-baseline mb-2">
-            <h5 class="mb-0" style="font-weight:600; color: #e3e6ed;">Бизнес‑метрики</h5>
-            <div class="small" style="color: #6e7891;">Всего батарей: {{ battery_stats.total }}</div>
+            <h5 class="mb-0 dashboard-text-primary" style="font-weight:600;">Бизнес‑метрики</h5>
+            <div class="small dashboard-text-muted">Всего батарей: {{ battery_stats.total }}</div>
           </div>
-          <ul class="list-unstyled mb-3" style="line-height:1.4;">
+          <ul class="list-unstyled mb-3 kpi-list">
             <li class="d-flex justify-content-between align-items-center mb-1">
-              <span class="d-flex align-items-center" style="color: #9fa6bc;"><span class="rounded-circle me-2" style="display:inline-block;width:10px;height:10px;background:#8ad0ff;"></span>Активные клиенты</span>
-              <span class="fw-semibold" style="color: #e3e6ed;">{{ active_clients_count }}</span>
+              <span class="d-flex align-items-center dashboard-text-secondary"><span class="kpi-indicator" style="background:#8ad0ff;"></span>Активные клиенты</span>
+              <span class="fw-semibold dashboard-text-primary">{{ active_clients_count }}</span>
             </li>
             <li class="d-flex justify-content-between align-items-center mb-1">
-              <span class="d-flex align-items-center" style="color: #9fa6bc;"><span class="rounded-circle me-2" style="display:inline-block;width:10px;height:10px;background:#ffd28a;"></span>В аренде</span>
-              <span class="fw-semibold" style="color: #e3e6ed;">{{ battery_stats.rented }}</span>
+              <span class="d-flex align-items-center dashboard-text-secondary"><span class="kpi-indicator" style="background:#ffd28a;"></span>В аренде</span>
+              <span class="fw-semibold dashboard-text-primary">{{ battery_stats.rented }}</span>
             </li>
             <li class="d-flex justify-content-between align-items-center mb-1">
-              <span class="d-flex align-items-center" style="color: #9fa6bc;"><span class="rounded-circle me-2" style="display:inline-block;width:10px;height:10px;background:#a8e2a8;"></span>На сервисе</span>
-              <span class="fw-semibold" style="color: #e3e6ed;">{{ battery_stats.in_service }}</span>
+              <span class="d-flex align-items-center dashboard-text-secondary"><span class="kpi-indicator" style="background:#a8e2a8;"></span>На сервисе</span>
+              <span class="fw-semibold dashboard-text-primary">{{ battery_stats.in_service }}</span>
             </li>
             <li class="d-flex justify-content-between align-items-center mb-1">
-              <span class="d-flex align-items-center" style="color: #9fa6bc;"><span class="rounded-circle me-2" style="display:inline-block;width:10px;height:10px;background:#9bb2ff;"></span>Доступные</span>
-              <span class="fw-semibold" style="color: #e3e6ed;">{{ battery_stats.available }}</span>
+              <span class="d-flex align-items-center dashboard-text-secondary"><span class="kpi-indicator" style="background:#9bb2ff;"></span>Доступные</span>
+              <span class="fw-semibold dashboard-text-primary">{{ battery_stats.available }}</span>
             </li>
             <li class="d-flex justify-content-between align-items-center mb-1">
-              <span style="color: #6e7891;">Начислено ({{ window_days }} дн.)</span>
-              <span class="fw-semibold" style="color: #e3e6ed;">{{ total_charged_30|floatformat:2 }}</span>
+              <span class="dashboard-text-muted">Начислено ({{ window_days }} дн.)</span>
+              <span class="fw-semibold dashboard-text-primary">{{ total_charged_30|floatformat:2 }}</span>
             </li>
             <li class="d-flex justify-content-between align-items-center mb-1">
-              <span style="color: #6e7891;">Оплачено ({{ window_days }} дн.)</span>
-              <span class="fw-semibold" style="color: #e3e6ed;">{{ total_paid_30|floatformat:2 }}</span>
+              <span class="dashboard-text-muted">Оплачено ({{ window_days }} дн.)</span>
+              <span class="fw-semibold dashboard-text-primary">{{ total_paid_30|floatformat:2 }}</span>
             </li>
             <li class="d-flex justify-content-between align-items-center">
-              <span style="color: #6e7891;">Общая дебиторка</span>
+              <span class="dashboard-text-muted">Общая дебиторка</span>
               <span class="fw-semibold" style="color: #ff6b6b;">{{ overall_debt|floatformat:2 }}</span>
             </li>
           </ul>
@@ -69,8 +69,8 @@
 
     <!-- Средняя колонка: Активные клиенты и недавно закрытые -->
     <div class="col-lg-4 col-md-6">
-      <div class="card shadow-sm h-100" style="background-color: #1c1e2d; border-color: #2a2e41;">
-        <div class="card-header" style="background-color: #0e1018; color: #e3e6ed; font-weight: 500; border-bottom: none; padding-bottom: 0;">
+      <div class="card shadow-sm h-100 dashboard-card">
+        <div class="card-header dashboard-card-header" style="font-weight: 500; border-bottom: none; padding-bottom: 0;">
           Клиенты: батареи и баланс
         </div>
         
@@ -84,54 +84,54 @@
           </button>
         </div>
         
-        <div class="card-body p-0 card-body-mobile-compact" style="background-color: #1c1e2d;">
+        <div class="card-body p-0 card-body-mobile-compact dashboard-card-body">
           <!-- Активные клиенты -->
           <div id="active-clients-tab" class="client-tab-content active">
           <div class="clients-table-wrapper">
           <div class="table-responsive">
-            <table class="table table-sm table-hover mb-0" style="background-color: #1c1e2d; color: #9fa6bc;">
-              <thead style="background-color: #0e1018; border-bottom: 1px solid #2a2e41;">
+            <table class="table table-sm table-hover mb-0 dashboard-table">
+              <thead>
                 <tr>
-                  <th style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Клиент</th>
-                  <th style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Батареи</th>
-                  <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Баланс</th>
-                  <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">pln/week</th>
+                  <th>Клиент</th>
+                  <th>Батареи</th>
+                  <th class="text-end">Баланс</th>
+                  <th class="text-end">pln/week</th>
                 </tr>
               </thead>
               <tbody>
               {% for row in clients_data %}
-                <tr style="border-bottom: 1px solid #2a2e41;">
-                  <td style="padding: 0.75rem 1rem; color: #e3e6ed; border: none;">{{ row.client.name }}</td>
-                  <td style="padding: 0.75rem 1rem; border: none;">
+                <tr>
+                  <td class="dashboard-text-primary">{{ row.client.name }}</td>
+                  <td>
                     {% if row.batteries %}
                       {% for b in row.batteries %}
                         <span class="badge me-1" style="background-color: rgba(159, 166, 188, 0.2); color: #9fa6bc; font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 4px;">{{ b.short_code }}</span>
                       {% endfor %}
                     {% else %}
-                      <span style="color: #6e7891;">—</span>
+                      <span class="dashboard-text-muted">—</span>
                     {% endif %}
                   </td>
-                  <td class="text-end" style="padding: 0.75rem 1rem; border: none;">
+                  <td class="text-end">
                     {% with val=row.balance_ui %}
                       {% if val > 0 %}
                         <span style="color: #00d27a;">+{{ val|floatformat:2 }}</span>
                       {% elif val < 0 %}
                         <span style="color: #ff6b6b;">{{ val|floatformat:2 }}</span>
                       {% else %}
-                        <span style="color: #9fa6bc;">{{ val|floatformat:2 }}</span>
+                        <span class="dashboard-text-secondary">{{ val|floatformat:2 }}</span>
                       {% endif %}
                     {% endwith %}
                   </td>
-                  <td class="text-end" style="padding: 0.75rem 1rem; border: none; color: #9fa6bc;">
+                  <td class="text-end dashboard-text-secondary">
                     {% if row.weekly_rate is not None %}
                       {{ row.weekly_rate|floatformat:2 }}
                     {% else %}
-                      <span style="color: #6e7891;">—</span>
+                      <span class="dashboard-text-muted">—</span>
                     {% endif %}
                   </td>
                 </tr>
               {% empty %}
-                <tr><td colspan="4" class="text-center py-3" style="color: #6e7891; border: none;">Нет активных клиентов</td></tr>
+                <tr><td colspan="4" class="text-center py-3 dashboard-text-muted">Нет активных клиентов</td></tr>
               {% endfor %}
               </tbody>
             </table>
@@ -143,43 +143,43 @@
           <div id="closed-clients-tab" class="client-tab-content">
           <div class="clients-table-wrapper">
           <div class="table-responsive">
-            <table class="table table-sm table-hover mb-0" style="background-color: #1c1e2d; color: #9fa6bc;">
-              <thead style="background-color: #0e1018; border-bottom: 1px solid #2a2e41;">
+            <table class="table table-sm table-hover mb-0 dashboard-table">
+              <thead>
                 <tr>
-                  <th style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Клиент</th>
-                  <th style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Батареи</th>
-                  <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Баланс</th>
-                  <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">pln/week</th>
+                  <th>Клиент</th>
+                  <th>Батареи</th>
+                  <th class="text-end">Баланс</th>
+                  <th class="text-end">pln/week</th>
                 </tr>
               </thead>
               <tbody>
               {% if closed_clients_data %}
                 {% for row in closed_clients_data %}
-                  <tr style="border-bottom: 1px solid #2a2e41;">
-                    <td style="padding: 0.75rem 1rem; color: #6e7891; border: none;">{{ row.client.name }}</td>
-                    <td style="padding: 0.75rem 1rem; border: none;"><span style="color: #6e7891;">—</span></td>
-                    <td class="text-end" style="padding: 0.75rem 1rem; border: none;">
+                  <tr>
+                    <td class="dashboard-text-muted">{{ row.client.name }}</td>
+                    <td><span class="dashboard-text-muted">—</span></td>
+                    <td class="text-end">
                       {% with val=row.balance_ui %}
                         {% if val > 0 %}
                           <span style="color: #00d27a;">+{{ val|floatformat:2 }}</span>
                         {% elif val < 0 %}
                           <span style="color: #ff6b6b;">{{ val|floatformat:2 }}</span>
                         {% else %}
-                          <span style="color: #6e7891;">{{ val|floatformat:2 }}</span>
+                          <span class="dashboard-text-muted">{{ val|floatformat:2 }}</span>
                         {% endif %}
                       {% endwith %}
                     </td>
-                    <td class="text-end" style="padding: 0.75rem 1rem; border: none; color: #6e7891;">
+                    <td class="text-end dashboard-text-muted">
                       {% if row.weekly_rate is not None %}
                         {{ row.weekly_rate|floatformat:2 }}
                       {% else %}
-                        <span style="color: #6e7891;">—</span>
+                        <span class="dashboard-text-muted">—</span>
                       {% endif %}
                     </td>
                   </tr>
                 {% endfor %}
               {% else %}
-                <tr><td colspan="4" class="text-center py-3" style="color: #6e7891; border: none;">Нет закрытых клиентов</td></tr>
+                <tr><td colspan="4" class="text-center py-3 dashboard-text-muted">Нет закрытых клиентов</td></tr>
               {% endif %}
               </tbody>
             </table>
@@ -192,29 +192,29 @@
 
     <!-- Правая колонка: Последние платежи -->
     <div class="col-lg-4 col-md-12">
-      <div class="card shadow-sm h-100" style="background-color: #1c1e2d; border-color: #2a2e41;">
-        <div class="card-header" style="background-color: #0e1018; color: #e3e6ed; font-weight: 500; border-bottom: 1px solid #2a2e41;">Последние платежи:</div>
-        <div class="card-body p-0 card-body-mobile-compact" style="background-color: #1c1e2d;">
+      <div class="card shadow-sm h-100 dashboard-card">
+        <div class="card-header dashboard-card-header" style="font-weight: 500;">Последние платежи:</div>
+        <div class="card-body p-0 card-body-mobile-compact dashboard-card-body">
           <div class="table-responsive">
-            <table class="table table-sm mb-0" style="background-color: #1c1e2d; color: #9fa6bc;">
-              <thead style="background-color: #0e1018; border-bottom: 1px solid #2a2e41;">
+            <table class="table table-sm mb-0 dashboard-table">
+              <thead>
                 <tr>
-                  <th style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Клиент</th>
-                  <th style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Дата</th>
-                  <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Сумма</th>
-                  <th style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Кем</th>
+                  <th>Клиент</th>
+                  <th>Дата</th>
+                  <th class="text-end">Сумма</th>
+                  <th>Кем</th>
                 </tr>
               </thead>
               <tbody>
                 {% for p in latest_payments %}
-                <tr style="border-bottom: 1px solid #2a2e41;">
-                  <td style="padding: 0.75rem 1rem; color: #e3e6ed; border: none;">{{ p.rental.client.name }}</td>
-                  <td style="padding: 0.75rem 1rem; color: #9fa6bc; border: none;">{{ p.date }}</td>
-                  <td class="text-end" style="padding: 0.75rem 1rem; color: #27bcfd; border: none; font-weight: 500;">{{ p.amount|floatformat:2 }}</td>
-                  <td style="padding: 0.75rem 1rem; color: #6e7891; border: none; font-size: 0.875rem;">{{ p.created_by.get_full_name|default:p.created_by.username|default:p.created_by.email|default:"—" }}</td>
+                <tr>
+                  <td class="dashboard-text-primary">{{ p.rental.client.name }}</td>
+                  <td class="dashboard-text-secondary">{{ p.date }}</td>
+                  <td class="text-end" style="color: #27bcfd; font-weight: 500;">{{ p.amount|floatformat:2 }}</td>
+                  <td class="dashboard-text-muted" style="font-size: 0.875rem;">{{ p.created_by.get_full_name|default:p.created_by.username|default:p.created_by.email|default:"—" }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="4" class="text-center py-3" style="color: #6e7891; border: none;">Платежей нет</td></tr>
+                <tr><td colspan="4" class="text-center py-3 dashboard-text-muted">Платежей нет</td></tr>
                 {% endfor %}
               </tbody>
             </table>
