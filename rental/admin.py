@@ -1625,8 +1625,12 @@ class BatteryAdmin(SimpleHistoryAdmin):
                         
                         # Валидация: модератор может переносить только из своего города
                         if not request.user.is_superuser:
+                            # Проверяем, что модератор может переносить только из своего города
+                            if not from_city:
+                                messages.error(request, "Модератор должен быть привязан к городу для переноса батарей")
+                                continue
                             if battery_from_city.id != from_city.id:
-                                messages.error(request, f"Модератор может переносить батареи только из своего города ({from_city.name})")
+                                messages.error(request, f"Модератор может переносить батареи только из своего города ({from_city.name}). Батарея {battery.short_code} принадлежит городу {battery_from_city.name}")
                                 continue
                         
                         if battery_from_city.id == to_city.id:
@@ -1942,6 +1946,21 @@ class RentalBatteryAssignmentForm(forms.ModelForm):
             if rental and getattr(rental, 'start_at', None):
                 cd['start_at'] = rental.start_at
                 self.cleaned_data['start_at'] = rental.start_at
+        
+        # Валидация: модератор не может назначить батарею не из своего города
+        battery = cd.get('battery')
+        rental = getattr(self.instance, 'rental', None) or getattr(self, 'parent_instance', None)
+        
+        if battery and rental and battery.city_id:
+            rental_city = rental.city
+            
+            # Если у rental есть город, батарея должна быть из этого города
+            if rental_city:
+                if battery.city_id != rental_city.id:
+                    raise ValidationError({
+                        'battery': f'Батарея {battery.short_code} принадлежит городу {battery.city.name}, а договор привязан к городу {rental_city.name}. Батарея должна быть из города договора.'
+                    })
+        
         return cd
 
 class RentalBatteryAssignmentInline(admin.TabularInline):
