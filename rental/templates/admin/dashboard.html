@@ -352,21 +352,6 @@
 </div>
 
 {% endblock %}
-                      </div>
-                      {% if debt.collected_last_week != 0 %}
-                      <div style="margin-top: 0.35rem;">
-                        <span style="font-size: 0.7rem; color: #6e7891; font-weight: 400;">
-                          за прошлую неделю: 
-                          <span style="color: #00d27a;">{{ debt.collected_last_week|floatformat:0 }}</span>
-                          PLN
-                        </span>
-                      </div>
-                      {% endif %}
-                    </td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
             </div>
             
             {% if moderator_transfers_recent %}
