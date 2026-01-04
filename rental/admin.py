@@ -36,6 +36,10 @@ class CityAdmin(SimpleHistoryAdmin):
     list_filter = ("active",)
     search_fields = ("name", "code")
     ordering = ['name']
+    
+    def has_module_permission(self, request):
+        # Только администраторы видят раздел городов
+        return request.user.is_superuser
 
 
 @admin.register(FinancePartner)
@@ -44,6 +48,10 @@ class FinancePartnerAdmin(SimpleHistoryAdmin):
     list_filter = ("role", "active", "city")
     search_fields = ("user__username", "user__first_name", "user__last_name")
     autocomplete_fields = ["city"]
+    
+    def has_module_permission(self, request):
+        # Только администраторы видят раздел финансовых партнёров
+        return request.user.is_superuser
     
     def get_queryset(self, request):
         """Оптимизация: предзагрузка user и city"""
@@ -181,6 +189,10 @@ class FinanceWithdrawalForm(forms.Form):
 class FinanceOverviewAdmin(admin.ModelAdmin):
     change_list_template = "admin/finance_overview.html"
     CUTOFF_DATE = timezone.datetime(2025, 9, 1).date()
+    
+    def has_module_permission(self, request):
+        # Только администраторы видят раздел финансового обзора
+        return request.user.is_superuser
 
     def _compute_period(self, request):
         today = timezone.localdate()
@@ -862,7 +874,9 @@ from .models import FinanceOverviewProxy
 try:
     @admin.register(FinanceOverviewProxy)
     class FinanceOverviewProxyAdmin(FinanceOverviewAdmin):
-        pass
+        def has_module_permission(self, request):
+            # Только администраторы видят раздел финансового обзора
+            return request.user.is_superuser
 except admin.sites.AlreadyRegistered:
     pass
 
@@ -1340,7 +1354,9 @@ from .models import FinanceOverviewProxy2
 try:
     @admin.register(FinanceOverviewProxy2)
     class FinanceOverviewProxy2Admin(FinanceOverviewAdmin2):
-        pass
+        def has_module_permission(self, request):
+            # Только администраторы видят раздел бухучёта
+            return request.user.is_superuser
 except admin.sites.AlreadyRegistered:
     pass
 
@@ -1390,6 +1406,14 @@ class ClientAdmin(SimpleHistoryAdmin):
                 pass
         
         return qs
+    
+    def get_form(self, request, obj=None, **kwargs):
+        """Делаем поле city readonly для модераторов"""
+        form = super().get_form(request, obj, **kwargs)
+        if not request.user.is_superuser and 'city' in form.base_fields:
+            form.base_fields['city'].disabled = True
+            form.base_fields['city'].help_text = "Город автоматически устанавливается из города модератора"
+        return form
     
     def save_model(self, request, obj, form, change):
         """Автоматически устанавливаем city для модераторов"""
@@ -1536,6 +1560,10 @@ class BatteryAdmin(SimpleHistoryAdmin):
     list_per_page = 50
     ordering = ['id']  # Сортировка по умолчанию от меньшего к большему
     actions = ["transfer_batteries"]
+    
+    def has_module_permission(self, request):
+        # Только администраторы видят раздел батарей
+        return request.user.is_superuser
 
     def get_queryset(self, request):
         """Фильтрация по городу для модераторов и оптимизация"""
@@ -2044,10 +2072,14 @@ class RentalAdmin(SimpleHistoryAdmin):
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
     
     def get_form(self, request, obj=None, **kwargs):
-        """Сохраняем obj в request для использования в formfield_for_foreignkey"""
+        """Сохраняем obj в request для использования в formfield_for_foreignkey и делаем city readonly для модераторов"""
         request._obj = obj
         request._rental_obj = obj
         form = super().get_form(request, obj, **kwargs)
+        # Делаем поле city readonly для модераторов
+        if not request.user.is_superuser and 'city' in form.base_fields:
+            form.base_fields['city'].disabled = True
+            form.base_fields['city'].help_text = "Город автоматически устанавливается из города клиента или города модератора"
         return form
     
     def get_formset(self, request, obj=None, **kwargs):
@@ -2056,10 +2088,18 @@ class RentalAdmin(SimpleHistoryAdmin):
         return super().get_formset(request, obj, **kwargs)
     
     def save_model(self, request, obj, form, change):
-        """Автоматически устанавливаем city из client.city при создании"""
-        if not change and not obj.city and obj.client_id:
-            if hasattr(obj.client, 'city') and obj.client.city:
+        """Автоматически устанавливаем city из client.city при создании, или city модератора если client.city нет"""
+        if not change and not obj.city:
+            if obj.client_id and hasattr(obj.client, 'city') and obj.client.city:
                 obj.city = obj.client.city
+            elif not request.user.is_superuser:
+                # Если модератор создает договор и client.city нет, устанавливаем city модератора
+                try:
+                    finance_partner = FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.MODERATOR).first()
+                    if finance_partner and finance_partner.city:
+                        obj.city = finance_partner.city
+                except Exception:
+                    pass
         super().save_model(request, obj, form, change)
 
     def changelist_view(self, request, extra_context=None):
@@ -2651,6 +2691,11 @@ class PaymentAdmin(SimpleHistoryAdmin):
         from django.contrib.auth import get_user_model
         from .models import FinancePartner
         
+        # Делаем поле city readonly для модераторов
+        if not request.user.is_superuser and 'city' in form.base_fields:
+            form.base_fields['city'].disabled = True
+            form.base_fields['city'].help_text = "Город автоматически устанавливается из города модератора"
+        
         User = get_user_model()
         field = form.base_fields.get('created_by')
         if field:
@@ -3039,5 +3084,5 @@ class BatteryStatusLogAdmin(SimpleHistoryAdmin):
         return qs
     
     def has_module_permission(self, request):
-        # Только суперпользователи видят логи статусов батарей
+        # Только администраторы видят логи статусов батарей
         return request.user.is_superuser
