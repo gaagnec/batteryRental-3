@@ -905,7 +905,23 @@
     
     .transfers-history-table tbody td {
       padding: 0.75rem 1rem;
+      border: none;
     }
+    
+    .transfers-history-note {
+      color: #6e7891;
+      font-style: italic;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    .fw-semibold-500 { font-weight: 500; }
+    .fw-semibold-600 { font-weight: 600; }
+    .text-sm { font-size: 0.875rem; }
+    
+    .form-inline { display: inline; }
     
     .user-badge-from {
       background-color: rgba(102, 126, 234, 0.15);

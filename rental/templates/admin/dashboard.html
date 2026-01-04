@@ -10,7 +10,7 @@
     <h1 class="h3 mb-0 dashboard-title">Dashboard</h1>
     {% if user.is_superuser and cities %}
     <div>
-      <form method="get" action="{% url 'admin-dashboard' %}" style="display: inline;">
+      <form method="get" action="{% url 'admin-dashboard' %}" class="form-inline">
         <select name="city" onchange="this.form.submit()" class="form-select form-select-sm city-filter-select">
           <option value="">Все города</option>
           {% for city in cities %}
@@ -29,7 +29,7 @@
       <div class="card shadow-sm dashboard-card">
         <div class="card-body card-body-mobile-compact">
           <div class="d-flex justify-content-between align-items-baseline mb-2">
-            <h5 class="mb-0 dashboard-text-primary" style="font-weight: 600;">Бизнес‑метрики</h5>
+            <h5 class="mb-0 dashboard-text-primary fw-semibold-600">Бизнес‑метрики</h5>
             <div class="small dashboard-text-muted">Всего батарей: {{ battery_stats.total }}</div>
           </div>
           <ul class="list-unstyled mb-3 kpi-list">
@@ -211,7 +211,7 @@
                   <td class="dashboard-text-primary">{{ p.rental.client.name }}</td>
                   <td class="dashboard-text-secondary">{{ p.date }}</td>
                   <td class="text-end payment-amount">{{ p.amount|floatformat:2 }}</td>
-                  <td class="dashboard-text-muted" style="font-size: 0.875rem;">{{ p.created_by.get_full_name|default:p.created_by.username|default:p.created_by.email|default:"—" }}</td>
+                  <td class="dashboard-text-muted text-sm">{{ p.created_by.get_full_name|default:p.created_by.username|default:p.created_by.email|default:"—" }}</td>
                 </tr>
                 {% empty %}
                 <tr><td colspan="4" class="text-center py-3 dashboard-text-muted">Платежей нет</td></tr>
@@ -243,9 +243,9 @@
                 <tbody>
                   {% for row in monthly3_rows %}
                   <tr>
-                    <td class="dashboard-text-primary" style="font-weight: 500;">{{ row.label }}</td>
+                    <td class="dashboard-text-primary fw-semibold-500">{{ row.label }}</td>
                     <td class="text-end payment-amount">{{ row.income|floatformat:2 }}</td>
-                    <td class="text-end balance-positive" style="font-weight: 500;">{{ row.profit|floatformat:2 }}</td>
+                    <td class="text-end balance-positive fw-semibold-500">{{ row.profit|floatformat:2 }}</td>
                   </tr>
                   <tr class="monthly-row-sub">
                     <td></td>
@@ -297,10 +297,10 @@
                   {% for debt in moderator_debts %}
                   <tr>
                     <td class="dashboard-text-primary">
-                      <strong style="font-weight: 500;">{{ debt.partner.user.username }}</strong>
+                      <strong class="fw-semibold-500">{{ debt.partner.user.username }}</strong>
                     </td>
                     <td class="text-end">
-                      <span class="balance-positive" style="font-weight: 500;">{{ debt.collected|floatformat:0 }}</span>
+                      <span class="balance-positive fw-semibold-500">{{ debt.collected|floatformat:0 }}</span>
                       <span class="pln-suffix"> PLN</span>
                     </td>
                     <td class="text-end">
@@ -366,26 +366,26 @@
                   </thead>
                   <tbody>
                     {% for transfer in moderator_transfers_recent %}
-                    <tr style="border-bottom: 1px solid #232637;">
-                      <td style="padding: 0.75rem 1rem; color: #9fa6bc; border: none;">
-                        <i class="bi bi-calendar3" style="color: #667eea; margin-right: 4px;"></i>
+                    <tr>
+                      <td class="dashboard-text-secondary">
+                        <i class="bi bi-calendar3 icon-spacing-xs"></i>
                         {{ transfer.date|date:"d.m.Y" }}
                       </td>
-                      <td style="padding: 0.75rem 1rem; border: none;">
-                        <span style="background-color: rgba(102, 126, 234, 0.15); color: #9ba5ff; padding: 0.25rem 0.625rem; border-radius: 6px; font-weight: 500; font-size: 0.75rem;">
+                      <td>
+                        <span class="user-badge-from">
                           {{ transfer.from_partner.user.username }}
                         </span>
                       </td>
-                      <td style="padding: 0.75rem 1rem; border: none;">
-                        <span style="background-color: rgba(0, 210, 122, 0.15); color: #00d27a; padding: 0.25rem 0.625rem; border-radius: 6px; font-weight: 500; font-size: 0.75rem;">
+                      <td>
+                        <span class="user-badge-to">
                           {{ transfer.to_partner.user.username }}
                         </span>
                       </td>
-                      <td class="text-end" style="padding: 0.75rem 1rem; border: none;">
-                        <span style="font-weight: 500; color: #e3e6ed;">{{ transfer.amount|floatformat:0 }}</span>
-                        <span style="color: #6e7891; font-size: 0.85em;"> PLN</span>
+                      <td class="text-end">
+                        <span class="dashboard-text-primary fw-semibold-500">{{ transfer.amount|floatformat:0 }}</span>
+                        <span class="pln-suffix"> PLN</span>
                       </td>
-                      <td style="padding: 0.75rem 1rem; color: #6e7891; font-style: italic; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: none;">
+                      <td class="transfers-history-note">
                         {{ transfer.note|default:"—" }}
                       </td>
                     </tr>
