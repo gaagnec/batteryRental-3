@@ -678,13 +678,15 @@
         padding: 1rem;
       }
       
-      /* Уменьшение заголовков таблиц и иконок на 10% */
+      /* Уменьшение заголовков таблиц и иконок на 30% */
       table thead th {
-        font-size: calc(0.875rem * 0.9) !important; /* было 0.875rem, стало ~0.7875rem */
+        font-size: calc(0.875rem * 0.7) !important; /* было 0.875rem, стало ~0.6125rem */
+        letter-spacing: 0.2px;
+        padding: 0.75rem 0.05rem !important;
       }
       
       table thead th i {
-        font-size: calc(1em * 0.9) !important; /* уменьшаем иконки на 10% */
+        font-size: calc(1em * 0.7) !important; /* уменьшаем иконки на 30% */
       }
     }
     
@@ -695,7 +697,118 @@
       }
     }
     
-    /* 13. UTILITIES - Only here we use !important */
+    /* 13. DASHBOARD STYLES */
+    .dashboard-card {
+      background-color: #1c1e2d;
+      border-color: #2a2e41;
+    }
+    
+    .dashboard-card-header {
+      background-color: #0e1018;
+      color: #e3e6ed;
+      font-weight: 600;
+      border-bottom: 1px solid #2a2e41;
+      padding: 1rem 1.25rem;
+    }
+    
+    .dashboard-card-body {
+      background-color: #1c1e2d;
+    }
+    
+    .dashboard-table {
+      background-color: #1c1e2d;
+      color: #9fa6bc;
+      margin-bottom: 0;
+    }
+    
+    .dashboard-table thead {
+      background-color: #0e1018;
+      border-bottom: 1px solid #2a2e41;
+    }
+    
+    .dashboard-table thead th {
+      padding: 0.75rem 1rem;
+      font-weight: 500;
+      color: #9fa6bc;
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border: none;
+    }
+    
+    .dashboard-table tbody tr {
+      border-bottom: 1px solid #2a2e41;
+    }
+    
+    .dashboard-table tbody td {
+      padding: 0.75rem 1rem;
+      border: none;
+    }
+    
+    .dashboard-text-primary {
+      color: #e3e6ed;
+    }
+    
+    .dashboard-text-secondary {
+      color: #9fa6bc;
+    }
+    
+    .dashboard-text-muted {
+      color: #6e7891;
+    }
+    
+    .dashboard-badge-success {
+      background-color: rgba(0, 210, 122, 0.15);
+      color: #00d27a;
+      font-size: 0.8125rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+    
+    .dashboard-badge-danger {
+      background-color: rgba(240, 68, 56, 0.15);
+      color: #ff6b6b;
+      font-size: 0.8125rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+    
+    .dashboard-badge-secondary {
+      background-color: rgba(159, 166, 188, 0.15);
+      color: #9fa6bc;
+      font-size: 0.8125rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+    
+    .city-filter-select {
+      background-color: #1c1e2d;
+      border-color: #2a2e41;
+      color: #e3e6ed;
+      min-width: 150px;
+    }
+    
+    .dashboard-title {
+      color: var(--phoenix-text);
+      font-weight: 600;
+    }
+    
+    .kpi-list {
+      line-height: 1.4;
+    }
+    
+    .kpi-indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 0.5rem;
+    }
+    
+    /* 14. UTILITIES - Only here we use !important */
     .d-none {
       display: none;
     }

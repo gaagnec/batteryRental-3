@@ -466,9 +466,12 @@ def dashboard(request):
     moderator_transfers_recent = (
         MoneyTransfer.objects
         .filter(date__gte=cutoff, purpose=MoneyTransfer.Purpose.MODERATOR_TO_OWNER)
-        .select_related('from_partner__user', 'to_partner__user')
-        .order_by('-date', '-id')[:10]
+        .select_related('from_partner__user', 'to_partner__user', 'from_partner__city')
     )
+    # Фильтрация по городу: переводы от модераторов из выбранного города
+    if filter_city:
+        moderator_transfers_recent = moderator_transfers_recent.filter(from_partner__city=filter_city)
+    moderator_transfers_recent = moderator_transfers_recent.order_by('-date', '-id')[:10]
     
     # Список городов для фильтра (только для админов)
     cities = []
