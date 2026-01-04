@@ -29,7 +29,7 @@
       <div class="card shadow-sm dashboard-card">
         <div class="card-body card-body-mobile-compact">
           <div class="d-flex justify-content-between align-items-baseline mb-2">
-            <h5 class="mb-0 dashboard-text-primary" style="font-weight:600;">Бизнес‑метрики</h5>
+            <h5 class="mb-0 dashboard-text-primary" style="font-weight: 600;">Бизнес‑метрики</h5>
             <div class="small dashboard-text-muted">Всего батарей: {{ battery_stats.total }}</div>
           </div>
           <ul class="list-unstyled mb-3 kpi-list">
@@ -59,7 +59,7 @@
             </li>
             <li class="d-flex justify-content-between align-items-center">
               <span class="dashboard-text-muted">Общая дебиторка</span>
-              <span class="fw-semibold" style="color: #ff6b6b;">{{ overall_debt|floatformat:2 }}</span>
+              <span class="fw-semibold debt-amount">{{ overall_debt|floatformat:2 }}</span>
             </li>
           </ul>
           <div id="batteryStatusChart"></div>
@@ -70,7 +70,7 @@
     <!-- Средняя колонка: Активные клиенты и недавно закрытые -->
     <div class="col-lg-4 col-md-6">
       <div class="card shadow-sm h-100 dashboard-card">
-        <div class="card-header dashboard-card-header" style="font-weight: 500; border-bottom: none; padding-bottom: 0;">
+        <div class="card-header dashboard-card-header card-header-compact">
           Клиенты: батареи и баланс
         </div>
         
@@ -193,7 +193,7 @@
     <!-- Правая колонка: Последние платежи -->
     <div class="col-lg-4 col-md-12">
       <div class="card shadow-sm h-100 dashboard-card">
-        <div class="card-header dashboard-card-header" style="font-weight: 500;">Последние платежи:</div>
+        <div class="card-header dashboard-card-header card-header-compact">Последние платежи:</div>
         <div class="card-body p-0 card-body-mobile-compact dashboard-card-body">
           <div class="table-responsive">
             <table class="table table-sm mb-0 dashboard-table">
@@ -229,7 +229,7 @@
     <div class="row g-3 mt-2">
       <div class="col-lg-4 col-md-12">
         <div class="card shadow-sm h-100 dashboard-card">
-          <div class="card-header dashboard-card-header" style="font-weight: 500;">Месячные итоги</div>
+          <div class="card-header dashboard-card-header card-header-compact">Месячные итоги</div>
           <div class="card-body p-0 dashboard-card-body">
             <div class="table-responsive">
               <table class="table table-sm mb-0 dashboard-table">
@@ -247,10 +247,10 @@
                     <td class="text-end payment-amount">{{ row.income|floatformat:2 }}</td>
                     <td class="text-end balance-positive" style="font-weight: 500;">{{ row.profit|floatformat:2 }}</td>
                   </tr>
-                  <tr style="background-color: rgba(14, 16, 24, 0.5); border-bottom: 1px solid #232637;">
+                  <tr class="monthly-row-sub">
                     <td></td>
-                    <td colspan="2" style="padding: 0.5rem 1rem;">
-                      <small class="dashboard-text-muted" style="font-size: 0.75rem;">
+                    <td colspan="2" class="monthly-row-sub">
+                      <small class="dashboard-text-muted monthly-user-totals">
                         {% if row.user_totals %}
                           {% for ut in row.user_totals %}
                             {{ ut.user }}: {{ ut.total|floatformat:2 }}{% if not forloop.last %}, {% endif %}
@@ -271,7 +271,7 @@
       <div class="col-lg-8 col-md-12">
         <div class="card shadow-sm h-100 dashboard-card">
           <div class="card-header dashboard-card-header">
-            <i class="bi bi-calculator" style="margin-right: 8px;"></i> Взаиморасчеты
+            <i class="bi bi-calculator icon-spacing-lg"></i> Взаиморасчеты
           </div>
           <div class="card-body p-0 dashboard-card-body">
             {% if moderator_debts %}
@@ -280,16 +280,16 @@
                 <thead>
                   <tr>
                     <th>
-                      <i class="bi bi-person-badge" style="margin-right: 5px; color: #667eea;"></i>Модератор
+                      <i class="bi bi-person-badge icon-spacing"></i>Модератор
                     </th>
                     <th class="text-end">
-                      <i class="bi bi-cash-coin" style="margin-right: 5px; color: #667eea;"></i>Собрал
+                      <i class="bi bi-cash-coin icon-spacing"></i>Собрал
                     </th>
                     <th class="text-end">
-                      <i class="bi bi-arrow-right-circle" style="margin-right: 5px; color: #667eea;"></i>Переведено
+                      <i class="bi bi-arrow-right-circle icon-spacing"></i>Переведено
                     </th>
                     <th class="text-end">
-                      <i class="bi bi-wallet2" style="margin-right: 5px; color: #667eea;"></i>Долг
+                      <i class="bi bi-wallet2 icon-spacing"></i>Долг
                     </th>
                   </tr>
                 </thead>
@@ -310,27 +310,27 @@
                     <td class="text-end">
                       <div>
                         {% if debt.debt > 0 %}
-                          <span class="badge" style="background-color: rgba(240, 68, 56, 0.15); color: #ff6b6b; font-size: 0.8125rem; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 500;">
-                            <i class="bi bi-exclamation-circle" style="margin-right: 3px;"></i>{{ debt.debt|floatformat:0 }} PLN
+                          <span class="badge dashboard-badge-danger">
+                            <i class="bi bi-exclamation-circle icon-spacing-sm"></i>{{ debt.debt|floatformat:0 }} PLN
                           </span>
                         {% elif debt.debt < 0 %}
-                          <span class="badge" style="background-color: rgba(0, 210, 122, 0.15); color: #00d27a; font-size: 0.8125rem; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 500;">
-                            <i class="bi bi-check-circle" style="margin-right: 3px;"></i>{{ debt.debt_abs|floatformat:0 }} PLN
+                          <span class="badge dashboard-badge-success">
+                            <i class="bi bi-check-circle icon-spacing-sm"></i>{{ debt.debt_abs|floatformat:0 }} PLN
                           </span>
                         {% else %}
-                          <span class="badge" style="background-color: rgba(159, 166, 188, 0.15); color: #9fa6bc; font-size: 0.8125rem; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 500;">
-                            <i class="bi bi-dash-circle" style="margin-right: 3px;"></i>0 PLN
+                          <span class="badge dashboard-badge-secondary">
+                            <i class="bi bi-dash-circle icon-spacing-sm"></i>0 PLN
                           </span>
                         {% endif %}
                         {% if debt.partner.city and debt.debt > 0 %}
-                          <div style="margin-top: 0.5rem; font-size: 0.875rem; line-height: 1.5;">
-                            <div style="margin-top: 0.25rem;">
-                              <span style="color: #00d27a; font-weight: 500;">%{{ debt.reward_from_debt|floatformat:0 }}</span>
-                              <span style="color: #6e7891;"> : </span>
-                              <span style="color: #ffd28a; font-weight: 500;">*{{ debt.remaining_after_reward|floatformat:0 }}</span>
+                          <div class="reward-block">
+                            <div class="reward-row">
+                              <span class="reward-percent">%{{ debt.reward_from_debt|floatformat:0 }}</span>
+                              <span class="reward-separator"> : </span>
+                              <span class="reward-remaining">*{{ debt.remaining_after_reward|floatformat:0 }}</span>
                             </div>
-                            <div style="margin-top: 0.25rem; color: #6e7891; font-size: 0.8125rem;">
-                              За неделю: <span style="color: #9fa6bc; font-weight: 500;">{{ debt.collected_last_week|floatformat:0 }} PLN</span>
+                            <div class="reward-weekly">
+                              За неделю: <span class="reward-weekly-value">{{ debt.collected_last_week|floatformat:0 }} PLN</span>
                             </div>
                           </div>
                         {% endif %}
@@ -342,26 +342,26 @@
               </table>
             </div>
             {% else %}
-              <div class="p-3 text-center" style="color: #6e7891;">
+              <div class="p-3 text-center dashboard-text-muted">
                 Нет данных о модераторах
               </div>
             {% endif %}
             
             {% if moderator_transfers_recent %}
-            <div style="margin: 1.5rem; border-top: 1px solid #2a2e41; padding-top: 1.5rem;">
-              <h6 class="mb-3" style="font-size: 0.875rem; font-weight: 500; color: #9fa6bc; display: flex; align-items: center; text-transform: uppercase; letter-spacing: 0.5px;">
-                <i class="bi bi-clock-history" style="margin-right: 8px; color: #667eea;"></i>
-                История переводов <span style="font-size: 0.75rem; color: #6e7891; font-weight: 400; margin-left: 8px; text-transform: lowercase;">(последние 10)</span>
+            <div class="transfers-history-section">
+              <h6 class="mb-3 transfers-history-title">
+                <i class="bi bi-clock-history icon-spacing-lg"></i>
+                История переводов <span class="transfers-history-subtitle">(последние 10)</span>
               </h6>
               <div class="table-responsive">
-                <table class="table table-sm mb-0 settlements-history" style="font-size: 0.8125rem; background-color: #1c1e2d; color: #9fa6bc;">
-                  <thead style="background-color: transparent; border-bottom: 1px solid #2a2e41;">
+                <table class="table table-sm mb-0 dashboard-table transfers-history-table">
+                  <thead>
                     <tr>
-                      <th style="padding: 0.625rem 1rem; border: none; font-weight: 500; color: #6e7891; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Дата</th>
-                      <th style="padding: 0.625rem 1rem; border: none; font-weight: 500; color: #6e7891; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">От</th>
-                      <th style="padding: 0.625rem 1rem; border: none; font-weight: 500; color: #6e7891; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Кому</th>
-                      <th class="text-end" style="padding: 0.625rem 1rem; border: none; font-weight: 500; color: #6e7891; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Сумма</th>
-                      <th style="padding: 0.625rem 1rem; border: none; font-weight: 500; color: #6e7891; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Примечание</th>
+                      <th>Дата</th>
+                      <th>От</th>
+                      <th>Кому</th>
+                      <th class="text-end">Сумма</th>
+                      <th>Примечание</th>
                     </tr>
                   </thead>
                   <tbody>

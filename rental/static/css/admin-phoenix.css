@@ -818,6 +818,132 @@
       transition: all 0.2s ease;
     }
     
+    .icon-spacing { margin-right: 5px; color: #667eea; }
+    .icon-spacing-lg { margin-right: 8px; color: #667eea; }
+    .icon-spacing-sm { margin-right: 3px; }
+    .icon-spacing-xs { margin-right: 4px; }
+    
+    .reward-block {
+      margin-top: 0.5rem;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+    
+    .reward-row {
+      margin-top: 0.25rem;
+    }
+    
+    .reward-percent {
+      color: #00d27a;
+      font-weight: 500;
+    }
+    
+    .reward-remaining {
+      color: #ffd28a;
+      font-weight: 500;
+    }
+    
+    .reward-separator {
+      color: #6e7891;
+    }
+    
+    .reward-weekly {
+      margin-top: 0.25rem;
+      color: #6e7891;
+      font-size: 0.8125rem;
+    }
+    
+    .reward-weekly-value {
+      color: #9fa6bc;
+      font-weight: 500;
+    }
+    
+    .transfers-history-section {
+      margin: 1.5rem;
+      border-top: 1px solid #2a2e41;
+      padding-top: 1.5rem;
+    }
+    
+    .transfers-history-title {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #9fa6bc;
+      display: flex;
+      align-items: center;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .transfers-history-subtitle {
+      font-size: 0.75rem;
+      color: #6e7891;
+      font-weight: 400;
+      margin-left: 8px;
+      text-transform: lowercase;
+    }
+    
+    .transfers-history-table {
+      font-size: 0.8125rem;
+    }
+    
+    .transfers-history-table thead {
+      background-color: transparent;
+    }
+    
+    .transfers-history-table thead th {
+      padding: 0.625rem 1rem;
+      font-weight: 500;
+      color: #6e7891;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .transfers-history-table tbody tr {
+      border-bottom: 1px solid #232637;
+    }
+    
+    .transfers-history-table tbody td {
+      padding: 0.75rem 1rem;
+    }
+    
+    .user-badge-from {
+      background-color: rgba(102, 126, 234, 0.15);
+      color: #9ba5ff;
+      padding: 0.25rem 0.625rem;
+      border-radius: 6px;
+      font-weight: 500;
+      font-size: 0.75rem;
+    }
+    
+    .user-badge-to {
+      background-color: rgba(0, 210, 122, 0.15);
+      color: #00d27a;
+      padding: 0.25rem 0.625rem;
+      border-radius: 6px;
+      font-weight: 500;
+      font-size: 0.75rem;
+    }
+    
+    .monthly-row-sub {
+      background-color: rgba(14, 16, 24, 0.5);
+      border-bottom: 1px solid #232637;
+    }
+    
+    .monthly-row-sub td {
+      padding: 0.5rem 1rem;
+    }
+    
+    .monthly-user-totals {
+      font-size: 0.75rem;
+    }
+    
+    .card-header-compact {
+      font-weight: 500;
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    
     .battery-badge {
       background-color: rgba(159, 166, 188, 0.2);
       color: #9fa6bc;
