@@ -427,6 +427,7 @@ def dashboard(request):
             'collected': collected,
             'transferred': transferred,
             'debt': debt,
+            'debt_abs': abs(debt),  # Абсолютное значение для отображения
             'collected_last_week': collected_last_week,
             'reward': reward_amount,
             'reward_percent': reward_percent_display,
