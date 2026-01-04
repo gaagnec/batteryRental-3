@@ -34,19 +34,19 @@
           </div>
           <ul class="list-unstyled mb-3 kpi-list">
             <li class="d-flex justify-content-between align-items-center mb-1">
-              <span class="d-flex align-items-center dashboard-text-secondary"><span class="kpi-indicator" style="background:#8ad0ff;"></span>Активные клиенты</span>
+              <span class="d-flex align-items-center dashboard-text-secondary"><span class="kpi-indicator kpi-indicator-clients"></span>Активные клиенты</span>
               <span class="fw-semibold dashboard-text-primary">{{ active_clients_count }}</span>
             </li>
             <li class="d-flex justify-content-between align-items-center mb-1">
-              <span class="d-flex align-items-center dashboard-text-secondary"><span class="kpi-indicator" style="background:#ffd28a;"></span>В аренде</span>
+              <span class="d-flex align-items-center dashboard-text-secondary"><span class="kpi-indicator kpi-indicator-rented"></span>В аренде</span>
               <span class="fw-semibold dashboard-text-primary">{{ battery_stats.rented }}</span>
             </li>
             <li class="d-flex justify-content-between align-items-center mb-1">
-              <span class="d-flex align-items-center dashboard-text-secondary"><span class="kpi-indicator" style="background:#a8e2a8;"></span>На сервисе</span>
+              <span class="d-flex align-items-center dashboard-text-secondary"><span class="kpi-indicator kpi-indicator-service"></span>На сервисе</span>
               <span class="fw-semibold dashboard-text-primary">{{ battery_stats.in_service }}</span>
             </li>
             <li class="d-flex justify-content-between align-items-center mb-1">
-              <span class="d-flex align-items-center dashboard-text-secondary"><span class="kpi-indicator" style="background:#9bb2ff;"></span>Доступные</span>
+              <span class="d-flex align-items-center dashboard-text-secondary"><span class="kpi-indicator kpi-indicator-available"></span>Доступные</span>
               <span class="fw-semibold dashboard-text-primary">{{ battery_stats.available }}</span>
             </li>
             <li class="d-flex justify-content-between align-items-center mb-1">
@@ -105,7 +105,7 @@
                   <td>
                     {% if row.batteries %}
                       {% for b in row.batteries %}
-                        <span class="badge me-1" style="background-color: rgba(159, 166, 188, 0.2); color: #9fa6bc; font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 4px;">{{ b.short_code }}</span>
+                        <span class="badge battery-badge me-1">{{ b.short_code }}</span>
                       {% endfor %}
                     {% else %}
                       <span class="dashboard-text-muted">—</span>
@@ -114,9 +114,9 @@
                   <td class="text-end">
                     {% with val=row.balance_ui %}
                       {% if val > 0 %}
-                        <span style="color: #00d27a;">+{{ val|floatformat:2 }}</span>
+                        <span class="balance-positive">+{{ val|floatformat:2 }}</span>
                       {% elif val < 0 %}
-                        <span style="color: #ff6b6b;">{{ val|floatformat:2 }}</span>
+                        <span class="balance-negative">{{ val|floatformat:2 }}</span>
                       {% else %}
                         <span class="dashboard-text-secondary">{{ val|floatformat:2 }}</span>
                       {% endif %}
@@ -161,9 +161,9 @@
                     <td class="text-end">
                       {% with val=row.balance_ui %}
                         {% if val > 0 %}
-                          <span style="color: #00d27a;">+{{ val|floatformat:2 }}</span>
+                          <span class="balance-positive">+{{ val|floatformat:2 }}</span>
                         {% elif val < 0 %}
-                          <span style="color: #ff6b6b;">{{ val|floatformat:2 }}</span>
+                          <span class="balance-negative">{{ val|floatformat:2 }}</span>
                         {% else %}
                           <span class="dashboard-text-muted">{{ val|floatformat:2 }}</span>
                         {% endif %}
@@ -210,7 +210,7 @@
                 <tr>
                   <td class="dashboard-text-primary">{{ p.rental.client.name }}</td>
                   <td class="dashboard-text-secondary">{{ p.date }}</td>
-                  <td class="text-end" style="color: #27bcfd; font-weight: 500;">{{ p.amount|floatformat:2 }}</td>
+                  <td class="text-end payment-amount">{{ p.amount|floatformat:2 }}</td>
                   <td class="dashboard-text-muted" style="font-size: 0.875rem;">{{ p.created_by.get_full_name|default:p.created_by.username|default:p.created_by.email|default:"—" }}</td>
                 </tr>
                 {% empty %}
@@ -228,29 +228,29 @@
     <!-- Сводка по месяцам: Июнь, Июль, Август -->
     <div class="row g-3 mt-2">
       <div class="col-lg-4 col-md-12">
-        <div class="card shadow-sm h-100" style="background-color: #1c1e2d; border-color: #2a2e41;">
-          <div class="card-header" style="background-color: #0e1018; color: #e3e6ed; font-weight: 500; border-bottom: 1px solid #2a2e41;">Месячные итоги</div>
-          <div class="card-body p-0" style="background-color: #1c1e2d;">
+        <div class="card shadow-sm h-100 dashboard-card">
+          <div class="card-header dashboard-card-header" style="font-weight: 500;">Месячные итоги</div>
+          <div class="card-body p-0 dashboard-card-body">
             <div class="table-responsive">
-              <table class="table table-sm mb-0" style="background-color: #1c1e2d; color: #9fa6bc;">
-                <thead style="background-color: #0e1018; border-bottom: 1px solid #2a2e41;">
+              <table class="table table-sm mb-0 dashboard-table">
+                <thead>
                   <tr>
-                    <th style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Месяц</th>
-                    <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Пришло</th>
-                    <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; border: none;">Выручка</th>
+                    <th>Месяц</th>
+                    <th class="text-end">Пришло</th>
+                    <th class="text-end">Выручка</th>
                   </tr>
                 </thead>
                 <tbody>
                   {% for row in monthly3_rows %}
-                  <tr style="border-bottom: 1px solid #2a2e41;">
-                    <td style="padding: 0.75rem 1rem; color: #e3e6ed; border: none; font-weight: 500;">{{ row.label }}</td>
-                    <td class="text-end" style="padding: 0.75rem 1rem; color: #27bcfd; border: none; font-weight: 500;">{{ row.income|floatformat:2 }}</td>
-                    <td class="text-end" style="padding: 0.75rem 1rem; color: #00d27a; border: none; font-weight: 500;">{{ row.profit|floatformat:2 }}</td>
+                  <tr>
+                    <td class="dashboard-text-primary" style="font-weight: 500;">{{ row.label }}</td>
+                    <td class="text-end payment-amount">{{ row.income|floatformat:2 }}</td>
+                    <td class="text-end balance-positive" style="font-weight: 500;">{{ row.profit|floatformat:2 }}</td>
                   </tr>
                   <tr style="background-color: rgba(14, 16, 24, 0.5); border-bottom: 1px solid #232637;">
-                    <td style="border: none;"></td>
-                    <td colspan="2" style="padding: 0.5rem 1rem; border: none;">
-                      <small style="color: #6e7891; font-size: 0.75rem;">
+                    <td></td>
+                    <td colspan="2" style="padding: 0.5rem 1rem;">
+                      <small class="dashboard-text-muted" style="font-size: 0.75rem;">
                         {% if row.user_totals %}
                           {% for ut in row.user_totals %}
                             {{ ut.user }}: {{ ut.total|floatformat:2 }}{% if not forloop.last %}, {% endif %}
@@ -269,45 +269,45 @@
         </div>
       </div>
       <div class="col-lg-8 col-md-12">
-        <div class="card shadow-sm h-100" style="background-color: #1c1e2d; border-color: #2a2e41;">
-          <div class="card-header" style="background-color: #0e1018; color: #e3e6ed; font-weight: 600; border-bottom: 1px solid #2a2e41; padding: 1rem 1.25rem;">
+        <div class="card shadow-sm h-100 dashboard-card">
+          <div class="card-header dashboard-card-header">
             <i class="bi bi-calculator" style="margin-right: 8px;"></i> Взаиморасчеты
           </div>
-          <div class="card-body p-0" style="background-color: #1c1e2d;">
+          <div class="card-body p-0 dashboard-card-body">
             {% if moderator_debts %}
             <div class="table-responsive">
-              <table class="table table-sm table-hover mb-0 settlements-table" style="margin-bottom: 0; background-color: #1c1e2d; color: #9fa6bc;">
-                <thead style="background-color: #0e1018; border-bottom: 1px solid #2a2e41;">
+              <table class="table table-sm table-hover mb-0 dashboard-table settlements-table">
+                <thead>
                   <tr>
-                    <th style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.5px; border: none;">
+                    <th>
                       <i class="bi bi-person-badge" style="margin-right: 5px; color: #667eea;"></i>Модератор
                     </th>
-                    <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.5px; border: none;">
+                    <th class="text-end">
                       <i class="bi bi-cash-coin" style="margin-right: 5px; color: #667eea;"></i>Собрал
                     </th>
-                    <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.5px; border: none;">
+                    <th class="text-end">
                       <i class="bi bi-arrow-right-circle" style="margin-right: 5px; color: #667eea;"></i>Переведено
                     </th>
-                    <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.5px; border: none;">
+                    <th class="text-end">
                       <i class="bi bi-wallet2" style="margin-right: 5px; color: #667eea;"></i>Долг
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {% for debt in moderator_debts %}
-                  <tr style="border-bottom: 1px solid #2a2e41; transition: all 0.2s ease;">
-                    <td style="padding: 0.875rem 1rem; vertical-align: middle; border: none; color: #e3e6ed;">
+                  <tr>
+                    <td class="dashboard-text-primary">
                       <strong style="font-weight: 500;">{{ debt.partner.user.username }}</strong>
                     </td>
-                    <td class="text-end" style="padding: 0.875rem 1rem; vertical-align: middle; border: none;">
-                      <span style="color: #00d27a; font-weight: 500;">{{ debt.collected|floatformat:0 }}</span>
-                      <span style="color: #6e7891; font-size: 0.85em;"> PLN</span>
+                    <td class="text-end">
+                      <span class="balance-positive" style="font-weight: 500;">{{ debt.collected|floatformat:0 }}</span>
+                      <span class="pln-suffix"> PLN</span>
                     </td>
-                    <td class="text-end" style="padding: 0.875rem 1rem; vertical-align: middle; border: none;">
-                      <span style="color: #27bcfd; font-weight: 500;">{{ debt.transferred|floatformat:0 }}</span>
-                      <span style="color: #6e7891; font-size: 0.85em;"> PLN</span>
+                    <td class="text-end">
+                      <span class="payment-amount">{{ debt.transferred|floatformat:0 }}</span>
+                      <span class="pln-suffix"> PLN</span>
                     </td>
-                    <td class="text-end" style="padding: 0.875rem 1rem; vertical-align: middle; border: none;">
+                    <td class="text-end">
                       <div>
                         {% if debt.debt > 0 %}
                           <span class="badge" style="background-color: rgba(240, 68, 56, 0.15); color: #ff6b6b; font-size: 0.8125rem; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 500;">

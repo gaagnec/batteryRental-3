@@ -677,17 +677,6 @@
       #content {
         padding: 1rem;
       }
-      
-      /* Уменьшение заголовков таблиц и иконок на 30% */
-      table thead th {
-        font-size: calc(0.875rem * 0.7) !important; /* было 0.875rem, стало ~0.6125rem */
-        letter-spacing: 0.2px;
-        padding: 0.75rem 0.05rem !important;
-      }
-      
-      table thead th i {
-        font-size: calc(1em * 0.7) !important; /* уменьшаем иконки на 30% */
-      }
     }
     
     /* 12. RESPONSIVE - Tablet (768px - 991px) */
@@ -734,6 +723,7 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
       border: none;
+      white-space: nowrap;
     }
     
     .dashboard-table tbody tr {
@@ -806,6 +796,34 @@
       height: 10px;
       border-radius: 50%;
       margin-right: 0.5rem;
+    }
+    
+    .kpi-indicator-clients { background: #8ad0ff; }
+    .kpi-indicator-rented { background: #ffd28a; }
+    .kpi-indicator-service { background: #a8e2a8; }
+    .kpi-indicator-available { background: #9bb2ff; }
+    
+    .balance-positive { color: #00d27a; }
+    .balance-negative { color: #ff6b6b; }
+    .payment-amount { color: #27bcfd; font-weight: 500; }
+    .debt-amount { color: #ff6b6b; }
+    .pln-suffix { color: #6e7891; font-size: 0.85em; }
+    
+    .settlements-table tbody td {
+      padding: 0.875rem 1rem;
+      vertical-align: middle;
+    }
+    
+    .settlements-table tbody tr {
+      transition: all 0.2s ease;
+    }
+    
+    .battery-badge {
+      background-color: rgba(159, 166, 188, 0.2);
+      color: #9fa6bc;
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
     }
     
     /* 14. UTILITIES - Only here we use !important */
