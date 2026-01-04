@@ -352,13 +352,6 @@
 </div>
 
 {% endblock %}
-                            <i class="bi bi-check-circle" style="margin-right: 3px;"></i>{{ debt.debt|floatformat:0 }} PLN
-                          </span>
-                        {% else %}
-                          <span class="badge" style="background-color: rgba(159, 166, 188, 0.15); color: #9fa6bc; font-size: 0.8125rem; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 500;">
-                            <i class="bi bi-dash-circle" style="margin-right: 3px;"></i>{{ debt.debt|floatformat:0 }} PLN
-                          </span>
-                        {% endif %}
                       </div>
                       {% if debt.collected_last_week != 0 %}
                       <div style="margin-top: 0.35rem;">
