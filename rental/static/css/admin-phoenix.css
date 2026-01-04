@@ -677,6 +677,15 @@
       #content {
         padding: 1rem;
       }
+      
+      /* Уменьшение заголовков таблиц и иконок на 10% */
+      table thead th {
+        font-size: calc(0.875rem * 0.9) !important; /* было 0.875rem, стало ~0.7875rem */
+      }
+      
+      table thead th i {
+        font-size: calc(1em * 0.9) !important; /* уменьшаем иконки на 10% */
+      }
     }
     
     /* 12. RESPONSIVE - Tablet (768px - 991px) */

@@ -127,6 +127,9 @@ def dashboard(request):
         rental__status=Rental.Status.ACTIVE,
         start_at__lte=now
     ).filter(Q(end_at__isnull=True) | Q(end_at__gt=now))
+    # Фильтрация по городу для assignments
+    if filter_city:
+        assignments = assignments.filter(rental__city=filter_city)
 
     clients_data = []
     # Баланс считаем по root-группе последних активных ренталов клиента
@@ -160,9 +163,15 @@ def dashboard(request):
         })
 
     # Статистика по батареям
-    total_batteries = Battery.objects.count()
+    total_batteries_qs = Battery.objects.all()
+    if filter_city:
+        total_batteries_qs = total_batteries_qs.filter(city=filter_city)
+    total_batteries = total_batteries_qs.count()
     rented_now = assignments.values('battery_id').distinct().count()
-    in_service = Repair.objects.filter(end_at__isnull=True).count()
+    in_service_qs = Repair.objects.filter(end_at__isnull=True)
+    if filter_city:
+        in_service_qs = in_service_qs.filter(battery__city=filter_city)
+    in_service = in_service_qs.count()
     available = max(total_batteries - rented_now - in_service, 0)
     battery_stats = {
         'total': total_batteries,
@@ -172,7 +181,10 @@ def dashboard(request):
     }
 
     # Последние 16 платежей
-    latest_payments = Payment.objects.select_related('rental__client', 'created_by').order_by('-date', '-id')[:16]
+    latest_payments = Payment.objects.select_related('rental__client', 'created_by')
+    if filter_city:
+        latest_payments = latest_payments.filter(city=filter_city)
+    latest_payments = latest_payments.order_by('-date', '-id')[:16]
 
     # Месячные итоги
     month_names = {
@@ -184,18 +196,19 @@ def dashboard(request):
     pay_monthly = (
         Payment.objects
         .filter(type=Payment.PaymentType.RENT)
-        .values('date__year', 'date__month')
-        .annotate(total=Sum('amount'))
-        .order_by('date__year', 'date__month')
     )
+    if filter_city:
+        pay_monthly = pay_monthly.filter(city=filter_city)
+    pay_monthly = pay_monthly.values('date__year', 'date__month').annotate(total=Sum('amount')).order_by('date__year', 'date__month')
+    
     # За один проход подготовим и разрез по пользователям
     pay_monthly_by_user = (
         Payment.objects
         .filter(type=Payment.PaymentType.RENT)
-        .values('date__year', 'date__month', 'created_by__username', 'created_by__first_name', 'created_by__last_name')
-        .annotate(total=Sum('amount'))
-        .order_by('date__year', 'date__month', '-total')
     )
+    if filter_city:
+        pay_monthly_by_user = pay_monthly_by_user.filter(city=filter_city)
+    pay_monthly_by_user = pay_monthly_by_user.values('date__year', 'date__month', 'created_by__username', 'created_by__first_name', 'created_by__last_name').annotate(total=Sum('amount')).order_by('date__year', 'date__month', '-total')
     users_map = {}
     for pu in pay_monthly_by_user:
         key = (pu['date__year'], pu['date__month'])
@@ -240,10 +253,10 @@ def dashboard(request):
     start_date = timezone.localdate() - timedelta(days=window_days - 1)
     pay_qs = (
         Payment.objects.filter(date__gte=start_date)
-        .values('date')
-        .annotate(total=Sum('amount'))
-        .order_by('date')
     )
+    if filter_city:
+        pay_qs = pay_qs.filter(city=filter_city)
+    pay_qs = pay_qs.values('date').annotate(total=Sum('amount')).order_by('date')
     labels = []
     paid_values = []
     totals_pay = {row['date']: row['total'] for row in pay_qs}
@@ -258,6 +271,8 @@ def dashboard(request):
         .filter(models.Q(end_at__isnull=True) | models.Q(end_at__gte=window_start_anchor))
         .select_related('rental')
     )
+    if filter_city:
+        assigns_window = assigns_window.filter(rental__city=filter_city)
     # Подготовим список назначений с нормализованными датами
     norm_assigns = []
     now_tz = timezone.localtime(timezone.now(), tz)
@@ -320,8 +335,10 @@ def dashboard(request):
         Rental.objects
         .filter(status=Rental.Status.CLOSED, end_at__isnull=False)
         .select_related('client')
-        .order_by('-end_at')[:5]
     )
+    if filter_city:
+        recent_closed = recent_closed.filter(city=filter_city)
+    recent_closed = recent_closed.order_by('-end_at')[:5]
     recent_closed_list = list(recent_closed)
     
     # Используем общую функцию для расчёта балансов закрытых клиентов
@@ -417,16 +434,16 @@ def dashboard(request):
             # Сумма поступлений за последнюю неделю (без вычета переводов)
             collected_last_week = Decimal(payments_last_week_by_user.get(uid, 0) or 0)
             
-            # Расчет вознаграждения модератора (только если есть город)
-            reward_amount = Decimal('0')
-            reward_percent_display = Decimal('0')
-            difference = collected
-            if mod.city:
+            # Расчет вознаграждения модератора от остатка (debt) вместо собранной суммы
+            reward_from_debt = Decimal('0')
+            remaining_after_reward = debt
+            if mod.city and debt > 0:
                 try:
-                    reward = mod.calculate_reward(cutoff, timezone.localdate())
-                    reward_amount = reward
-                    reward_percent_display = mod.reward_percent or Decimal('0')
-                    difference = collected - reward_amount
+                    reward_percent = mod.reward_percent or Decimal('0')
+                    if reward_percent > 0:
+                        # Процент от остатка (debt)
+                        reward_from_debt = debt * (reward_percent / 100)
+                        remaining_after_reward = debt - reward_from_debt
                 except Exception as e:
                     # Если ошибка при расчете вознаграждения, просто пропускаем
                     pass
@@ -438,9 +455,8 @@ def dashboard(request):
                 'debt': debt,
                 'debt_abs': abs(debt),  # Абсолютное значение для отображения
                 'collected_last_week': collected_last_week,
-                'reward': reward_amount,
-                'reward_percent': reward_percent_display,
-                'difference': difference,
+                'reward_from_debt': reward_from_debt,
+                'remaining_after_reward': remaining_after_reward,
             })
         except Exception as e:
             # Пропускаем модераторов с ошибками
