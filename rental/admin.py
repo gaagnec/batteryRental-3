@@ -1398,12 +1398,17 @@ class ClientAdmin(SimpleHistoryAdmin):
         
         # Модераторы видят только клиентов своего города
         if not request.user.is_superuser:
-            try:
-                finance_partner = FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.MODERATOR).first()
-                if finance_partner and finance_partner.city:
-                    qs = qs.filter(city=finance_partner.city)
-            except Exception:
-                pass
+            finance_partner = FinancePartner.objects.filter(
+                user=request.user, 
+                role=FinancePartner.Role.MODERATOR,
+                active=True
+            ).select_related('city').first()
+            
+            if finance_partner and finance_partner.city:
+                qs = qs.filter(city=finance_partner.city)
+            else:
+                # Если у модератора нет города или он не найден, не показываем ничего
+                qs = qs.none()
         
         return qs
     
@@ -2058,12 +2063,17 @@ class RentalAdmin(SimpleHistoryAdmin):
         
         # Модераторы видят только договоры своего города
         if not request.user.is_superuser:
-            try:
-                finance_partner = FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.MODERATOR).first()
-                if finance_partner and finance_partner.city:
-                    qs = qs.filter(city=finance_partner.city)
-            except Exception:
-                pass
+            finance_partner = FinancePartner.objects.filter(
+                user=request.user, 
+                role=FinancePartner.Role.MODERATOR,
+                active=True
+            ).select_related('city').first()
+            
+            if finance_partner and finance_partner.city:
+                qs = qs.filter(city=finance_partner.city)
+            else:
+                # Если у модератора нет города или он не найден, не показываем ничего
+                qs = qs.none()
         
         return qs
     
@@ -2571,12 +2581,17 @@ class PaymentAdmin(SimpleHistoryAdmin):
         
         # Модераторы видят только платежи своего города
         if not request.user.is_superuser:
-            try:
-                finance_partner = FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.MODERATOR).first()
-                if finance_partner and finance_partner.city:
-                    qs = qs.filter(city=finance_partner.city)
-            except Exception:
-                pass
+            finance_partner = FinancePartner.objects.filter(
+                user=request.user, 
+                role=FinancePartner.Role.MODERATOR,
+                active=True
+            ).select_related('city').first()
+            
+            if finance_partner and finance_partner.city:
+                qs = qs.filter(city=finance_partner.city)
+            else:
+                # Если у модератора нет города или он не найден, не показываем ничего
+                qs = qs.none()
         
         return qs
     
