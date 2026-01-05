@@ -2049,6 +2049,24 @@ class RentalAdmin(SimpleHistoryAdmin):
     autocomplete_fields = ('client', 'city')
     list_filter = ('status', 'city')
     
+    def get_queryset(self, request):
+        """Фильтрация по городу для модераторов и оптимизация"""
+        qs = super().get_queryset(request)
+        from django.db.models import Count
+        qs = qs.select_related('client', 'city').prefetch_related('assignments', 'assignments__battery')
+        qs = qs.annotate(assignments_count=Count('assignments'))
+        
+        # Модераторы видят только договоры своего города
+        if not request.user.is_superuser:
+            try:
+                finance_partner = FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.MODERATOR).first()
+                if finance_partner and finance_partner.city:
+                    qs = qs.filter(city=finance_partner.city)
+            except Exception:
+                pass
+        
+        return qs
+    
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         """Фильтрация батарей по городу при назначении в inline формах"""
         if db_field.name == "battery":
@@ -2122,31 +2140,6 @@ class RentalAdmin(SimpleHistoryAdmin):
                         result.row_class = 'opacity-80'
 
         return CustomChangeList
-
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        # Предзагрузить связанные объекты, чтобы избежать N+1
-        from django.db.models import Count
-        qs = qs.select_related('client', 'city').prefetch_related('assignments', 'assignments__battery')
-        qs = qs.annotate(assignments_count=Count('assignments'))
-        
-        # Модераторы видят только договоры своего города
-        if not request.user.is_superuser:
-            try:
-                finance_partner = FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.MODERATOR).first()
-                if finance_partner and finance_partner.city:
-                    qs = qs.filter(city=finance_partner.city)
-            except Exception:
-                pass
-        
-        return qs
-        # Добавить row_class для приглушения строк
-        for obj in qs:
-            if obj.status in [obj.Status.MODIFIED, obj.Status.CLOSED]:
-                obj.row_class = 'opacity-80'
-            else:
-                obj.row_class = ''
-        return qs
 
     class Media:
         css = {

@@ -95,8 +95,15 @@
           <span>Платежи</span>
         </a>
       </li>
+      <li class="phoenix-sidebar-item">
+        <a href="{% url 'admin:rental_batterytransfer_changelist' %}" class="phoenix-sidebar-link {% if 'batterytransfer' in request.resolver_match.url_name %}active{% endif %}">
+          <i class="bi bi-arrow-left-right"></i>
+          <span>Трансфер</span>
+        </a>
+      </li>
       
       <!-- Оборудование -->
+      {% if user.is_superuser %}
       <li class="phoenix-sidebar-section">Оборудование</li>
       <li class="phoenix-sidebar-item">
         <a href="{% url 'admin:rental_battery_changelist' %}" class="phoenix-sidebar-link {% if 'battery' in request.resolver_match.url_name %}active{% endif %}">
@@ -116,8 +123,10 @@
           <span>Логи статусов</span>
         </a>
       </li>
+      {% endif %}
       
       <!-- Финансы -->
+      {% if user.is_superuser %}
       <li class="phoenix-sidebar-section">Финансы</li>
       <li class="phoenix-sidebar-item">
         <a href="{% url 'admin:rental_financeoverviewproxy2_changelist' %}" class="phoenix-sidebar-link {% if 'financeoverview' in request.resolver_match.url_name %}active{% endif %}">
@@ -149,15 +158,18 @@
           <span>Расходы</span>
         </a>
       </li>
+      {% endif %}
       
       <!-- Система -->
       <li class="phoenix-sidebar-section">Система</li>
+      {% if user.is_superuser %}
       <li class="phoenix-sidebar-item">
         <a href="{% url 'admin:rental_financepartner_changelist' %}" class="phoenix-sidebar-link {% if 'financepartner' in request.resolver_match.url_name %}active{% endif %}">
           <i class="bi bi-person-badge"></i>
           <span>Партнеры</span>
         </a>
       </li>
+      {% endif %}
       <li class="phoenix-sidebar-item">
         <a href="{% url 'admin:password_change' %}" class="phoenix-sidebar-link">
           <i class="bi bi-key"></i>
