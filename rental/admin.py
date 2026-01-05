@@ -2984,6 +2984,10 @@ class BatteryTransferAdmin(SimpleHistoryAdmin):
     autocomplete_fields = ["battery", "from_city", "to_city"]
     actions = ["approve_transfers", "reject_transfers"]
     
+    def has_module_permission(self, request):
+        # Разрешаем доступ модераторам и администраторам
+        return request.user.is_staff
+    
     def status_display(self, obj):
         """Цветовая индикация статусов"""
         colors = {

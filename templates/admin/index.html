@@ -177,6 +177,7 @@
           </div>
           
           <!-- Батареи -->
+          {% if user.is_superuser %}
           <div class="phoenix-section">
             <div class="phoenix-section-header">
               <div class="phoenix-section-icon">
@@ -205,6 +206,7 @@
               {% endfor %}
             </ul>
           </div>
+          {% endif %}
           
           <!-- Финансы -->
           <div class="phoenix-section">
@@ -216,24 +218,33 @@
             </div>
             <ul class="phoenix-section-links">
               {% for model in app.models %}
-                {% if model.object_name|lower == "payment" or model.object_name|lower == "expense" or model.object_name|lower == "expensecategory" or model.object_name|lower == "financeoverviewproxy" or model.object_name|lower == "financeoverviewproxy2" %}
+                {% if model.object_name|lower == "payment" %}
                   {% if model.perms.view %}
                     <li class="phoenix-section-link">
                       <a href="{{ model.admin_url }}">
-                        {% if model.object_name|lower == "payment" %}
-                          <i class="bi bi-credit-card"></i>
-                        {% elif model.object_name|lower == "expense" %}
-                          <i class="bi bi-cash-stack"></i>
-                        {% elif model.object_name|lower == "expensecategory" %}
-                          <i class="bi bi-folder"></i>
-                        {% elif model.object_name|lower == "financeoverviewproxy" %}
-                          <i class="bi bi-graph-up-arrow"></i>
-                        {% elif model.object_name|lower == "financeoverviewproxy2" %}
-                          <i class="bi bi-journal-text"></i>
-                        {% endif %}
+                        <i class="bi bi-credit-card"></i>
                         <span>{{ model.name }}</span>
                       </a>
                     </li>
+                  {% endif %}
+                {% elif user.is_superuser %}
+                  {% if model.object_name|lower == "expense" or model.object_name|lower == "expensecategory" or model.object_name|lower == "financeoverviewproxy" or model.object_name|lower == "financeoverviewproxy2" %}
+                    {% if model.perms.view %}
+                      <li class="phoenix-section-link">
+                        <a href="{{ model.admin_url }}">
+                          {% if model.object_name|lower == "expense" %}
+                            <i class="bi bi-cash-stack"></i>
+                          {% elif model.object_name|lower == "expensecategory" %}
+                            <i class="bi bi-folder"></i>
+                          {% elif model.object_name|lower == "financeoverviewproxy" %}
+                            <i class="bi bi-graph-up-arrow"></i>
+                          {% elif model.object_name|lower == "financeoverviewproxy2" %}
+                            <i class="bi bi-journal-text"></i>
+                          {% endif %}
+                          <span>{{ model.name }}</span>
+                        </a>
+                      </li>
+                    {% endif %}
                   {% endif %}
                 {% endif %}
               {% endfor %}
@@ -265,6 +276,7 @@
           </div>
           
           <!-- Финансовые партнёры -->
+          {% if user.is_superuser %}
           <div class="phoenix-section">
             <div class="phoenix-section-header">
               <div class="phoenix-section-icon">
@@ -297,6 +309,7 @@
               {% endfor %}
             </ul>
           </div>
+          {% endif %}
         </div>
       {% endif %}
     {% endfor %}
