@@ -42,11 +42,14 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # third-party
     'simple_history',
-    'debug_toolbar',
     'admin_auto_filters',
     # local apps
     'rental',
 ]
+
+# Add debug_toolbar only in DEBUG mode
+if DEBUG:
+    INSTALLED_APPS.insert(9, 'debug_toolbar')
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
