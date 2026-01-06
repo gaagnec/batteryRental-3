@@ -266,22 +266,46 @@ class Payment(TimeStampedModel):
     note = models.TextField(blank=True)
     history = HistoricalRecords()
 
+    def clean(self):
+        """Валидация: город платежа должен совпадать с городом договора"""
+        super().clean()
+        
+        if self.rental_id and self.city_id:
+            # Загружаем rental с city если нужно
+            if not self.rental or not hasattr(self.rental, 'city'):
+                try:
+                    self.rental = Rental.objects.select_related('city').get(pk=self.rental_id)
+                except Rental.DoesNotExist:
+                    return
+            
+            # Проверяем соответствие городов
+            if self.rental and self.rental.city and self.rental.city_id != self.city_id:
+                raise ValidationError({
+                    'city': f'Город платежа должен совпадать с городом договора ({self.rental.city})'
+                })
+
     def save(self, *args, **kwargs):
         # Всегда привязываем платеж к root-договору для консистентности групповых расчетов
         if self.rental and self.rental.root_id and self.rental_id != self.rental.root_id:
             self.rental = self.rental.root
         
-        # Автоматически устанавливаем city
-        if not self.city:
-            # Приоритет 1: Город из rental.city
-            if self.rental_id and self.rental and self.rental.city:
-                self.city = self.rental.city
-            # Приоритет 2: Город модератора из created_by
-            elif self.created_by_id:
+        # Автоматически синхронизируем city с rental (ОСНОВНАЯ ЛОГИКА)
+        # City платежа всегда должен совпадать с city договора
+        if self.rental_id:
+            # Загружаем rental с city если еще не загружен
+            if not self.rental or not hasattr(self.rental, 'city'):
                 try:
-                    # Используем строковую ссылку чтобы избежать циклических импортов
+                    self.rental = Rental.objects.select_related('city').get(pk=self.rental_id)
+                except Rental.DoesNotExist:
+                    pass
+            
+            # Синхронизируем город с договором (приоритет 1)
+            if self.rental and self.rental.city:
+                self.city = self.rental.city
+            # Если у договора нет города, пытаемся использовать город модератора (приоритет 2)
+            elif not self.city and self.created_by_id:
+                try:
                     FinancePartner = self.__class__._meta.apps.get_model('rental', 'FinancePartner')
-                    # Ищем модератора, а не первого попавшегося партнера
                     finance_partner = FinancePartner.objects.filter(
                         user=self.created_by, 
                         role='moderator',
@@ -291,6 +315,19 @@ class Payment(TimeStampedModel):
                         self.city = finance_partner.city
                 except Exception:
                     pass
+        # Если нет rental, но есть created_by - используем город модератора
+        elif not self.city and self.created_by_id:
+            try:
+                FinancePartner = self.__class__._meta.apps.get_model('rental', 'FinancePartner')
+                finance_partner = FinancePartner.objects.filter(
+                    user=self.created_by, 
+                    role='moderator',
+                    active=True
+                ).select_related('city').first()
+                if finance_partner and finance_partner.city:
+                    self.city = finance_partner.city
+            except Exception:
+                pass
         
         super().save(*args, **kwargs)
 

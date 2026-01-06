@@ -2743,7 +2743,7 @@ class PaymentAdmin(SimpleHistoryAdmin):
             
             if show_all:
                 # Показываем все договора, отсортированные от большего к меньшему
-                kwargs["queryset"] = Rental.objects.select_related('client').order_by('-id')
+                queryset = Rental.objects.select_related('client').order_by('-id')
             else:
                 # По умолчанию показываем только активные договора последней версии
                 # Последняя версия = договор не имеет детей (children)
@@ -2753,7 +2753,22 @@ class PaymentAdmin(SimpleHistoryAdmin):
                 ).filter(
                     Q(status=Rental.Status.ACTIVE) & Q(children_count=0)
                 ).order_by('-id')
-                kwargs["queryset"] = queryset
+            
+            # Фильтрация по городу для модераторов
+            if not request.user.is_superuser:
+                finance_partner = FinancePartner.objects.filter(
+                    user=request.user, 
+                    role=FinancePartner.Role.MODERATOR,
+                    active=True
+                ).select_related('city').first()
+                
+                if finance_partner and finance_partner.city:
+                    queryset = queryset.filter(city=finance_partner.city)
+                else:
+                    # Если у модератора нет города, не показываем договоры
+                    queryset = queryset.none()
+            
+            kwargs["queryset"] = queryset
         
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
     
