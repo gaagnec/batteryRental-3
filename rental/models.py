@@ -271,16 +271,26 @@ class Payment(TimeStampedModel):
         if self.rental and self.rental.root_id and self.rental_id != self.rental.root_id:
             self.rental = self.rental.root
         
-        # Автоматически устанавливаем city по умолчанию из created_by.finance_partners.first().city
-        if not self.city and self.created_by_id:
-            try:
-                # Используем строковую ссылку чтобы избежать циклических импортов
-                FinancePartner = self.__class__._meta.apps.get_model('rental', 'FinancePartner')
-                finance_partner = FinancePartner.objects.filter(user=self.created_by).first()
-                if finance_partner and finance_partner.city:
-                    self.city = finance_partner.city
-            except Exception:
-                pass
+        # Автоматически устанавливаем city
+        if not self.city:
+            # Приоритет 1: Город из rental.city
+            if self.rental_id and self.rental and self.rental.city:
+                self.city = self.rental.city
+            # Приоритет 2: Город модератора из created_by
+            elif self.created_by_id:
+                try:
+                    # Используем строковую ссылку чтобы избежать циклических импортов
+                    FinancePartner = self.__class__._meta.apps.get_model('rental', 'FinancePartner')
+                    # Ищем модератора, а не первого попавшегося партнера
+                    finance_partner = FinancePartner.objects.filter(
+                        user=self.created_by, 
+                        role='moderator',
+                        active=True
+                    ).select_related('city').first()
+                    if finance_partner and finance_partner.city:
+                        self.city = finance_partner.city
+                except Exception:
+                    pass
         
         super().save(*args, **kwargs)
 

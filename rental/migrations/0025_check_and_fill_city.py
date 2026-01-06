@@ -25,7 +25,7 @@ def check_and_fill_city(apps, schema_editor):
     else:
         print("Все клиенты имеют город ✓")
     
-    # Проверяем и заполняем договоры
+    # Проверяем и заполняем договоры (если остались после 0024)
     rentals_without_city = Rental.objects.filter(city__isnull=True)
     rentals_count = rentals_without_city.count()
     if rentals_count > 0:
@@ -34,7 +34,7 @@ def check_and_fill_city(apps, schema_editor):
     else:
         print("Все договоры имеют город ✓")
     
-    # Проверяем и заполняем платежи
+    # Проверяем и заполняем платежи (если остались после 0023)
     payments_without_city = Payment.objects.filter(city__isnull=True)
     payments_count = payments_without_city.count()
     if payments_count > 0:
@@ -54,10 +54,9 @@ def check_and_fill_city(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('rental', '0022_add_battery_transfer'),
+        ('rental', '0024_update_rental_city'),
     ]
 
     operations = [
         migrations.RunPython(check_and_fill_city, reverse_code=migrations.RunPython.noop),
     ]
-
