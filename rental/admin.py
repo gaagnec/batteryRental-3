@@ -1422,6 +1422,19 @@ class ClientAdmin(SimpleHistoryAdmin):
     
     def save_model(self, request, obj, form, change):
         """Автоматически устанавливаем city для модераторов"""
+        # Проверяем, изменился ли город (для информационного сообщения)
+        old_city = None
+        city_changed = False
+        if change and obj.pk:
+            try:
+                old_client = Client.objects.get(pk=obj.pk)
+                old_city = old_client.city
+                if old_city and obj.city and old_city.id != obj.city.id:
+                    city_changed = True
+            except Client.DoesNotExist:
+                pass
+        
+        # Для модераторов при создании устанавливаем город
         if not change and not obj.city:
             if not request.user.is_superuser:
                 try:
@@ -1430,7 +1443,19 @@ class ClientAdmin(SimpleHistoryAdmin):
                         obj.city = finance_partner.city
                 except Exception:
                     pass
+        
         super().save_model(request, obj, form, change)
+        
+        # Информируем пользователя об автоматическом обновлении связанных данных
+        if city_changed:
+            rentals_count = obj.rentals.count()
+            payments_count = Payment.objects.filter(rental__client=obj).count()
+            if rentals_count > 0 or payments_count > 0:
+                messages.info(
+                    request, 
+                    f"Город изменен с '{old_city}' на '{obj.city}'. "
+                    f"Автоматически обновлено: {rentals_count} договоров, {payments_count} платежей."
+                )
 
     def has_active(self, obj):
         return getattr(obj, "has_active", False)

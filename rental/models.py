@@ -34,6 +34,29 @@ class Client(TimeStampedModel):
 
     def __str__(self):
         return self.name
+    
+    def save(self, *args, **kwargs):
+        """Синхронизация города с договорами и платежами клиента при изменении"""
+        # Проверяем, изменился ли город (только при редактировании)
+        city_changed = False
+        if self.pk:
+            try:
+                old_client = Client.objects.get(pk=self.pk)
+                if old_client.city_id != self.city_id:
+                    city_changed = True
+            except Client.DoesNotExist:
+                pass
+        
+        # Сохраняем клиента
+        super().save(*args, **kwargs)
+        
+        # Если город изменился, обновляем все договоры и платежи клиента
+        if city_changed and self.city:
+            # Обновляем город во всех договорах клиента
+            updated_rentals = Rental.objects.filter(client=self).update(city=self.city)
+            # Обновляем город во всех платежах клиента (через договоры)
+            if updated_rentals > 0:
+                Payment.objects.filter(rental__client=self).update(city=self.city)
 
 
 class Battery(TimeStampedModel):
