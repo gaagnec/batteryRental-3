@@ -1528,7 +1528,7 @@ class ClientAdmin(SimpleHistoryAdmin):
     balance_badge.short_description = "Баланс"
 
     def changelist_view(self, request, extra_context=None):
-        self.list_filter = (ActiveRentalFilter,)
+        self.list_filter = (ActiveRentalFilter, "city")
         if getattr(request, "htmx", False):
             # Для HTMX отдаём только таблицу результатов
             self.list_display = ("id", "name", "phone", "pesel", "created_at", "has_active")
@@ -1542,16 +1542,6 @@ class ClientAdmin(SimpleHistoryAdmin):
         # Не-HTMX: обычная страница
         self.list_display = ("id", "name", "phone", "pesel", "created_at", "has_active")
         return super().changelist_view(request, extra_context)
-
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        from django.db.models import Exists, OuterRef, Q
-        now = timezone.now()
-        active_qs = Rental.objects.filter(client=OuterRef("pk")).filter(
-            status=Rental.Status.ACTIVE
-        ).filter(Q(end_at__isnull=True) | Q(end_at__gt=now))
-        qs = qs.annotate(has_active=Exists(active_qs))
-        return qs
 
 
 @admin.register(Battery)
@@ -2688,11 +2678,6 @@ class PaymentAdmin(SimpleHistoryAdmin):
     def get_search_results(self, request, queryset, search_term):
         # Ограничение базового поиска по платежам — оставляем стандартное поведение
         return super().get_search_results(request, queryset, search_term)
-
-
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        return qs.select_related('rental__client', 'created_by')
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
