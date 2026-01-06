@@ -2107,17 +2107,29 @@ class RentalAdmin(SimpleHistoryAdmin):
     
     def save_model(self, request, obj, form, change):
         """Автоматически устанавливаем city из client.city при создании, или city модератора если client.city нет"""
-        if not change and not obj.city:
-            if obj.client_id and hasattr(obj.client, 'city') and obj.client.city:
-                obj.city = obj.client.city
-            elif not request.user.is_superuser:
-                # Если модератор создает договор и client.city нет, устанавливаем city модератора
+        
+        # Если city не установлен (из-за disabled поля для модераторов)
+        if not obj.city:
+            if not change:
+                # При создании: используем client.city или city модератора
+                if obj.client_id and hasattr(obj.client, 'city') and obj.client.city:
+                    obj.city = obj.client.city
+                elif not request.user.is_superuser:
+                    # Если модератор создает договор и client.city нет, устанавливаем city модератора
+                    try:
+                        finance_partner = FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.MODERATOR).first()
+                        if finance_partner and finance_partner.city:
+                            obj.city = finance_partner.city
+                    except Exception:
+                        pass
+            else:
+                # При редактировании: восстанавливаем city из БД (disabled поле не отправляется в форме)
                 try:
-                    finance_partner = FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.MODERATOR).first()
-                    if finance_partner and finance_partner.city:
-                        obj.city = finance_partner.city
-                except Exception:
+                    old_obj = Rental.objects.get(pk=obj.pk)
+                    obj.city = old_obj.city
+                except Rental.DoesNotExist:
                     pass
+        
         super().save_model(request, obj, form, change)
 
     def changelist_view(self, request, extra_context=None):
