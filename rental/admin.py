@@ -41,6 +41,51 @@ class FinancePartnerAdmin(SimpleHistoryAdmin):
         qs = qs.select_related('user')
         return qs
     
+    def save_model(self, request, obj, form, change):
+        """Вызываем clean() для валидации перед сохранением"""
+        from django.core.exceptions import ValidationError
+        from .logging_utils import log_action, log_error
+        
+        try:
+            obj.full_clean()  # Вызывает clean() и другие валидации
+            super().save_model(request, obj, form, change)
+            
+            # Логируем успешное действие
+            action = "Обновлён финансовый партнёр" if change else "Создан финансовый партнёр"
+            log_action(
+                action,
+                user=request.user,
+                details={
+                    'partner_id': obj.id,
+                    'user': str(obj.user),
+                    'role': obj.get_role_display(),
+                    'city': str(obj.city) if obj.city else None,
+                },
+                request=request
+            )
+            
+        except ValidationError as e:
+            # Если есть ошибки валидации, показываем их пользователю
+            from django.contrib import messages
+            for field, errors in e.error_dict.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
+            
+            # Логируем ошибку валидации
+            log_error(
+                "Ошибка валидации финансового партнёра",
+                exception=e,
+                user=request.user,
+                context={
+                    'partner_id': obj.id if obj.id else 'новый',
+                    'user': str(obj.user) if obj.user else None,
+                    'role': obj.role,
+                },
+                request=request,
+                include_traceback=False  # Не нужен полный traceback для валидации
+            )
+            return  # Не сохраняем объект
+    
     def has_module_permission(self, request):
         # Только суперпользователи видят финансовых партнёров
         return request.user.is_superuser
@@ -79,6 +124,39 @@ class OwnerWithdrawalAdmin(SimpleHistoryAdmin):
         qs = super().get_queryset(request)
         qs = qs.select_related('partner__user')
         return qs
+    
+    def save_model(self, request, obj, form, change):
+        """Сохранение с логированием"""
+        from .logging_utils import log_action, log_warning
+        
+        action = "Обновлён вывод владельца" if change else "Создан вывод владельца"
+        super().save_model(request, obj, form, change)
+        
+        # Логируем действие
+        log_action(
+            action,
+            user=request.user,
+            details={
+                'withdrawal_id': obj.id,
+                'partner': str(obj.partner),
+                'amount': float(obj.amount),
+                'date': str(obj.date),
+            },
+            request=request
+        )
+        
+        # Предупреждение о крупных суммах
+        if obj.amount > 10000:
+            log_warning(
+                "Вывод крупной суммы",
+                user=request.user,
+                context={
+                    'withdrawal_id': obj.id,
+                    'partner': str(obj.partner),
+                    'amount': float(obj.amount),
+                },
+                request=request
+            )
     
     def has_module_permission(self, request):
         # Только суперпользователи видят выводы владельцев

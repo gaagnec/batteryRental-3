@@ -81,6 +81,36 @@ def calculate_balances_for_rentals(rentals, tz, now_dt):
 
 @staff_member_required
 def dashboard(request):
+    from .logging_utils import log_debug, log_error
+    
+    # Логируем обращение к дашборду
+    log_debug(
+        "Загрузка дашборда",
+        details={
+            'user': request.user.username,
+            'is_superuser': request.user.is_superuser,
+        }
+    )
+    
+    # Определяем город для фильтрации (для модераторов - их город, для админов - из параметра)
+    filter_city = None
+    if not request.user.is_superuser:
+        # Модераторы видят только свой город
+        try:
+            finance_partner = FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.MODERATOR).first()
+            if finance_partner and finance_partner.city:
+                filter_city = finance_partner.city
+        except Exception:
+            pass
+    else:
+        # Админы могут фильтровать по городу из параметра
+        city_id = request.GET.get('city')
+        if city_id:
+            try:
+                filter_city = City.objects.get(id=city_id)
+            except City.DoesNotExist:
+                pass
+    
     # Активные клиенты: есть хотя бы один активный рентал
     # Активные клиенты с предзагрузкой назначений батарей
     now = timezone.now()
@@ -397,25 +427,50 @@ def dashboard(request):
         .order_by('-date', '-id')[:10]
     )
     
-    context = {
-        'active_clients_count': active_clients_count,
-        'clients_data': clients_data,
-        'closed_clients_data': closed_clients_data,
-        'battery_stats': battery_stats,
-        'latest_payments': latest_payments,
-        'payments_series': payments_series,
-        'charges_series': charges_series,
-        'top_debtors': top_debtors,
-        'overall_debt': overall_debt,
-        'total_paid_30': total_paid_30,
-        'total_charged_30': total_charged_30,
-        'window_days': window_days,
-        'monthly3_rows': monthly3_rows,
-        'monthly3_chart': monthly3_chart,
-        'moderator_debts': moderator_debts,
-        'moderator_transfers_recent': moderator_transfers_recent,
-    }
-    return render(request, 'admin/dashboard.html', context)
+    try:
+        context = {
+            'active_clients_count': active_clients_count,
+            'clients_data': clients_data,
+            'closed_clients_data': closed_clients_data,
+            'battery_stats': battery_stats,
+            'latest_payments': latest_payments,
+            'payments_series': payments_series,
+            'charges_series': charges_series,
+            'top_debtors': top_debtors,
+            'overall_debt': overall_debt,
+            'total_paid_30': total_paid_30,
+            'total_charged_30': total_charged_30,
+            'window_days': window_days,
+            'monthly3_rows': monthly3_rows,
+            'monthly3_chart': monthly3_chart,
+            'moderator_debts': moderator_debts,
+            'moderator_transfers_recent': moderator_transfers_recent,
+            'filter_city': filter_city,
+        }
+        
+        log_debug(
+            "Дашборд загружен успешно",
+            details={
+                'active_clients': active_clients_count,
+                'total_batteries': battery_stats['total'],
+                'filter_city': str(filter_city) if filter_city else 'все',
+            }
+        )
+        
+        return render(request, 'admin/dashboard.html', context)
+        
+    except Exception as e:
+        # Логируем ошибку при рендеринге дашборда
+        log_error(
+            "Ошибка при загрузке дашборда",
+            exception=e,
+            user=request.user,
+            context={
+                'filter_city': str(filter_city) if filter_city else None,
+            },
+            request=request
+        )
+        raise  # Пробрасываем ошибку дальше для стандартной обработки Django
 
 
 @staff_member_required
