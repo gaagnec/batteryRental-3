@@ -24,6 +24,7 @@ class Client(TimeStampedModel):
     name = models.CharField(max_length=255)
     pesel = models.CharField(max_length=20, blank=True)
     phone = models.CharField(max_length=32, blank=True)
+    city = models.ForeignKey('City', on_delete=models.SET_NULL, null=True, blank=True, related_name='clients')
     note = models.TextField(blank=True)
     history = HistoricalRecords()
 
@@ -45,6 +46,7 @@ class Battery(TimeStampedModel):
     short_code = models.CharField(max_length=32, unique=True)
     serial_number = models.CharField(max_length=64, blank=True)
     cost_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    city = models.ForeignKey('City', on_delete=models.SET_NULL, null=True, blank=True, related_name='batteries')
     status = models.CharField(max_length=16, choices=Status.choices, blank=True, null=True)
     note = models.TextField(blank=True)
     history = HistoricalRecords()
@@ -64,6 +66,7 @@ class Rental(TimeStampedModel):
         MODIFIED = "modified", "Модифицирован"
 
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="rentals")
+    city = models.ForeignKey('City', on_delete=models.SET_NULL, null=True, blank=True, related_name='rentals')
     start_at = models.DateTimeField()
     end_at = models.DateTimeField(null=True, blank=True)
     weekly_rate = models.DecimalField(max_digits=12, decimal_places=2)
@@ -97,6 +100,10 @@ class Rental(TimeStampedModel):
         ]
 
     def save(self, *args, **kwargs):
+        # Автоматически устанавливаем city из client.city при создании
+        if self.pk is None and not self.city and self.client_id:
+            if hasattr(self.client, 'city') and self.client.city:
+                self.city = self.client.city
         # Ensure root is set to self for the first version
         if self.pk is None and not self.root:
             # Temporarily save to get pk
@@ -250,6 +257,7 @@ class Payment(TimeStampedModel):
         OTHER = "other", "Другое"
 
     rental = models.ForeignKey(Rental, on_delete=models.CASCADE, related_name="payments", verbose_name="Аренда")
+    city = models.ForeignKey('City', on_delete=models.SET_NULL, null=True, blank=True, related_name='payments')
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     date = models.DateField(default=timezone.localdate)
     type = models.CharField(max_length=32, choices=PaymentType.choices, default=PaymentType.RENT)
@@ -261,6 +269,10 @@ class Payment(TimeStampedModel):
         # Всегда привязываем платеж к root-договору для консистентности групповых расчетов
         if self.rental and self.rental.root_id and self.rental_id != self.rental.root_id:
             self.rental = self.rental.root
+        # Автоматически синхронизируем city с rental
+        if self.rental_id and not self.city:
+            if hasattr(self.rental, 'city') and self.rental.city:
+                self.city = self.rental.city
         super().save(*args, **kwargs)
 
 
@@ -347,6 +359,24 @@ class BatteryStatusLog(TimeStampedModel):
 
 
 # =========================
+# City model
+# =========================
+
+class City(TimeStampedModel):
+    name = models.CharField(max_length=64, unique=True)  # "Вроцлав", "Познань", "Варшава"
+    code = models.CharField(max_length=16, unique=True)  # "wroclaw", "poznan", "warsaw"
+    active = models.BooleanField(default=True)
+    
+    class Meta:
+        verbose_name = "Город"
+        verbose_name_plural = "Города"
+        ordering = ['name']
+    
+    def __str__(self):
+        return self.name
+
+
+# =========================
 # Finance models
 # =========================
 
@@ -357,6 +387,7 @@ class FinancePartner(TimeStampedModel):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="finance_partners")
     role = models.CharField(max_length=16, choices=Role.choices)
+    city = models.ForeignKey('City', on_delete=models.PROTECT, null=True, blank=True, related_name='finance_partners')
     share_percent = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("50.00"))
     active = models.BooleanField(default=True)
     note = models.TextField(blank=True)
@@ -365,6 +396,12 @@ class FinancePartner(TimeStampedModel):
     class Meta:
         verbose_name = "Финансовый партнёр"
         verbose_name_plural = "Финансовые партнёры"
+
+    def clean(self):
+        """Валидация: модератор должен иметь город"""
+        if self.role == self.Role.MODERATOR and not self.city:
+            raise ValidationError({'city': 'Модератор должен быть привязан к городу'})
+        super().clean()
 
     def __str__(self):
         return f"{self.user} ({self.get_role_display()})"
