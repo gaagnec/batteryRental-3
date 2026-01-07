@@ -42,7 +42,7 @@ class Migration(migrations.Migration):
                         AND column_name = 'city_id'
                     ) THEN
                         ALTER TABLE rental_financepartner 
-                        ADD COLUMN city_id INTEGER REFERENCES rental_city(id) ON DELETE PROTECT;
+                        ADD COLUMN city_id INTEGER REFERENCES rental_city(id) ON DELETE RESTRICT;
                         CREATE INDEX IF NOT EXISTS rental_financepartner_city_id_idx ON rental_financepartner(city_id);
                     END IF;
                 END $$;
