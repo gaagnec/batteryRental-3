@@ -109,6 +109,7 @@ DATABASES = {
             'keepalives_idle': 30,  # Start keepalive probes after 30s of idle
             'keepalives_interval': 10,  # Send keepalive probe every 10s
             'keepalives_count': 5,  # Close connection after 5 failed probes
+            'disable_server_side_cursors': True,  # Required for Supabase Transaction Pooler
         },
     }
 }
