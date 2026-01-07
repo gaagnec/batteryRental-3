@@ -1563,7 +1563,6 @@ class ActiveRentalFilter(admin.SimpleListFilter):
 
 
 @admin.register(Client)
-@admin.register(Client)
 class ClientAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
     list_display = ("id", "name", "phone", "pesel", "city", "created_at", "has_active")
     list_filter = (ActiveRentalFilter, "city")
