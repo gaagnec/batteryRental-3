@@ -1,0 +1,111 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ошибка сервера - Battery Rental</title>
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .error-container {
+            background: white;
+            border-radius: 20px;
+            padding: 60px 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 600px;
+            margin: 20px;
+        }
+        .error-icon {
+            font-size: 100px;
+            margin-bottom: 20px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        h1 {
+            color: #dc3545;
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #6c757d;
+            font-size: 24px;
+            margin-bottom: 30px;
+        }
+        p {
+            color: #6c757d;
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        .btn-home {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 40px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            display: inline-block;
+            transition: transform 0.3s;
+        }
+        .btn-home:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+            color: white;
+            text-decoration: none;
+        }
+        .error-code {
+            color: #dc3545;
+            font-size: 14px;
+            margin-top: 30px;
+            font-family: monospace;
+        }
+        .support-info {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="error-icon">😟</div>
+        <h1>500</h1>
+        <h2>Внутренняя ошибка сервера</h2>
+        <p>
+            К сожалению, что-то пошло не так на нашей стороне. 
+            Мы уже получили уведомление об этой ошибке и работаем над её устранением.
+        </p>
+        <p>
+            Пожалуйста, попробуйте обновить страницу или вернитесь позже.
+        </p>
+        <a href="/admin/" class="btn-home">Вернуться на главную</a>
+        
+        <div class="support-info">
+            <strong>Нужна помощь?</strong><br>
+            Если ошибка повторяется, обратитесь к администратору системы.
+        </div>
+        
+        <div class="error-code">
+            ERROR_CODE: 500_INTERNAL_SERVER_ERROR
+        </div>
+    </div>
+    
+    <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+</body>
+</html>
+

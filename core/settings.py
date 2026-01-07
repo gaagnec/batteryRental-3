@@ -60,6 +60,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'simple_history.middleware.HistoryRequestMiddleware',
+    'rental.middleware.RequestLoggingMiddleware',  # Логирование запросов
 ]
 
 # Add debug_toolbar only in DEBUG mode
@@ -98,16 +99,17 @@ DATABASES = {
         'PASSWORD': 'MXc6@qpJy&TvxF1F',
         'HOST': 'aws-1-eu-central-1.pooler.supabase.com',
         'PORT': '6543',
-        'CONN_MAX_AGE': 0,  # Don't reuse connections with Transaction Pooler to avoid "connection closed" errors
-        'CONN_HEALTH_CHECKS': True,  # validate reused connections once per request
+        'CONN_MAX_AGE': 0,  # Don't reuse connections with Transaction Pooler
+        'CONN_HEALTH_CHECKS': True,
+        'DISABLE_SERVER_SIDE_CURSORS': True,  # Required for Supabase Transaction Pooler with psycopg 3.x
         'OPTIONS': {
             'sslmode': 'require',
-            'connect_timeout': 10,  # Increased timeout for better stability
-            'options': '-c statement_timeout=30000',  # 30s per statement safety limit
-            'keepalives': 1,  # Enable TCP keepalives
-            'keepalives_idle': 30,  # Start keepalive probes after 30s of idle
-            'keepalives_interval': 10,  # Send keepalive probe every 10s
-            'keepalives_count': 5,  # Close connection after 5 failed probes
+            'connect_timeout': 10,
+            'options': '-c statement_timeout=30000',
+            'keepalives': 1,
+            'keepalives_idle': 30,
+            'keepalives_interval': 10,
+            'keepalives_count': 5,
         },
     }
 }
@@ -171,46 +173,128 @@ INTERNAL_IPS = [
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# SQL timing logs (dev): log each DB query with duration to console
-# Note: very verbose; enable during diagnostics, disable in production
-if DEBUG:
-    LOGGING = {
-        'version': 1,
-        'disable_existing_loggers': False,
-        'formatters': {
-            'verbose': {
-                'format': '%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-            },
+# Директория для логов
+LOGS_DIR = BASE_DIR / 'logs'
+if not LOGS_DIR.exists():
+    LOGS_DIR.mkdir(exist_ok=True)
+
+# Конфигурация логирования
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{asctime} [{levelname}] {name} {module}.{funcName}:{lineno} - {message}',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
         },
-        'handlers': {
-            'console': {
-                'class': 'logging.StreamHandler',
-                'formatter': 'verbose',
-            },
+        'simple': {
+            'format': '{asctime} [{levelname}] {message}',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
         },
-        'loggers': {
-            'django.db.backends': {
-                'handlers': ['console'],
-                'level': 'INFO',  # Performance: reduced from DEBUG to INFO
-                'propagate': False,
-            },
+        'detailed': {
+            'format': '{asctime} [{levelname}] {name} {module}.{funcName}:{lineno}\n'
+                     'Path: {pathname}\n'
+                     'Message: {message}\n',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
         },
-    }
-else:
-    # Production: minimal logging
-    LOGGING = {
-        'version': 1,
-        'disable_existing_loggers': False,
-        'handlers': {
-            'console': {
-                'class': 'logging.StreamHandler',
-            },
+    },
+    'filters': {
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',
         },
-        'loggers': {
-            'django': {
-                'handlers': ['console'],
-                'level': 'WARNING',
-            },
+        'require_debug_false': {
+            '()': 'django.utils.log.RequireDebugFalse',
         },
-    }
+    },
+    'handlers': {
+        'console': {
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file_general': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': LOGS_DIR / 'general.log',
+            'maxBytes': 10 * 1024 * 1024,  # 10 MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+            'encoding': 'utf-8',
+        },
+        'file_errors': {
+            'level': 'ERROR',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': LOGS_DIR / 'errors.log',
+            'maxBytes': 10 * 1024 * 1024,  # 10 MB
+            'backupCount': 10,
+            'formatter': 'detailed',
+            'encoding': 'utf-8',
+        },
+        'file_actions': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': LOGS_DIR / 'actions.log',
+            'maxBytes': 10 * 1024 * 1024,  # 10 MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+            'encoding': 'utf-8',
+        },
+        'file_sql': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': LOGS_DIR / 'sql.log',
+            'maxBytes': 50 * 1024 * 1024,  # 50 MB
+            'backupCount': 3,
+            'formatter': 'simple',
+            'encoding': 'utf-8',
+            'filters': ['require_debug_true'],
+        },
+    },
+    'loggers': {
+        # Логи приложения rental
+        'rental': {
+            'handlers': ['console', 'file_general', 'file_errors'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+        # Логи действий пользователей (платежи, аренда и т.д.)
+        'rental.actions': {
+            'handlers': ['console', 'file_actions', 'file_errors'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # Django ошибки
+        'django': {
+            'handlers': ['console', 'file_general', 'file_errors'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # Django запросы (ошибки 404, 500 и т.д.)
+        'django.request': {
+            'handlers': ['console', 'file_errors'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        # SQL запросы (только в DEBUG режиме)
+        'django.db.backends': {
+            'handlers': ['file_sql'] if DEBUG else [],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+        # Безопасность
+        'django.security': {
+            'handlers': ['console', 'file_errors'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+    },
+    # Корневой логгер (для всех остальных логов)
+    'root': {
+        'handlers': ['console', 'file_general'],
+        'level': 'INFO',
+    },
+}
 
