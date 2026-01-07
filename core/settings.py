@@ -99,17 +99,17 @@ DATABASES = {
         'PASSWORD': 'MXc6@qpJy&TvxF1F',
         'HOST': 'aws-1-eu-central-1.pooler.supabase.com',
         'PORT': '6543',
-        'CONN_MAX_AGE': 0,  # Don't reuse connections with Transaction Pooler to avoid "connection closed" errors
-        'CONN_HEALTH_CHECKS': True,  # validate reused connections once per request
+        'CONN_MAX_AGE': 0,  # Don't reuse connections with Transaction Pooler
+        'CONN_HEALTH_CHECKS': True,
+        'DISABLE_SERVER_SIDE_CURSORS': True,  # Required for Supabase Transaction Pooler with psycopg 3.x
         'OPTIONS': {
             'sslmode': 'require',
-            'connect_timeout': 10,  # Increased timeout for better stability
-            'options': '-c statement_timeout=30000',  # 30s per statement safety limit
-            'keepalives': 1,  # Enable TCP keepalives
-            'keepalives_idle': 30,  # Start keepalive probes after 30s of idle
-            'keepalives_interval': 10,  # Send keepalive probe every 10s
-            'keepalives_count': 5,  # Close connection after 5 failed probes
-            'disable_server_side_cursors': True,  # Required for Supabase Transaction Pooler
+            'connect_timeout': 10,
+            'options': '-c statement_timeout=30000',
+            'keepalives': 1,
+            'keepalives_idle': 30,
+            'keepalives_interval': 10,
+            'keepalives_count': 5,
         },
     }
 }
