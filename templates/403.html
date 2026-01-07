@@ -1,0 +1,113 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Доступ запрещён - Battery Rental</title>
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .error-container {
+            background: white;
+            border-radius: 20px;
+            padding: 60px 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 600px;
+            margin: 20px;
+        }
+        .error-icon {
+            font-size: 100px;
+            margin-bottom: 20px;
+            animation: shake 0.5s;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+        h1 {
+            color: #dc3545;
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #6c757d;
+            font-size: 24px;
+            margin-bottom: 30px;
+        }
+        p {
+            color: #6c757d;
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        .btn-home {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 40px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            display: inline-block;
+            transition: transform 0.3s;
+        }
+        .btn-home:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+            color: white;
+            text-decoration: none;
+        }
+        .error-code {
+            color: #dc3545;
+            font-size: 14px;
+            margin-top: 30px;
+            font-family: monospace;
+        }
+        .info-box {
+            margin-top: 20px;
+            padding: 20px;
+            background: #fff3cd;
+            border-radius: 10px;
+            border-left: 4px solid #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="error-icon">🚫</div>
+        <h1>403</h1>
+        <h2>Доступ запрещён</h2>
+        <p>
+            У вас нет прав для просмотра этой страницы.
+        </p>
+        
+        <div class="info-box">
+            <strong>Возможные причины:</strong><br>
+            • Вы не авторизованы в системе<br>
+            • У вашей учётной записи недостаточно прав<br>
+            • Эта страница доступна только администраторам
+        </div>
+        
+        <div style="margin-top: 30px;">
+            <a href="/admin/" class="btn-home">Вернуться на главную</a>
+        </div>
+        
+        <div class="error-code">
+            ERROR_CODE: 403_FORBIDDEN
+        </div>
+    </div>
+    
+    <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+</body>
+</html>
+

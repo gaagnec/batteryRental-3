@@ -179,6 +179,86 @@ class MoneyTransferAdmin(SimpleHistoryAdmin):
     def has_module_permission(self, request):
         # Только суперпользователи видят денежные переводы
         return request.user.is_superuser
+    
+    def save_model(self, request, obj, form, change):
+        """Сохранение денежного перевода с обработкой ошибок"""
+        from .logging_utils import log_action, log_error, log_warning
+        from django.core.exceptions import ValidationError
+        
+        try:
+            super().save_model(request, obj, form, change)
+            
+            # Логируем успешное действие
+            action = "Обновлён денежный перевод" if change else "Создан денежный перевод"
+            log_action(
+                action,
+                user=request.user,
+                details={
+                    'transfer_id': obj.id,
+                    'from_partner': str(obj.from_partner),
+                    'to_partner': str(obj.to_partner),
+                    'amount': float(obj.amount),
+                    'purpose': obj.get_purpose_display(),
+                    'use_collected': obj.use_collected,
+                },
+                request=request
+            )
+            
+            # Предупреждение о крупных переводах
+            if obj.amount > 10000:
+                log_warning(
+                    "Создан денежный перевод крупной суммы",
+                    user=request.user,
+                    context={
+                        'transfer_id': obj.id,
+                        'amount': float(obj.amount),
+                        'from_partner': str(obj.from_partner),
+                        'to_partner': str(obj.to_partner),
+                    },
+                    request=request
+                )
+            
+            # Показываем успешное сообщение
+            messages.success(
+                request,
+                f"{action} успешно (ID: {obj.id}, сумма: {obj.amount} PLN)"
+            )
+            
+        except ValidationError as e:
+            for field, errors in e.error_dict.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
+            
+            log_error(
+                "Ошибка валидации денежного перевода",
+                exception=e,
+                user=request.user,
+                context={
+                    'transfer_id': obj.id if obj.id else 'новый',
+                    'amount': float(obj.amount) if obj.amount else None,
+                },
+                request=request,
+                include_traceback=False
+            )
+            raise
+            
+        except Exception as e:
+            messages.error(
+                request,
+                f"Ошибка при сохранении денежного перевода: {str(e)}"
+            )
+            
+            log_error(
+                "Критическая ошибка при сохранении денежного перевода",
+                exception=e,
+                user=request.user,
+                context={
+                    'transfer_id': obj.id if obj.id else 'новый',
+                    'amount': float(obj.amount) if obj.amount else None,
+                },
+                request=request
+            )
+            raise
 
     def get_changeform_initial_data(self, request):
         data = super().get_changeform_initial_data(request)
@@ -2321,6 +2401,95 @@ class PaymentAdmin(SimpleHistoryAdmin):
         qs = qs.select_related('rental__client', 'rental__root', 'created_by')
         return qs
     
+    def save_model(self, request, obj, form, change):
+        """Автоматически устанавливаем city для модераторов с обработкой ошибок"""
+        from .logging_utils import log_action, log_error, log_warning
+        from django.core.exceptions import ValidationError
+        
+        try:
+            # Автоматически устанавливаем city для модераторов
+            if not change and not obj.city:
+                if not request.user.is_superuser:
+                    try:
+                        finance_partner = FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.MODERATOR).first()
+                        if finance_partner and finance_partner.city:
+                            obj.city = finance_partner.city
+                    except Exception:
+                        pass
+            
+            # Сохраняем объект
+            super().save_model(request, obj, form, change)
+            
+            # Логируем успешное действие
+            action = "Обновлён платёж" if change else "Создан новый платёж"
+            log_action(
+                action,
+                user=request.user,
+                details={
+                    'payment_id': obj.id,
+                    'rental_id': obj.rental_id if obj.rental else None,
+                    'amount': float(obj.amount),
+                    'type': obj.get_type_display(),
+                    'date': str(obj.date),
+                },
+                request=request
+            )
+            
+            # Предупреждение о крупных суммах
+            if obj.amount > 5000 and obj.type == Payment.PaymentType.RENT:
+                log_warning(
+                    "Создан платёж с крупной суммой",
+                    user=request.user,
+                    context={
+                        'payment_id': obj.id,
+                        'amount': float(obj.amount),
+                        'rental_id': obj.rental_id if obj.rental else None,
+                    },
+                    request=request
+                )
+            
+            # Показываем успешное сообщение пользователю
+            messages.success(request, f"{action} успешно (ID: {obj.id}, сумма: {obj.amount} PLN)")
+            
+        except ValidationError as e:
+            # Ошибки валидации
+            for field, errors in e.error_dict.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
+            
+            log_error(
+                "Ошибка валидации платежа",
+                exception=e,
+                user=request.user,
+                context={
+                    'payment_id': obj.id if obj.id else 'новый',
+                    'amount': float(obj.amount) if obj.amount else None,
+                },
+                request=request,
+                include_traceback=False
+            )
+            raise
+            
+        except Exception as e:
+            # Любые другие ошибки
+            messages.error(
+                request,
+                f"Ошибка при сохранении платежа: {str(e)}"
+            )
+            
+            log_error(
+                "Критическая ошибка при сохранении платежа",
+                exception=e,
+                user=request.user,
+                context={
+                    'payment_id': obj.id if obj.id else 'новый',
+                    'rental_id': obj.rental_id if obj.rental else None,
+                    'amount': float(obj.amount) if obj.amount else None,
+                },
+                request=request
+            )
+            raise
+    
     fieldsets = (
         ('Основная информация', {
             'fields': ('rental', 'amount', 'date', 'type')
@@ -2671,6 +2840,84 @@ class ExpenseAdmin(SimpleHistoryAdmin):
         qs = super().get_queryset(request)
         qs = qs.select_related('category', 'paid_by_partner__user')
         return qs
+    
+    def save_model(self, request, obj, form, change):
+        """Сохранение расхода с обработкой ошибок"""
+        from .logging_utils import log_action, log_error, log_warning
+        from django.core.exceptions import ValidationError
+        
+        try:
+            super().save_model(request, obj, form, change)
+            
+            # Логируем успешное действие
+            action = "Обновлён расход" if change else "Создан новый расход"
+            log_action(
+                action,
+                user=request.user,
+                details={
+                    'expense_id': obj.id,
+                    'amount': float(obj.amount),
+                    'category': str(obj.category) if obj.category else None,
+                    'payment_type': obj.get_payment_type_display(),
+                    'paid_by': str(obj.paid_by_partner) if obj.paid_by_partner else None,
+                },
+                request=request
+            )
+            
+            # Предупреждение о крупных расходах
+            if obj.amount > 5000:
+                log_warning(
+                    "Создан расход с крупной суммой",
+                    user=request.user,
+                    context={
+                        'expense_id': obj.id,
+                        'amount': float(obj.amount),
+                        'category': str(obj.category) if obj.category else None,
+                    },
+                    request=request
+                )
+            
+            # Показываем успешное сообщение
+            messages.success(
+                request,
+                f"{action} успешно (ID: {obj.id}, сумма: {obj.amount} PLN)"
+            )
+            
+        except ValidationError as e:
+            for field, errors in e.error_dict.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
+            
+            log_error(
+                "Ошибка валидации расхода",
+                exception=e,
+                user=request.user,
+                context={
+                    'expense_id': obj.id if obj.id else 'новый',
+                    'amount': float(obj.amount) if obj.amount else None,
+                },
+                request=request,
+                include_traceback=False
+            )
+            raise
+            
+        except Exception as e:
+            messages.error(
+                request,
+                f"Ошибка при сохранении расхода: {str(e)}"
+            )
+            
+            log_error(
+                "Критическая ошибка при сохранении расхода",
+                exception=e,
+                user=request.user,
+                context={
+                    'expense_id': obj.id if obj.id else 'новый',
+                    'amount': float(obj.amount) if obj.amount else None,
+                },
+                request=request
+            )
+            raise
     
     def has_module_permission(self, request):
         # Только суперпользователи видят расходы

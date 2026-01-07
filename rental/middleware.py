@@ -83,7 +83,11 @@ class RequestLoggingMiddleware(MiddlewareMixin):
         return response
     
     def process_exception(self, request: HttpRequest, exception: Exception):
-        """Логируем необработанные исключения."""
+        """Логируем необработанные исключения и показываем дружелюбное сообщение пользователю."""
+        from django.contrib import messages
+        from django.core.exceptions import PermissionDenied, SuspiciousOperation
+        from django.http import Http404
+        
         method = request.method
         path = request.path
         user = request.user if hasattr(request, 'user') and request.user.is_authenticated else None
@@ -91,6 +95,7 @@ class RequestLoggingMiddleware(MiddlewareMixin):
         
         user_info = f"{user.get_full_name() or user.username} (ID: {user.id})" if user else "Анонимный"
         
+        # Логируем ошибку для разработчика
         logger.error(
             f"НЕОБРАБОТАННОЕ ИСКЛЮЧЕНИЕ:\n"
             f"Запрос: {method} {path}\n"
@@ -99,6 +104,22 @@ class RequestLoggingMiddleware(MiddlewareMixin):
             f"Исключение: {type(exception).__name__}: {str(exception)}",
             exc_info=True  # Добавляет полный traceback
         )
+        
+        # Показываем дружелюбное сообщение пользователю (если это не специальные исключения)
+        if not isinstance(exception, (Http404, PermissionDenied, SuspiciousOperation)):
+            if user and user.is_authenticated:
+                if user.is_staff or user.is_superuser:
+                    # Для админов показываем детали (помогает в отладке)
+                    messages.error(
+                        request,
+                        f"Ошибка: {type(exception).__name__}: {str(exception)}"
+                    )
+                else:
+                    # Для обычных пользователей - общее сообщение
+                    messages.error(
+                        request,
+                        "Произошла ошибка при обработке запроса. Мы уже работаем над её устранением."
+                    )
         
         return None  # Позволяем Django обработать исключение стандартным образом
     
