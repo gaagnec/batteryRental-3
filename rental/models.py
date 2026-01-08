@@ -439,11 +439,35 @@ class BatteryTransfer(TimeStampedModel):
     
     def approve(self, approved_by_user):
         """Подтверждает перенос и меняет city батареи"""
+        import json
+        import traceback
+        
+        # #region agent log
+        try:
+            with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"D","location":"rental/models.py:440","message":"BatteryTransfer.approve() called","data":{"transfer_id":self.id,"battery_code":self.battery.short_code if self.battery else None,"battery_city_id":self.battery.city.id if self.battery and self.battery.city else None,"from_city_id":self.from_city.id if self.from_city else None,"to_city_id":self.to_city.id if self.to_city else None,"status":self.status},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
+        except:
+            pass
+        # #endregion
+        
         if self.status != self.Status.PENDING:
             raise ValidationError("Можно подтвердить только запросы в статусе PENDING")
         
+        # Проверка: from_city должен совпадать с текущим city батареи
+        if self.battery.city and self.from_city and self.battery.city.id != self.from_city.id:
+            # #region agent log
+            try:
+                with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"E","location":"rental/models.py:454","message":"City mismatch detected","data":{"transfer_id":self.id,"battery_code":self.battery.short_code,"battery_city_id":self.battery.city.id,"from_city_id":self.from_city.id},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
+            except:
+                pass
+            # #endregion
+            raise ValidationError(
+                f"Город отправления ({self.from_city.name}) не совпадает с текущим городом батареи "
+                f"({self.battery.city.name}). Батарея могла быть перенесена другим запросом."
+            )
+        
         # Проверка активной аренды перед подтверждением
-        from django.utils import timezone
         from django.db.models import Q
         now = timezone.now()
         active_assignments = RentalBatteryAssignment.objects.filter(
@@ -455,6 +479,14 @@ class BatteryTransfer(TimeStampedModel):
             rental__status=Rental.Status.ACTIVE
         ).exists()
         
+        # #region agent log
+        try:
+            with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"F","location":"rental/models.py:471","message":"Active assignments check","data":{"transfer_id":self.id,"battery_code":self.battery.short_code,"has_active_assignments":active_assignments},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
+        except:
+            pass
+        # #endregion
+        
         if active_assignments:
             raise ValidationError(f"Батарея {self.battery.short_code} находится в активной аренде. Перенос невозможен.")
         
@@ -463,6 +495,14 @@ class BatteryTransfer(TimeStampedModel):
         self.battery.city = self.to_city
         self.battery.save()
         self.save()
+        
+        # #region agent log
+        try:
+            with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"A","location":"rental/models.py:482","message":"Transfer approved and saved","data":{"transfer_id":self.id,"battery_code":self.battery.short_code,"new_city_id":self.battery.city.id if self.battery.city else None},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
+        except:
+            pass
+        # #endregion
     
     def reject(self, rejected_by_user, reason=""):
         """Отклоняет запрос на перенос"""
