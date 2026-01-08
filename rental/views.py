@@ -6,7 +6,6 @@ from datetime import timedelta, datetime, time
 from django.db import models
 from django.db.models import Prefetch, Q
 from django.template.response import TemplateResponse
-import json
 
 from decimal import Decimal
 
@@ -97,20 +96,11 @@ def dashboard(request):
     
     # Определяем город для фильтрации (для модераторов - их город, для владельцев - все их города, для админов - из параметра)
     from .admin_utils import get_user_cities
-    import json
-    # #region agent log
-    with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
-        f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"A","location":"rental/views.py:97","message":"Dashboard entry: user and filter setup","data":{"username":request.user.username,"is_superuser":request.user.is_superuser,"get_city_param":request.GET.get('city')},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
-    # #endregion
     filter_city = None
     filter_cities = None
     if not request.user.is_superuser:
         # Модераторы и владельцы - используем get_user_cities для поддержки мультигорода
         filter_cities = get_user_cities(request.user)
-        # #region agent log
-        with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
-            f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"B","location":"rental/views.py:103","message":"get_user_cities result for non-superuser","data":{"username":request.user.username,"filter_cities":str([c.id for c in filter_cities] if filter_cities else None),"filter_cities_count":len(filter_cities) if filter_cities else 0},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
-        # #endregion
         if filter_cities and len(filter_cities) == 1:
             filter_city = filter_cities[0]
     else:
@@ -119,20 +109,8 @@ def dashboard(request):
         if city_id:
             try:
                 filter_city = City.objects.get(id=city_id)
-                # #region agent log
-                with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
-                    f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"C","location":"rental/views.py:112","message":"Admin selected city filter","data":{"city_id":city_id,"city_name":filter_city.name if filter_city else None},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
-                # #endregion
             except City.DoesNotExist:
-                # #region agent log
-                with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
-                    f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"C","location":"rental/views.py:115","message":"City not found for admin filter","data":{"city_id":city_id},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
-                # #endregion
                 pass
-    # #region agent log
-    with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
-        f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"A","location":"rental/views.py:117","message":"Final filter values before queries","data":{"filter_city_id":filter_city.id if filter_city else None,"filter_city_name":filter_city.name if filter_city else None,"filter_cities_ids":[c.id for c in filter_cities] if filter_cities else None,"has_filter":bool(filter_city or filter_cities)},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
-    # #endregion
     
     # Активные клиенты: есть хотя бы один активный рентал
     # Активные клиенты с предзагрузкой назначений батарей
@@ -146,20 +124,10 @@ def dashboard(request):
         .select_related('client')
         .prefetch_related(Prefetch('assignments', queryset=active_assignments_qs, to_attr='active_assignments'))
     )
-    # #region agent log
-    with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
-        count_before = active_rentals.count()
-        f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"D","location":"rental/views.py:147","message":"Active rentals BEFORE city filter","data":{"count":count_before},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
-    # #endregion
     if filter_city:
         active_rentals = active_rentals.filter(city=filter_city)
     elif filter_cities:
         active_rentals = active_rentals.filter(city__in=filter_cities)
-    # #region agent log
-    with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
-        count_after = active_rentals.count()
-        f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"D","location":"rental/views.py:155","message":"Active rentals AFTER city filter","data":{"count":count_after,"filter_applied":bool(filter_city or filter_cities)},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
-    # #endregion
     active_clients_ids = active_rentals.values_list('client_id', flat=True).distinct()
     active_clients_count = active_rentals.values_list('client_id', flat=True).distinct().count()
 
