@@ -483,15 +483,45 @@ class BatteryTransfer(TimeStampedModel):
             if active_assignments:
                 raise ValidationError(f"Батарея {self.battery.short_code} находится в активной аренде. Перенос невозможен.")
             
-            # Выполняем перенос
-            self.status = self.Status.APPROVED
-            self.approved_by = approved_by_user
-            old_city = self.battery.city
-            self.battery.city = self.to_city
-            self.battery.save()
-            self.save()
+            # Выполняем перенос в транзакции
+            from django.db import transaction
             
-            logger.info(f"Перенос {self.id} успешно подтверждён: батарея {self.battery.short_code} перенесена из {old_city.name if old_city else 'None'} в {self.to_city.name}")
+            old_city = self.battery.city
+            old_city_id = self.battery.city_id if self.battery.city else None
+            old_city_name = old_city.name if old_city else 'None'
+            
+            logger.info(f"Начало переноса: transfer_id={self.id}, battery_id={self.battery.id}, battery={self.battery.short_code}, old_city_id={old_city_id}, old_city_name={old_city_name}, new_city_id={self.to_city.id}, new_city_name={self.to_city.name}")
+            
+            with transaction.atomic():
+                # Обновляем статус и approved_by
+                self.status = self.Status.APPROVED
+                self.approved_by = approved_by_user
+                
+                # Меняем город батареи
+                self.battery.city = self.to_city
+                logger.debug(f"После присвоения city: battery.city_id={self.battery.city_id}, battery.city={self.battery.city.name if self.battery.city else None}")
+                
+                # Сохраняем батарею - используем update_fields для явного указания обновляемых полей
+                self.battery.updated_by = approved_by_user
+                self.battery.save(update_fields=['city', 'updated_at', 'updated_by'])
+                
+                logger.debug(f"Батарея сохранена с update_fields=['city', 'updated_at', 'updated_by']")
+                
+                # Перезагружаем батарею из БД для проверки
+                self.battery.refresh_from_db()
+                actual_city_id = self.battery.city_id
+                actual_city_name = self.battery.city.name if self.battery.city else 'None'
+                
+                logger.info(f"После сохранения и refresh_from_db: battery.city_id={actual_city_id}, battery.city={actual_city_name}")
+                
+                if actual_city_id != self.to_city.id:
+                    logger.error(f"ОШИБКА: Город батареи не изменился после save()! Ожидался city_id={self.to_city.id}, но получили {actual_city_id}")
+                    raise ValueError(f"Не удалось изменить город батареи: ожидался {self.to_city.name}, но остался {actual_city_name}")
+                
+                # Сохраняем перенос
+                self.save()
+                
+                logger.info(f"Перенос {self.id} успешно подтверждён: батарея {self.battery.short_code} перенесена из {old_city_name} в {self.to_city.name}")
             
         except (ValidationError, ValueError) as e:
             logger.error(f"Ошибка валидации при подтверждении переноса {self.id}: {str(e)}\n{traceback.format_exc()}")
