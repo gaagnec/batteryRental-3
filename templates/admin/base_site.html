@@ -74,6 +74,12 @@
           <span>Dashboard</span>
         </a>
       </li>
+      <li class="phoenix-sidebar-item">
+        <a href="{% url 'city-analytics' %}" class="phoenix-sidebar-link {% if 'city-analytics' in request.path %}active{% endif %}">
+          <i class="bi bi-geo-alt"></i>
+          <span>Аналитика по городам</span>
+        </a>
+      </li>
       
       <!-- Основное -->
       <li class="phoenix-sidebar-section">Основное</li>
@@ -102,6 +108,12 @@
         <a href="{% url 'admin:rental_battery_changelist' %}" class="phoenix-sidebar-link {% if 'battery' in request.resolver_match.url_name %}active{% endif %}">
           <i class="bi bi-battery-charging"></i>
           <span>Батареи</span>
+        </a>
+      </li>
+      <li class="phoenix-sidebar-item">
+        <a href="{% url 'admin:rental_batterytransfer_changelist' %}" class="phoenix-sidebar-link {% if 'batterytransfer' in request.resolver_match.url_name %}active{% endif %}">
+          <i class="bi bi-arrow-left-right"></i>
+          <span>Переносы батарей</span>
         </a>
       </li>
       <li class="phoenix-sidebar-item">

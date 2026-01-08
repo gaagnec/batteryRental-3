@@ -378,6 +378,37 @@
     <h1>💰 {{ title }}</h1>
     <p class="subtitle">Бухгалтерский учёт с {{ cutoff_date|date:"d.m.Y" }}</p>
     
+    <!-- Сравнительная статистика по городам (только для админов) -->
+    {% if city_comparison and user.is_superuser %}
+    <div class="section" style="margin-bottom: 30px;">
+        <h2 class="section-title"><span class="icon">🌍</span> Сравнение городов</h2>
+        <table class="finance-table">
+            <thead>
+                <tr>
+                    <th>Город</th>
+                    <th>Доход за 30 дней</th>
+                    <th>Доход за период</th>
+                    <th>Модераторы</th>
+                    <th>Батареи</th>
+                    <th>Активные клиенты</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stat in city_comparison %}
+                <tr>
+                    <td><strong>{{ stat.city.name }}</strong></td>
+                    <td class="amount amount-positive">{{ stat.income_30_days|floatformat:2 }} PLN</td>
+                    <td class="amount">{{ stat.income_period|floatformat:2 }} PLN</td>
+                    <td>{{ stat.moderators_count }}</td>
+                    <td>{{ stat.batteries_count }}</td>
+                    <td>{{ stat.active_clients }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+    
     <!-- Tabs -->
     <div class="tabs">
         <button class="tab active" onclick="showTab('accumulated')">📊 Накопленный итог</button>

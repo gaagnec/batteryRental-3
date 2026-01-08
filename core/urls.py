@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.views.generic import RedirectView
-from rental.views import dashboard, load_more_investments
+from rental.views import dashboard, load_more_investments, city_analytics
 
 urlpatterns = [
     # Redirect root to admin
@@ -26,6 +26,7 @@ urlpatterns = [
     # Place dashboard BEFORE admin.site.urls so it's not captured by admin's catch-all
     path('admin/dashboard/', dashboard, name='admin-dashboard'),
     path('admin/load-investments/', load_more_investments, name='load-investments'),
+    path('admin/city-analytics/', city_analytics, name='city-analytics'),
     path('admin/', admin.site.urls),
 ]
 

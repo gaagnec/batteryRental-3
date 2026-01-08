@@ -1,14 +1,16 @@
 from django.shortcuts import render
 from django.contrib.admin.views.decorators import staff_member_required
 from django.utils import timezone
-from django.db.models import Count, Sum
+from django.db.models import Count, Sum, Avg
 from datetime import timedelta, datetime, time
 from django.db import models
 from django.db.models import Prefetch, Q
+from django.template.response import TemplateResponse
 
 from decimal import Decimal
 
-from .models import Client, Rental, Battery, Payment, Repair, RentalBatteryAssignment, FinancePartner, MoneyTransfer
+from .models import Client, Rental, Battery, Payment, Repair, RentalBatteryAssignment, FinancePartner, MoneyTransfer, City
+from .admin_utils import get_user_city
 
 
 def calculate_balances_for_rentals(rentals, tz, now_dt):
@@ -92,16 +94,15 @@ def dashboard(request):
         }
     )
     
-    # Определяем город для фильтрации (для модераторов - их город, для админов - из параметра)
+    # Определяем город для фильтрации (для модераторов - их город, для владельцев - все их города, для админов - из параметра)
+    from .admin_utils import get_user_cities
     filter_city = None
+    filter_cities = None
     if not request.user.is_superuser:
-        # Модераторы видят только свой город
-        try:
-            finance_partner = FinancePartner.objects.filter(user=request.user, role=FinancePartner.Role.MODERATOR).first()
-            if finance_partner and finance_partner.city:
-                filter_city = finance_partner.city
-        except Exception:
-            pass
+        # Модераторы и владельцы - используем get_user_cities для поддержки мультигорода
+        filter_cities = get_user_cities(request.user)
+        if filter_cities and len(filter_cities) == 1:
+            filter_city = filter_cities[0]
     else:
         # Админы могут фильтровать по городу из параметра
         city_id = request.GET.get('city')
@@ -123,8 +124,12 @@ def dashboard(request):
         .select_related('client')
         .prefetch_related(Prefetch('assignments', queryset=active_assignments_qs, to_attr='active_assignments'))
     )
+    if filter_city:
+        active_rentals = active_rentals.filter(city=filter_city)
+    elif filter_cities:
+        active_rentals = active_rentals.filter(city__in=filter_cities)
     active_clients_ids = active_rentals.values_list('client_id', flat=True).distinct()
-    active_clients_count = active_clients_ids.count()
+    active_clients_count = active_rentals.values_list('client_id', flat=True).distinct().count()
 
     # Батареи у активных клиентов: соберём по предзагруженным назначениям
     batteries_by_client = {r.client_id: [a.battery for a in r.active_assignments] for r in active_rentals}
@@ -135,6 +140,10 @@ def dashboard(request):
         rental__status=Rental.Status.ACTIVE,
         start_at__lte=now
     ).filter(Q(end_at__isnull=True) | Q(end_at__gt=now))
+    if filter_city:
+        assignments = assignments.filter(rental__city=filter_city)
+    elif filter_cities:
+        assignments = assignments.filter(rental__city__in=filter_cities)
 
     clients_data = []
     # Баланс считаем по root-группе последних активных ренталов клиента
@@ -168,9 +177,19 @@ def dashboard(request):
         })
 
     # Статистика по батареям
-    total_batteries = Battery.objects.count()
+    batteries_qs = Battery.objects.all()
+    if filter_city:
+        batteries_qs = batteries_qs.filter(city=filter_city)
+    elif filter_cities:
+        batteries_qs = batteries_qs.filter(city__in=filter_cities)
+    total_batteries = batteries_qs.count()
     rented_now = assignments.values('battery_id').distinct().count()
-    in_service = Repair.objects.filter(end_at__isnull=True).count()
+    repairs_qs = Repair.objects.filter(end_at__isnull=True)
+    if filter_city:
+        repairs_qs = repairs_qs.filter(battery__city=filter_city)
+    elif filter_cities:
+        repairs_qs = repairs_qs.filter(battery__city__in=filter_cities)
+    in_service = repairs_qs.count()
     available = max(total_batteries - rented_now - in_service, 0)
     battery_stats = {
         'total': total_batteries,
@@ -180,7 +199,12 @@ def dashboard(request):
     }
 
     # Последние 16 платежей
-    latest_payments = Payment.objects.select_related('rental__client', 'created_by').order_by('-date', '-id')[:16]
+    latest_payments_qs = Payment.objects.select_related('rental__client', 'created_by')
+    if filter_city:
+        latest_payments_qs = latest_payments_qs.filter(city=filter_city)
+    elif filter_cities:
+        latest_payments_qs = latest_payments_qs.filter(city__in=filter_cities)
+    latest_payments = latest_payments_qs.order_by('-date', '-id')[:16]
 
     # Месячные итоги
     month_names = {
@@ -189,17 +213,25 @@ def dashboard(request):
         9: 'Сентябрь', 10: 'Октябрь', 11: 'Ноябрь', 12: 'Декабрь'
     }
     # Собираем суммы по месяцам за всю историю (тип RENT)
+    pay_monthly_qs = Payment.objects.filter(type=Payment.PaymentType.RENT)
+    if filter_city:
+        pay_monthly_qs = pay_monthly_qs.filter(city=filter_city)
+    elif filter_cities:
+        pay_monthly_qs = pay_monthly_qs.filter(city__in=filter_cities)
     pay_monthly = (
-        Payment.objects
-        .filter(type=Payment.PaymentType.RENT)
+        pay_monthly_qs
         .values('date__year', 'date__month')
         .annotate(total=Sum('amount'))
         .order_by('date__year', 'date__month')
     )
     # За один проход подготовим и разрез по пользователям
+    pay_monthly_by_user_qs = Payment.objects.filter(type=Payment.PaymentType.RENT)
+    if filter_city:
+        pay_monthly_by_user_qs = pay_monthly_by_user_qs.filter(city=filter_city)
+    elif filter_cities:
+        pay_monthly_by_user_qs = pay_monthly_by_user_qs.filter(city__in=filter_cities)
     pay_monthly_by_user = (
-        Payment.objects
-        .filter(type=Payment.PaymentType.RENT)
+        pay_monthly_by_user_qs
         .values('date__year', 'date__month', 'created_by__username', 'created_by__first_name', 'created_by__last_name')
         .annotate(total=Sum('amount'))
         .order_by('date__year', 'date__month', '-total')
@@ -246,8 +278,13 @@ def dashboard(request):
     # Серия платежей и начислений за 30 дней
     window_days = 30
     start_date = timezone.localdate() - timedelta(days=window_days - 1)
+    pay_qs = Payment.objects.filter(date__gte=start_date)
+    if filter_city:
+        pay_qs = pay_qs.filter(city=filter_city)
+    elif filter_cities:
+        pay_qs = pay_qs.filter(city__in=filter_cities)
     pay_qs = (
-        Payment.objects.filter(date__gte=start_date)
+        pay_qs
         .values('date')
         .annotate(total=Sum('amount'))
         .order_by('date')
@@ -266,6 +303,10 @@ def dashboard(request):
         .filter(models.Q(end_at__isnull=True) | models.Q(end_at__gte=window_start_anchor))
         .select_related('rental')
     )
+    if filter_city:
+        assigns_window = assigns_window.filter(rental__city=filter_city)
+    elif filter_cities:
+        assigns_window = assigns_window.filter(rental__city__in=filter_cities)
     # Подготовим список назначений с нормализованными датами
     norm_assigns = []
     now_tz = timezone.localtime(timezone.now(), tz)
@@ -328,8 +369,12 @@ def dashboard(request):
         Rental.objects
         .filter(status=Rental.Status.CLOSED, end_at__isnull=False)
         .select_related('client')
-        .order_by('-end_at')[:5]
     )
+    if filter_city:
+        recent_closed = recent_closed.filter(city=filter_city)
+    elif filter_cities:
+        recent_closed = recent_closed.filter(city__in=filter_cities)
+    recent_closed = recent_closed.order_by('-end_at')[:5]
     recent_closed_list = list(recent_closed)
     
     # Используем общую функцию для расчёта балансов закрытых клиентов
@@ -356,21 +401,33 @@ def dashboard(request):
     cutoff = timezone.datetime(2025, 9, 1).date()
     
     partners = FinancePartner.objects.filter(active=True).select_related('user')
+    if filter_city:
+        partners = partners.filter(city=filter_city)
+    elif filter_cities:
+        partners = partners.filter(Q(city__in=filter_cities) | Q(cities__in=filter_cities)).distinct()
     moderators = [p for p in partners if p.role == FinancePartner.Role.MODERATOR]
     
     # Платежи, собранные модераторами (RENT + SOLD)
+    payments_by_user_qs = Payment.objects.filter(date__gte=cutoff, type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD])
+    if filter_city:
+        payments_by_user_qs = payments_by_user_qs.filter(city=filter_city)
+    elif filter_cities:
+        payments_by_user_qs = payments_by_user_qs.filter(city__in=filter_cities)
     payments_by_user = dict(
-        Payment.objects
-        .filter(date__gte=cutoff, type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD])
+        payments_by_user_qs
         .values('created_by_id')
         .annotate(total=Sum('amount'))
         .values_list('created_by_id', 'total')
     )
     
     # Переводы от модераторов к владельцам
+    outgoing_from_mods_qs = MoneyTransfer.objects.filter(date__gte=cutoff, purpose=MoneyTransfer.Purpose.MODERATOR_TO_OWNER, use_collected=True)
+    if filter_city:
+        outgoing_from_mods_qs = outgoing_from_mods_qs.filter(from_partner__city=filter_city)
+    elif filter_cities:
+        outgoing_from_mods_qs = outgoing_from_mods_qs.filter(from_partner__city__in=filter_cities)
     outgoing_from_mods = dict(
-        MoneyTransfer.objects
-        .filter(date__gte=cutoff, purpose=MoneyTransfer.Purpose.MODERATOR_TO_OWNER, use_collected=True)
+        outgoing_from_mods_qs
         .values('from_partner_id')
         .annotate(total=Sum('amount'))
         .values_list('from_partner_id', 'total')
@@ -387,13 +444,17 @@ def dashboard(request):
     last_week_start = last_week_end - timedelta(days=6)  # понедельник прошлой недели
     
     # Платежи за последнюю неделю
+    payments_last_week_qs = Payment.objects.filter(
+        date__gte=last_week_start, 
+        date__lte=last_week_end,
+        type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD]
+    )
+    if filter_city:
+        payments_last_week_qs = payments_last_week_qs.filter(city=filter_city)
+    elif filter_cities:
+        payments_last_week_qs = payments_last_week_qs.filter(city__in=filter_cities)
     payments_last_week_by_user = dict(
-        Payment.objects
-        .filter(
-            date__gte=last_week_start, 
-            date__lte=last_week_end,
-            type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD]
-        )
+        payments_last_week_qs
         .values('created_by_id')
         .annotate(total=Sum('amount'))
         .values_list('created_by_id', 'total')
@@ -424,8 +485,60 @@ def dashboard(request):
         MoneyTransfer.objects
         .filter(date__gte=cutoff, purpose=MoneyTransfer.Purpose.MODERATOR_TO_OWNER)
         .select_related('from_partner__user', 'to_partner__user')
-        .order_by('-date', '-id')[:10]
     )
+    if filter_city:
+        moderator_transfers_recent = moderator_transfers_recent.filter(from_partner__city=filter_city)
+    elif filter_cities:
+        moderator_transfers_recent = moderator_transfers_recent.filter(from_partner__city__in=filter_cities)
+    moderator_transfers_recent = moderator_transfers_recent.order_by('-date', '-id')[:10]
+    
+    # Разбивка по городам (для админов)
+    city_breakdown = None
+    city_stats_by_city = {}
+    if request.user.is_superuser:
+        cities = City.objects.filter(active=True)
+        today = timezone.localdate()
+        last_30_days = today - timedelta(days=30)
+        
+        for city in cities:
+            # Батареи по городу
+            city_batteries = Battery.objects.filter(city=city)
+            city_batteries_total = city_batteries.count()
+            city_batteries_rented = Battery.objects.filter(
+                city=city,
+                assignments__rental__status=Rental.Status.ACTIVE,
+                assignments__start_at__lte=timezone.now()
+            ).filter(
+                Q(assignments__end_at__isnull=True) | Q(assignments__end_at__gt=timezone.now())
+            ).distinct().count()
+            city_batteries_available = city_batteries.filter(status=Battery.Status.AVAILABLE).count()
+            
+            # Активные клиенты по городу
+            city_active_clients = Client.objects.filter(
+                city=city,
+                rentals__status=Rental.Status.ACTIVE
+            ).distinct().count()
+            
+            # Доходы по городу за 30 дней
+            city_income_30 = Payment.objects.filter(
+                city=city,
+                date__gte=last_30_days,
+                type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD]
+            ).aggregate(total=Sum('amount'))['total'] or Decimal(0)
+            
+            city_stats_by_city[city] = {
+                'batteries_total': city_batteries_total,
+                'batteries_rented': city_batteries_rented,
+                'batteries_available': city_batteries_available,
+                'active_clients': city_active_clients,
+                'income_30': city_income_30,
+            }
+        
+        city_breakdown = sorted(
+            [(city, stats) for city, stats in city_stats_by_city.items()],
+            key=lambda x: x[1]['income_30'],
+            reverse=True
+        )
     
     try:
         context = {
@@ -446,6 +559,8 @@ def dashboard(request):
             'moderator_debts': moderator_debts,
             'moderator_transfers_recent': moderator_transfers_recent,
             'filter_city': filter_city,
+            'city_breakdown': city_breakdown,
+            'cities': City.objects.filter(active=True) if request.user.is_superuser else [],
         }
         
         log_debug(
@@ -543,3 +658,110 @@ def load_more_investments(request):
             request=request
         )
         return HttpResponse("Ошибка при загрузке данных", status=500)
+
+
+@staff_member_required
+def city_analytics(request):
+    """Аналитика по городам с детальной статистикой"""
+    # Получаем фильтр по городу
+    city_filter = None
+    if not request.user.is_superuser:
+        city_filter = get_user_city(request.user)
+    else:
+        city_id = request.GET.get('city')
+        if city_id:
+            try:
+                city_filter = City.objects.get(id=city_id)
+            except City.DoesNotExist:
+                pass
+    
+    # Период для анализа
+    today = timezone.localdate()
+    last_30_days = today - timedelta(days=30)
+    last_90_days = today - timedelta(days=90)
+    this_month_start = today.replace(day=1)
+    last_month_start = (this_month_start - timedelta(days=1)).replace(day=1)
+    last_month_end = this_month_start - timedelta(days=1)
+    
+    cities = City.objects.filter(active=True)
+    if city_filter:
+        cities = cities.filter(id=city_filter.id)
+    
+    analytics_data = []
+    for city in cities:
+        # Доходы по городу
+        payments_qs = Payment.objects.filter(city=city)
+        
+        # За 30 дней
+        income_30 = payments_qs.filter(
+            date__gte=last_30_days,
+            type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD]
+        ).aggregate(total=Sum('amount'))['total'] or Decimal(0)
+        
+        # За этот месяц
+        income_this_month = payments_qs.filter(
+            date__gte=this_month_start,
+            type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD]
+        ).aggregate(total=Sum('amount'))['total'] or Decimal(0)
+        
+        # За прошлый месяц
+        income_last_month = payments_qs.filter(
+            date__gte=last_month_start,
+            date__lte=last_month_end,
+            type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD]
+        ).aggregate(total=Sum('amount'))['total'] or Decimal(0)
+        
+        # Статистика по батареям
+        batteries_total = Battery.objects.filter(city=city).count()
+        batteries_rented = Battery.objects.filter(
+            city=city,
+            assignments__rental__status=Rental.Status.ACTIVE,
+            assignments__start_at__lte=timezone.now()
+        ).filter(
+            Q(assignments__end_at__isnull=True) | Q(assignments__end_at__gt=timezone.now())
+        ).distinct().count()
+        
+        batteries_available = Battery.objects.filter(
+            city=city,
+            status=Battery.Status.AVAILABLE
+        ).count()
+        
+        # Активные клиенты
+        active_clients = Client.objects.filter(
+            city=city,
+            rentals__status=Rental.Status.ACTIVE
+        ).distinct().count()
+        
+        # Средний чек (средняя сумма платежа)
+        avg_payment = payments_qs.filter(
+            date__gte=last_30_days,
+            type=Payment.PaymentType.RENT
+        ).aggregate(avg=Avg('amount'))['avg'] or Decimal(0)
+        
+        analytics_data.append({
+            'city': city,
+            'income_30_days': income_30,
+            'income_this_month': income_this_month,
+            'income_last_month': income_last_month,
+            'income_growth': income_this_month - income_last_month if income_last_month > 0 else Decimal(0),
+            'income_growth_percent': ((income_this_month - income_last_month) / income_last_month * 100) if income_last_month > 0 else 0,
+            'batteries_total': batteries_total,
+            'batteries_rented': batteries_rented,
+            'batteries_available': batteries_available,
+            'batteries_utilization': (batteries_rented / batteries_total * 100) if batteries_total > 0 else 0,
+            'active_clients': active_clients,
+            'avg_payment': avg_payment,
+        })
+    
+    # Сравнение городов (только для админов)
+    city_comparison = None
+    if request.user.is_superuser and not city_filter:
+        city_comparison = sorted(analytics_data, key=lambda x: x['income_30_days'], reverse=True)
+    
+    context = {
+        'analytics_data': analytics_data,
+        'city_comparison': city_comparison,
+        'selected_city': city_filter,
+        'cities': City.objects.filter(active=True),
+    }
+    return TemplateResponse(request, 'admin/city_analytics.html', context)

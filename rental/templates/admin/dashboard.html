@@ -8,6 +8,49 @@
 <div class="dashboard-container">
   <h1 class="h3 mb-4" style="color: var(--phoenix-text); font-weight: 600;">Dashboard</h1>
 
+  {% if user.is_superuser %}
+  <!-- Фильтр по городу для админов -->
+  <div class="mb-4">
+    <form method="get" class="d-inline">
+      <label for="city_filter" style="color: #9fa6bc; margin-right: 10px;">Город:</label>
+      <select name="city" id="city_filter" onchange="this.form.submit()" style="padding: 5px 10px; background-color: #1c1e2d; color: #e3e6ed; border: 1px solid #2a2e41; border-radius: 4px;">
+        <option value="">Все города</option>
+        {% for city in cities %}
+        <option value="{{ city.id }}" {% if filter_city and filter_city.id == city.id %}selected{% endif %}>{{ city.name }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+  {% elif filter_city %}
+  <!-- Показываем выбранный город для модераторов -->
+  <div class="mb-3">
+    <span style="color: #9fa6bc;">Город: <strong style="color: #e3e6ed;">{{ filter_city.name }}</strong></span>
+  </div>
+  {% endif %}
+
+  {% if city_breakdown and user.is_superuser %}
+  <!-- Разбивка по городам (для админов) -->
+  <div class="card shadow-sm mb-4" style="background-color: #1c1e2d; border-color: #2a2e41;">
+    <div class="card-header" style="background-color: #0e1018; color: #e3e6ed; font-weight: 500; border-bottom: 1px solid #2a2e41;">
+      Статистика по городам
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        {% for city, stats in city_breakdown %}
+        <div class="col-md-6 col-lg-3">
+          <div style="padding: 1rem; background-color: #0e1018; border-radius: 8px; border: 1px solid #2a2e41;">
+            <div style="color: #e3e6ed; font-weight: 500; margin-bottom: 0.5rem; font-size: 1rem;">{{ city.name }}</div>
+            <div style="color: #6e7891; font-size: 0.875rem; margin-bottom: 0.25rem;">Батареи: {{ stats.batteries_total }} (в аренде: {{ stats.batteries_rented }}, доступны: {{ stats.batteries_available }})</div>
+            <div style="color: #6e7891; font-size: 0.875rem; margin-bottom: 0.25rem;">Клиенты: {{ stats.active_clients }}</div>
+            <div style="color: #00d27a; font-size: 1rem; font-weight: 600; margin-top: 0.5rem;">Доход за 30 дн.: {{ stats.income_30|floatformat:2 }} PLN</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Три колонки сверху -->
   <div class="row g-3">
     <!-- Левая колонка: KPI + half-donut под списком -->

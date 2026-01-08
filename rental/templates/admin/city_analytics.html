@@ -1,0 +1,168 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Аналитика по городам | {{ block.super }}{% endblock %}
+
+{% block content %}
+
+<div class="dashboard-container">
+  <h1 class="h3 mb-4" style="color: var(--phoenix-text); font-weight: 600;">Аналитика по городам</h1>
+
+  {% if user.is_superuser and not selected_city %}
+  <!-- Фильтр по городу для админов -->
+  <div class="mb-4">
+    <form method="get" class="d-inline">
+      <label for="city_filter" style="color: #9fa6bc; margin-right: 10px;">Город:</label>
+      <select name="city" id="city_filter" onchange="this.form.submit()" style="padding: 5px 10px; background-color: #1c1e2d; color: #e3e6ed; border: 1px solid #2a2e41; border-radius: 4px;">
+        <option value="">Все города</option>
+        {% for city in cities %}
+        <option value="{{ city.id }}" {% if selected_city and selected_city.id == city.id %}selected{% endif %}>{{ city.name }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if city_comparison %}
+  <!-- Сравнение городов (только для админов) -->
+  <div class="card shadow-sm mb-4" style="background-color: #1c1e2d; border-color: #2a2e41;">
+    <div class="card-header" style="background-color: #0e1018; color: #e3e6ed; font-weight: 500; border-bottom: 1px solid #2a2e41;">
+      Сравнение городов по доходу за 30 дней
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0" style="background-color: #1c1e2d; color: #9fa6bc;">
+          <thead style="background-color: #0e1018; border-bottom: 1px solid #2a2e41;">
+            <tr>
+              <th style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; border: none;">Город</th>
+              <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; border: none;">Доход за 30 дней</th>
+              <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; border: none;">Доход в этом месяце</th>
+              <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; border: none;">Рост</th>
+              <th class="text-end" style="padding: 0.75rem 1rem; font-weight: 500; color: #9fa6bc; border: none;">Утилизация батарей</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for data in city_comparison %}
+            <tr style="border-bottom: 1px solid #2a2e41;">
+              <td style="padding: 0.75rem 1rem; color: #e3e6ed; border: none; font-weight: 500;">{{ data.city.name }}</td>
+              <td class="text-end" style="padding: 0.75rem 1rem; border: none; color: #e3e6ed;">{{ data.income_30_days|floatformat:2 }} PLN</td>
+              <td class="text-end" style="padding: 0.75rem 1rem; border: none; color: #e3e6ed;">{{ data.income_this_month|floatformat:2 }} PLN</td>
+              <td class="text-end" style="padding: 0.75rem 1rem; border: none;">
+                {% if data.income_growth_percent > 0 %}
+                <span style="color: #00d27a;">+{{ data.income_growth_percent|floatformat:1 }}%</span>
+                {% elif data.income_growth_percent < 0 %}
+                <span style="color: #ff6b6b;">{{ data.income_growth_percent|floatformat:1 }}%</span>
+                {% else %}
+                <span style="color: #9fa6bc;">0%</span>
+                {% endif %}
+              </td>
+              <td class="text-end" style="padding: 0.75rem 1rem; border: none; color: #e3e6ed;">{{ data.batteries_utilization|floatformat:1 }}%</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Детальная аналитика по каждому городу -->
+  {% for data in analytics_data %}
+  <div class="card shadow-sm mb-4" style="background-color: #1c1e2d; border-color: #2a2e41;">
+    <div class="card-header" style="background-color: #0e1018; color: #e3e6ed; font-weight: 500; border-bottom: 1px solid #2a2e41;">
+      <h5 class="mb-0">{{ data.city.name }}</h5>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        <!-- Доходы -->
+        <div class="col-md-6 col-lg-3">
+          <div style="padding: 1rem; background-color: #0e1018; border-radius: 8px; border: 1px solid #2a2e41;">
+            <div style="color: #6e7891; font-size: 0.875rem; margin-bottom: 0.5rem;">Доход за 30 дней</div>
+            <div style="color: #e3e6ed; font-size: 1.5rem; font-weight: 600;">{{ data.income_30_days|floatformat:2 }} PLN</div>
+          </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+          <div style="padding: 1rem; background-color: #0e1018; border-radius: 8px; border: 1px solid #2a2e41;">
+            <div style="color: #6e7891; font-size: 0.875rem; margin-bottom: 0.5rem;">Доход в этом месяце</div>
+            <div style="color: #e3e6ed; font-size: 1.5rem; font-weight: 600;">{{ data.income_this_month|floatformat:2 }} PLN</div>
+            {% if data.income_growth_percent != 0 %}
+            <div style="font-size: 0.875rem; margin-top: 0.25rem;">
+              {% if data.income_growth_percent > 0 %}
+              <span style="color: #00d27a;">+{{ data.income_growth_percent|floatformat:1 }}%</span>
+              {% else %}
+              <span style="color: #ff6b6b;">{{ data.income_growth_percent|floatformat:1 }}%</span>
+              {% endif %}
+              <span style="color: #6e7891;">к прошлому месяцу</span>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+          <div style="padding: 1rem; background-color: #0e1018; border-radius: 8px; border: 1px solid #2a2e41;">
+            <div style="color: #6e7891; font-size: 0.875rem; margin-bottom: 0.5rem;">Доход за прошлый месяц</div>
+            <div style="color: #e3e6ed; font-size: 1.5rem; font-weight: 600;">{{ data.income_last_month|floatformat:2 }} PLN</div>
+          </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+          <div style="padding: 1rem; background-color: #0e1018; border-radius: 8px; border: 1px solid #2a2e41;">
+            <div style="color: #6e7891; font-size: 0.875rem; margin-bottom: 0.5rem;">Средний чек</div>
+            <div style="color: #e3e6ed; font-size: 1.5rem; font-weight: 600;">{{ data.avg_payment|floatformat:2 }} PLN</div>
+          </div>
+        </div>
+      </div>
+
+      <hr style="border-color: #2a2e41; margin: 1.5rem 0;">
+
+      <div class="row g-3">
+        <!-- Батареи -->
+        <div class="col-md-6 col-lg-3">
+          <div style="padding: 1rem; background-color: #0e1018; border-radius: 8px; border: 1px solid #2a2e41;">
+            <div style="color: #6e7891; font-size: 0.875rem; margin-bottom: 0.5rem;">Всего батарей</div>
+            <div style="color: #e3e6ed; font-size: 1.5rem; font-weight: 600;">{{ data.batteries_total }}</div>
+          </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+          <div style="padding: 1rem; background-color: #0e1018; border-radius: 8px; border: 1px solid #2a2e41;">
+            <div style="color: #6e7891; font-size: 0.875rem; margin-bottom: 0.5rem;">В аренде</div>
+            <div style="color: #e3e6ed; font-size: 1.5rem; font-weight: 600;">{{ data.batteries_rented }}</div>
+          </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+          <div style="padding: 1rem; background-color: #0e1018; border-radius: 8px; border: 1px solid #2a2e41;">
+            <div style="color: #6e7891; font-size: 0.875rem; margin-bottom: 0.5rem;">Доступные</div>
+            <div style="color: #e3e6ed; font-size: 1.5rem; font-weight: 600;">{{ data.batteries_available }}</div>
+          </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+          <div style="padding: 1rem; background-color: #0e1018; border-radius: 8px; border: 1px solid #2a2e41;">
+            <div style="color: #6e7891; font-size: 0.875rem; margin-bottom: 0.5rem;">Утилизация</div>
+            <div style="color: #e3e6ed; font-size: 1.5rem; font-weight: 600;">{{ data.batteries_utilization|floatformat:1 }}%</div>
+            <div class="progress mt-2" style="height: 6px; background-color: #2a2e41;">
+              <div class="progress-bar" role="progressbar" style="width: {{ data.batteries_utilization }}%; background-color: {% if data.batteries_utilization >= 80 %}#00d27a{% elif data.batteries_utilization >= 50 %}#ffd28a{% else %}#ff6b6b{% endif %};" aria-valuenow="{{ data.batteries_utilization }}" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <hr style="border-color: #2a2e41; margin: 1.5rem 0;">
+
+      <!-- Активные клиенты -->
+      <div class="row">
+        <div class="col-md-6">
+          <div style="padding: 1rem; background-color: #0e1018; border-radius: 8px; border: 1px solid #2a2e41;">
+            <div style="color: #6e7891; font-size: 0.875rem; margin-bottom: 0.5rem;">Активные клиенты</div>
+            <div style="color: #e3e6ed; font-size: 1.5rem; font-weight: 600;">{{ data.active_clients }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="alert alert-info" style="background-color: #1c1e2d; border-color: #2a2e41; color: #9fa6bc;">
+    Нет данных для отображения.
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}
+
