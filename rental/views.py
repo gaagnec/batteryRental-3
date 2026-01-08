@@ -6,6 +6,7 @@ from datetime import timedelta, datetime, time
 from django.db import models
 from django.db.models import Prefetch, Q
 from django.template.response import TemplateResponse
+import json
 
 from decimal import Decimal
 
@@ -96,11 +97,20 @@ def dashboard(request):
     
     # Определяем город для фильтрации (для модераторов - их город, для владельцев - все их города, для админов - из параметра)
     from .admin_utils import get_user_cities
+    import json
+    # #region agent log
+    with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
+        f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"A","location":"rental/views.py:97","message":"Dashboard entry: user and filter setup","data":{"username":request.user.username,"is_superuser":request.user.is_superuser,"get_city_param":request.GET.get('city')},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
+    # #endregion
     filter_city = None
     filter_cities = None
     if not request.user.is_superuser:
         # Модераторы и владельцы - используем get_user_cities для поддержки мультигорода
         filter_cities = get_user_cities(request.user)
+        # #region agent log
+        with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
+            f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"B","location":"rental/views.py:103","message":"get_user_cities result for non-superuser","data":{"username":request.user.username,"filter_cities":str([c.id for c in filter_cities] if filter_cities else None),"filter_cities_count":len(filter_cities) if filter_cities else 0},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
+        # #endregion
         if filter_cities and len(filter_cities) == 1:
             filter_city = filter_cities[0]
     else:
@@ -109,8 +119,20 @@ def dashboard(request):
         if city_id:
             try:
                 filter_city = City.objects.get(id=city_id)
+                # #region agent log
+                with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"C","location":"rental/views.py:112","message":"Admin selected city filter","data":{"city_id":city_id,"city_name":filter_city.name if filter_city else None},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
+                # #endregion
             except City.DoesNotExist:
+                # #region agent log
+                with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"C","location":"rental/views.py:115","message":"City not found for admin filter","data":{"city_id":city_id},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
+                # #endregion
                 pass
+    # #region agent log
+    with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
+        f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"A","location":"rental/views.py:117","message":"Final filter values before queries","data":{"filter_city_id":filter_city.id if filter_city else None,"filter_city_name":filter_city.name if filter_city else None,"filter_cities_ids":[c.id for c in filter_cities] if filter_cities else None,"has_filter":bool(filter_city or filter_cities)},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
+    # #endregion
     
     # Активные клиенты: есть хотя бы один активный рентал
     # Активные клиенты с предзагрузкой назначений батарей
@@ -124,8 +146,22 @@ def dashboard(request):
         .select_related('client')
         .prefetch_related(Prefetch('assignments', queryset=active_assignments_qs, to_attr='active_assignments'))
     )
+    # #region agent log
+    with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
+        count_before = active_rentals.count()
+        f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"D","location":"rental/views.py:147","message":"Active rentals BEFORE city filter","data":{"count":count_before},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
+    # #endregion
+    if filter_city:
+        active_rentals = active_rentals.filter(city=filter_city)
+    elif filter_cities:
+        active_rentals = active_rentals.filter(city__in=filter_cities)
+    # #region agent log
+    with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
+        count_after = active_rentals.count()
+        f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"D","location":"rental/views.py:155","message":"Active rentals AFTER city filter","data":{"count":count_after,"filter_applied":bool(filter_city or filter_cities)},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
+    # #endregion
     active_clients_ids = active_rentals.values_list('client_id', flat=True).distinct()
-    active_clients_count = active_clients_ids.count()
+    active_clients_count = active_rentals.values_list('client_id', flat=True).distinct().count()
 
     # Батареи у активных клиентов: соберём по предзагруженным назначениям
     batteries_by_client = {r.client_id: [a.battery for a in r.active_assignments] for r in active_rentals}
@@ -136,6 +172,10 @@ def dashboard(request):
         rental__status=Rental.Status.ACTIVE,
         start_at__lte=now
     ).filter(Q(end_at__isnull=True) | Q(end_at__gt=now))
+    if filter_city:
+        assignments = assignments.filter(rental__city=filter_city)
+    elif filter_cities:
+        assignments = assignments.filter(rental__city__in=filter_cities)
 
     clients_data = []
     # Баланс считаем по root-группе последних активных ренталов клиента
@@ -169,9 +209,19 @@ def dashboard(request):
         })
 
     # Статистика по батареям
-    total_batteries = Battery.objects.count()
+    batteries_qs = Battery.objects.all()
+    if filter_city:
+        batteries_qs = batteries_qs.filter(city=filter_city)
+    elif filter_cities:
+        batteries_qs = batteries_qs.filter(city__in=filter_cities)
+    total_batteries = batteries_qs.count()
     rented_now = assignments.values('battery_id').distinct().count()
-    in_service = Repair.objects.filter(end_at__isnull=True).count()
+    repairs_qs = Repair.objects.filter(end_at__isnull=True)
+    if filter_city:
+        repairs_qs = repairs_qs.filter(battery__city=filter_city)
+    elif filter_cities:
+        repairs_qs = repairs_qs.filter(battery__city__in=filter_cities)
+    in_service = repairs_qs.count()
     available = max(total_batteries - rented_now - in_service, 0)
     battery_stats = {
         'total': total_batteries,
@@ -181,7 +231,12 @@ def dashboard(request):
     }
 
     # Последние 16 платежей
-    latest_payments = Payment.objects.select_related('rental__client', 'created_by').order_by('-date', '-id')[:16]
+    latest_payments_qs = Payment.objects.select_related('rental__client', 'created_by')
+    if filter_city:
+        latest_payments_qs = latest_payments_qs.filter(city=filter_city)
+    elif filter_cities:
+        latest_payments_qs = latest_payments_qs.filter(city__in=filter_cities)
+    latest_payments = latest_payments_qs.order_by('-date', '-id')[:16]
 
     # Месячные итоги
     month_names = {
@@ -190,17 +245,25 @@ def dashboard(request):
         9: 'Сентябрь', 10: 'Октябрь', 11: 'Ноябрь', 12: 'Декабрь'
     }
     # Собираем суммы по месяцам за всю историю (тип RENT)
+    pay_monthly_qs = Payment.objects.filter(type=Payment.PaymentType.RENT)
+    if filter_city:
+        pay_monthly_qs = pay_monthly_qs.filter(city=filter_city)
+    elif filter_cities:
+        pay_monthly_qs = pay_monthly_qs.filter(city__in=filter_cities)
     pay_monthly = (
-        Payment.objects
-        .filter(type=Payment.PaymentType.RENT)
+        pay_monthly_qs
         .values('date__year', 'date__month')
         .annotate(total=Sum('amount'))
         .order_by('date__year', 'date__month')
     )
     # За один проход подготовим и разрез по пользователям
+    pay_monthly_by_user_qs = Payment.objects.filter(type=Payment.PaymentType.RENT)
+    if filter_city:
+        pay_monthly_by_user_qs = pay_monthly_by_user_qs.filter(city=filter_city)
+    elif filter_cities:
+        pay_monthly_by_user_qs = pay_monthly_by_user_qs.filter(city__in=filter_cities)
     pay_monthly_by_user = (
-        Payment.objects
-        .filter(type=Payment.PaymentType.RENT)
+        pay_monthly_by_user_qs
         .values('date__year', 'date__month', 'created_by__username', 'created_by__first_name', 'created_by__last_name')
         .annotate(total=Sum('amount'))
         .order_by('date__year', 'date__month', '-total')
@@ -247,8 +310,13 @@ def dashboard(request):
     # Серия платежей и начислений за 30 дней
     window_days = 30
     start_date = timezone.localdate() - timedelta(days=window_days - 1)
+    pay_qs = Payment.objects.filter(date__gte=start_date)
+    if filter_city:
+        pay_qs = pay_qs.filter(city=filter_city)
+    elif filter_cities:
+        pay_qs = pay_qs.filter(city__in=filter_cities)
     pay_qs = (
-        Payment.objects.filter(date__gte=start_date)
+        pay_qs
         .values('date')
         .annotate(total=Sum('amount'))
         .order_by('date')
@@ -267,6 +335,10 @@ def dashboard(request):
         .filter(models.Q(end_at__isnull=True) | models.Q(end_at__gte=window_start_anchor))
         .select_related('rental')
     )
+    if filter_city:
+        assigns_window = assigns_window.filter(rental__city=filter_city)
+    elif filter_cities:
+        assigns_window = assigns_window.filter(rental__city__in=filter_cities)
     # Подготовим список назначений с нормализованными датами
     norm_assigns = []
     now_tz = timezone.localtime(timezone.now(), tz)
@@ -329,8 +401,12 @@ def dashboard(request):
         Rental.objects
         .filter(status=Rental.Status.CLOSED, end_at__isnull=False)
         .select_related('client')
-        .order_by('-end_at')[:5]
     )
+    if filter_city:
+        recent_closed = recent_closed.filter(city=filter_city)
+    elif filter_cities:
+        recent_closed = recent_closed.filter(city__in=filter_cities)
+    recent_closed = recent_closed.order_by('-end_at')[:5]
     recent_closed_list = list(recent_closed)
     
     # Используем общую функцию для расчёта балансов закрытых клиентов
@@ -357,21 +433,33 @@ def dashboard(request):
     cutoff = timezone.datetime(2025, 9, 1).date()
     
     partners = FinancePartner.objects.filter(active=True).select_related('user')
+    if filter_city:
+        partners = partners.filter(city=filter_city)
+    elif filter_cities:
+        partners = partners.filter(Q(city__in=filter_cities) | Q(cities__in=filter_cities)).distinct()
     moderators = [p for p in partners if p.role == FinancePartner.Role.MODERATOR]
     
     # Платежи, собранные модераторами (RENT + SOLD)
+    payments_by_user_qs = Payment.objects.filter(date__gte=cutoff, type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD])
+    if filter_city:
+        payments_by_user_qs = payments_by_user_qs.filter(city=filter_city)
+    elif filter_cities:
+        payments_by_user_qs = payments_by_user_qs.filter(city__in=filter_cities)
     payments_by_user = dict(
-        Payment.objects
-        .filter(date__gte=cutoff, type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD])
+        payments_by_user_qs
         .values('created_by_id')
         .annotate(total=Sum('amount'))
         .values_list('created_by_id', 'total')
     )
     
     # Переводы от модераторов к владельцам
+    outgoing_from_mods_qs = MoneyTransfer.objects.filter(date__gte=cutoff, purpose=MoneyTransfer.Purpose.MODERATOR_TO_OWNER, use_collected=True)
+    if filter_city:
+        outgoing_from_mods_qs = outgoing_from_mods_qs.filter(from_partner__city=filter_city)
+    elif filter_cities:
+        outgoing_from_mods_qs = outgoing_from_mods_qs.filter(from_partner__city__in=filter_cities)
     outgoing_from_mods = dict(
-        MoneyTransfer.objects
-        .filter(date__gte=cutoff, purpose=MoneyTransfer.Purpose.MODERATOR_TO_OWNER, use_collected=True)
+        outgoing_from_mods_qs
         .values('from_partner_id')
         .annotate(total=Sum('amount'))
         .values_list('from_partner_id', 'total')
@@ -388,13 +476,17 @@ def dashboard(request):
     last_week_start = last_week_end - timedelta(days=6)  # понедельник прошлой недели
     
     # Платежи за последнюю неделю
+    payments_last_week_qs = Payment.objects.filter(
+        date__gte=last_week_start, 
+        date__lte=last_week_end,
+        type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD]
+    )
+    if filter_city:
+        payments_last_week_qs = payments_last_week_qs.filter(city=filter_city)
+    elif filter_cities:
+        payments_last_week_qs = payments_last_week_qs.filter(city__in=filter_cities)
     payments_last_week_by_user = dict(
-        Payment.objects
-        .filter(
-            date__gte=last_week_start, 
-            date__lte=last_week_end,
-            type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD]
-        )
+        payments_last_week_qs
         .values('created_by_id')
         .annotate(total=Sum('amount'))
         .values_list('created_by_id', 'total')
@@ -425,8 +517,12 @@ def dashboard(request):
         MoneyTransfer.objects
         .filter(date__gte=cutoff, purpose=MoneyTransfer.Purpose.MODERATOR_TO_OWNER)
         .select_related('from_partner__user', 'to_partner__user')
-        .order_by('-date', '-id')[:10]
     )
+    if filter_city:
+        moderator_transfers_recent = moderator_transfers_recent.filter(from_partner__city=filter_city)
+    elif filter_cities:
+        moderator_transfers_recent = moderator_transfers_recent.filter(from_partner__city__in=filter_cities)
+    moderator_transfers_recent = moderator_transfers_recent.order_by('-date', '-id')[:10]
     
     # Разбивка по городам (для админов)
     city_breakdown = None
