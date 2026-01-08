@@ -99,6 +99,15 @@ class Rental(TimeStampedModel):
             models.Index(fields=["status"], name="idx_rental_status"),
         ]
 
+    def clean(self):
+        """Валидация соответствия городов"""
+        if self.client and self.client.city and self.city:
+            if self.client.city_id != self.city_id:
+                raise ValidationError(
+                    f'Город договора ({self.city.name}) должен совпадать с городом клиента ({self.client.city.name})'
+                )
+        super().clean()
+    
     def save(self, *args, **kwargs):
         # Автоматически устанавливаем city из client.city при создании
         if self.pk is None and not self.city and self.client_id:
@@ -221,6 +230,30 @@ class RentalBatteryAssignment(TimeStampedModel):
     start_at = models.DateTimeField()
     end_at = models.DateTimeField(null=True, blank=True)
     history = HistoricalRecords()
+    
+    def clean(self):
+        """Валидация: батарея и договор должны быть из одного города"""
+        if self.battery and self.rental:
+            # Загружаем с city если еще не загружены
+            if not hasattr(self.battery, 'city') or not self.battery.city:
+                try:
+                    self.battery = Battery.objects.select_related('city').get(pk=self.battery_id)
+                except Battery.DoesNotExist:
+                    pass
+            
+            if not hasattr(self.rental, 'city') or not self.rental.city:
+                try:
+                    self.rental = Rental.objects.select_related('city').get(pk=self.rental_id)
+                except Rental.DoesNotExist:
+                    pass
+            
+            if self.battery and self.battery.city and self.rental and self.rental.city:
+                if self.battery.city_id != self.rental.city_id:
+                    raise ValidationError(
+                        f'Батарея {self.battery.short_code} из города {self.battery.city.name} '
+                        f'не может быть назначена на договор из города {self.rental.city.name}'
+                    )
+        super().clean()
 
     class Meta:
         verbose_name = "Привязка батареи"
@@ -265,6 +298,23 @@ class Payment(TimeStampedModel):
     note = models.TextField(blank=True)
     history = HistoricalRecords()
 
+    def clean(self):
+        """Валидация соответствия городов между платежом и договором"""
+        if self.rental and self.city:
+            # Загружаем rental с city если еще не загружен
+            if not hasattr(self.rental, 'city') or not self.rental.city:
+                try:
+                    self.rental = Rental.objects.select_related('city').get(pk=self.rental_id)
+                except Rental.DoesNotExist:
+                    pass
+            
+            if self.rental and self.rental.city:
+                if self.rental.city_id != self.city_id:
+                    raise ValidationError(
+                        f'Город платежа ({self.city.name}) должен совпадать с городом договора ({self.rental.city.name})'
+                    )
+        super().clean()
+    
     def save(self, *args, **kwargs):
         # Всегда привязываем платеж к root-договору для консистентности групповых расчетов
         if self.rental and self.rental.root_id and self.rental_id != self.rental.root_id:
@@ -358,6 +408,76 @@ class BatteryStatusLog(TimeStampedModel):
         verbose_name_plural = "Логи статусов батарей"
 
 
+class BatteryTransfer(TimeStampedModel):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Ожидает подтверждения"
+        APPROVED = "approved", "Подтверждён"
+        REJECTED = "rejected", "Отклонён"
+    
+    battery = models.ForeignKey(Battery, on_delete=models.CASCADE, related_name="transfers")
+    from_city = models.ForeignKey('City', on_delete=models.PROTECT, related_name="transfers_from")
+    to_city = models.ForeignKey('City', on_delete=models.PROTECT, related_name="transfers_to")
+    requested_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="transfer_requests")
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="approved_transfers")
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    note = models.TextField(blank=True, verbose_name="Комментарий")
+    history = HistoricalRecords()
+    
+    class Meta:
+        verbose_name = "Перенос батареи"
+        verbose_name_plural = "Переносы батарей"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', 'created_at']),
+            models.Index(fields=['battery', 'status']),
+        ]
+    
+    def clean(self):
+        """Валидация: нельзя переносить батарею в тот же город"""
+        if self.from_city_id and self.to_city_id and self.from_city_id == self.to_city_id:
+            raise ValidationError('Город назначения должен отличаться от текущего города')
+    
+    def approve(self, approved_by_user):
+        """Подтверждает перенос и меняет city батареи"""
+        if self.status != self.Status.PENDING:
+            raise ValidationError("Можно подтвердить только запросы в статусе PENDING")
+        
+        # Проверка активной аренды перед подтверждением
+        from django.utils import timezone
+        from django.db.models import Q
+        now = timezone.now()
+        active_assignments = RentalBatteryAssignment.objects.filter(
+            battery=self.battery,
+            start_at__lte=now
+        ).filter(
+            Q(end_at__isnull=True) | Q(end_at__gt=now)
+        ).filter(
+            rental__status=Rental.Status.ACTIVE
+        ).exists()
+        
+        if active_assignments:
+            raise ValidationError(f"Батарея {self.battery.short_code} находится в активной аренде. Перенос невозможен.")
+        
+        self.status = self.Status.APPROVED
+        self.approved_by = approved_by_user
+        self.battery.city = self.to_city
+        self.battery.save()
+        self.save()
+    
+    def reject(self, rejected_by_user, reason=""):
+        """Отклоняет запрос на перенос"""
+        if self.status != self.Status.PENDING:
+            raise ValidationError("Можно отклонить только запросы в статусе PENDING")
+        self.status = self.Status.REJECTED
+        self.approved_by = rejected_by_user
+        if reason:
+            self.note = f"{self.note}\n[Отклонено]: {reason}".strip()
+        self.save()
+    
+    def __str__(self):
+        return f"{self.battery} из {self.from_city} в {self.to_city} ({self.get_status_display()})"
+
+
 # =========================
 # City model
 # =========================
@@ -388,6 +508,7 @@ class FinancePartner(TimeStampedModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="finance_partners")
     role = models.CharField(max_length=16, choices=Role.choices)
     city = models.ForeignKey('City', on_delete=models.PROTECT, null=True, blank=True, related_name='finance_partners')
+    cities = models.ManyToManyField('City', blank=True, related_name='finance_partners_multi', verbose_name="Города (для владельцев)")
     share_percent = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("50.00"))
     active = models.BooleanField(default=True)
     note = models.TextField(blank=True)
@@ -398,9 +519,10 @@ class FinancePartner(TimeStampedModel):
         verbose_name_plural = "Финансовые партнёры"
 
     def clean(self):
-        """Валидация: модератор должен иметь город"""
+        """Валидация: модератор должен иметь город, владелец может иметь несколько городов через cities"""
         if self.role == self.Role.MODERATOR and not self.city:
             raise ValidationError({'city': 'Модератор должен быть привязан к городу'})
+        # Для владельцев cities используется для множественного доступа, но city можно оставить для обратной совместимости
         super().clean()
 
     def __str__(self):

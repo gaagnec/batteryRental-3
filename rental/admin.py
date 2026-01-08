@@ -6,7 +6,7 @@ from django.http import HttpResponseRedirect, JsonResponse, HttpResponseForbidde
 from django.db.models import Sum, Q, F
 
 from django.contrib import admin, messages
-from django.contrib.admin.helpers import ActionForm
+from django.contrib.admin.helpers import ActionForm, ACTION_CHECKBOX_NAME
 from django.core.exceptions import ValidationError
 from django.urls import reverse, path
 from django.utils.html import format_html
@@ -24,11 +24,11 @@ import rental.templatetags.custom_filters
 from simple_history.admin import SimpleHistoryAdmin
 from .models import (
     Client, Battery, Rental, RentalBatteryAssignment,
-    Payment, ExpenseCategory, Expense, Repair, BatteryStatusLog,
+    Payment, ExpenseCategory, Expense, Repair, BatteryStatusLog, BatteryTransfer,
     FinancePartner, OwnerContribution, OwnerWithdrawal, MoneyTransfer, FinanceAdjustment,
     City
 )
-from .admin_utils import CityFilteredAdminMixin, get_user_city
+from .admin_utils import CityFilteredAdminMixin, get_user_city, get_user_cities
 
 
 @admin.register(City)
@@ -45,15 +45,26 @@ class CityAdmin(SimpleHistoryAdmin):
 
 @admin.register(FinancePartner)
 class FinancePartnerAdmin(SimpleHistoryAdmin):
-    list_display = ("id", "user", "role", "city", "share_percent", "active")
+    list_display = ("id", "user", "role", "city", "cities_display", "share_percent", "active")
     list_filter = ("role", "active", "city")
     search_fields = ("user__username", "user__first_name", "user__last_name")
     autocomplete_fields = ["city"]
+    filter_horizontal = ["cities"]  # Для удобного выбора нескольких городов
+    
+    def cities_display(self, obj):
+        """Отображение списка городов для владельцев"""
+        if obj.role == FinancePartner.Role.OWNER:
+            cities_list = list(obj.cities.all())
+            if cities_list:
+                return ", ".join([city.name for city in cities_list])
+            return "-"
+        return "-"
+    cities_display.short_description = "Города (для владельцев)"
     
     def get_queryset(self, request):
-        """Оптимизация: предзагрузка user и city"""
+        """Оптимизация: предзагрузка user, city и cities"""
         qs = super().get_queryset(request)
-        qs = qs.select_related('user', 'city')
+        qs = qs.select_related('user', 'city').prefetch_related('cities')
         return qs
     
     def save_model(self, request, obj, form, change):
@@ -1135,15 +1146,26 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
         
         cutoff = self.CUTOFF_DATE
         
-        # Получаем город модератора для фильтрации
-        city = None
+        # Получаем города пользователя для фильтрации (для владельцев - несколько городов)
+        cities = None
         if not request.user.is_superuser:
-            city = get_user_city(request.user)
+            cities = get_user_cities(request.user)
+            # Если это список с одним городом, используем его для обратной совместимости
+            city = cities[0] if cities and len(cities) == 1 else None
+        else:
+            city = None
         
-        # Получаем всех партнёров (фильтруем по городу для модераторов)
+        # Получаем всех партнёров (фильтруем по городам для модераторов/владельцев)
         partners_qs = FinancePartner.objects.filter(active=True).select_related('user')
-        if city:
-            partners_qs = partners_qs.filter(city=city)
+        if cities:
+            if len(cities) == 1:
+                partners_qs = partners_qs.filter(city=cities[0])
+            else:
+                # Несколько городов - используем Q для фильтрации
+                from django.db.models import Q
+                city_filter = Q(city__in=cities)
+                # Также проверяем ManyToMany поле cities
+                partners_qs = partners_qs.filter(city_filter | Q(cities__in=cities)).distinct()
         partners = list(partners_qs)
         partners_dict = {p.id: p for p in partners}
         
@@ -1161,10 +1183,10 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
         # 1. ДОХОДЫ (накопленный итог)
         # ========================================
         
-        # Payments (RENT + SOLD) с cutoff даты (фильтруем по городу для модераторов)
+        # Payments (RENT + SOLD) с cutoff даты (фильтруем по городам)
         payments_qs = Payment.objects.filter(date__gte=cutoff, type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD])
-        if city:
-            payments_qs = payments_qs.filter(city=city)
+        if cities:
+            payments_qs = payments_qs.filter(city__in=cities)
         payments_by_user = dict(
             payments_qs
             .values('created_by_id')
@@ -1172,10 +1194,10 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             .values_list('created_by_id', 'total')
         )
         
-        # Входящие переводы ОТ модераторов К владельцам (фильтруем по городу)
+        # Входящие переводы ОТ модераторов К владельцам (фильтруем по городам)
         incoming_from_mods_qs = MoneyTransfer.objects.filter(date__gte=cutoff, purpose=MoneyTransfer.Purpose.MODERATOR_TO_OWNER, use_collected=True)
-        if city:
-            incoming_from_mods_qs = incoming_from_mods_qs.filter(to_partner__city=city)
+        if cities:
+            incoming_from_mods_qs = incoming_from_mods_qs.filter(to_partner__city__in=cities)
         incoming_from_mods = dict(
             incoming_from_mods_qs
             .values('to_partner_id')
@@ -1183,10 +1205,10 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             .values_list('to_partner_id', 'total')
         )
         
-        # Входящие переводы между владельцами (TO) - фильтруем по городу
+        # Входящие переводы между владельцами (TO) - фильтруем по городам
         incoming_from_owners_qs = MoneyTransfer.objects.filter(date__gte=cutoff, purpose=MoneyTransfer.Purpose.OWNER_TO_OWNER, use_collected=False)
-        if city:
-            incoming_from_owners_qs = incoming_from_owners_qs.filter(to_partner__city=city)
+        if cities:
+            incoming_from_owners_qs = incoming_from_owners_qs.filter(to_partner__city__in=cities)
         incoming_from_owners = dict(
             incoming_from_owners_qs
             .values('to_partner_id')
@@ -1194,10 +1216,10 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             .values_list('to_partner_id', 'total')
         )
         
-        # Исходящие переводы между владельцами (FROM) - фильтруем по городу
+        # Исходящие переводы между владельцами (FROM) - фильтруем по городам
         outgoing_to_owners_qs = MoneyTransfer.objects.filter(date__gte=cutoff, purpose=MoneyTransfer.Purpose.OWNER_TO_OWNER, use_collected=False)
-        if city:
-            outgoing_to_owners_qs = outgoing_to_owners_qs.filter(from_partner__city=city)
+        if cities:
+            outgoing_to_owners_qs = outgoing_to_owners_qs.filter(from_partner__city__in=cities)
         outgoing_to_owners = dict(
             outgoing_to_owners_qs
             .values('from_partner_id')
@@ -1205,10 +1227,10 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             .values_list('from_partner_id', 'total')
         )
         
-        # Исходящие переводы модераторов владельцам - фильтруем по городу
+        # Исходящие переводы модераторов владельцам - фильтруем по городам
         outgoing_from_mods_qs = MoneyTransfer.objects.filter(date__gte=cutoff, purpose=MoneyTransfer.Purpose.MODERATOR_TO_OWNER, use_collected=True)
-        if city:
-            outgoing_from_mods_qs = outgoing_from_mods_qs.filter(from_partner__city=city)
+        if cities:
+            outgoing_from_mods_qs = outgoing_from_mods_qs.filter(from_partner__city__in=cities)
         outgoing_from_mods = dict(
             outgoing_from_mods_qs
             .values('from_partner_id')
@@ -1277,10 +1299,10 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
         # 3. ВЛОЖЕНИЯ В БИЗНЕС
         # ========================================
         
-        # Закупки (PURCHASE) - реальные расходы на бизнес (фильтруем по городу)
+        # Закупки (PURCHASE) - реальные расходы на бизнес (фильтруем по городам)
         purchases_qs = Expense.objects.filter(date__gte=cutoff, payment_type=Expense.PaymentType.PURCHASE, paid_by_partner_id__in=owner_ids)
-        if city:
-            purchases_qs = purchases_qs.filter(paid_by_partner__city=city)
+        if cities:
+            purchases_qs = purchases_qs.filter(paid_by_partner__city__in=cities)
         purchases_by_partner = dict(
             purchases_qs
             .values('paid_by_partner_id')
@@ -1288,10 +1310,10 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             .values_list('paid_by_partner_id', 'total')
         )
         
-        # Взносы (DEPOSIT) - внесение личных средств (фильтруем по городу)
+        # Взносы (DEPOSIT) - внесение личных средств (фильтруем по городам)
         deposits_qs = Expense.objects.filter(date__gte=cutoff, payment_type=Expense.PaymentType.DEPOSIT, paid_by_partner_id__in=owner_ids)
-        if city:
-            deposits_qs = deposits_qs.filter(paid_by_partner__city=city)
+        if cities:
+            deposits_qs = deposits_qs.filter(paid_by_partner__city__in=cities)
         deposits_by_partner = dict(
             deposits_qs
             .values('paid_by_partner_id')
@@ -1314,8 +1336,8 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
         for owner in owners:
             pid = owner.id
             expenses_qs = Expense.objects.filter(date__gte=cutoff, payment_type=Expense.PaymentType.PURCHASE, paid_by_partner_id=pid)
-            if city:
-                expenses_qs = expenses_qs.filter(paid_by_partner__city=city)
+            if cities:
+                expenses_qs = expenses_qs.filter(paid_by_partner__city__in=cities)
             expenses_by_category = dict(
                 expenses_qs
                 .exclude(category__isnull=True)
@@ -1413,10 +1435,15 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
         # 5. ПО МЕСЯЦАМ
         # ========================================
         
-        # Payments по месяцам
-        payments_by_month = (
+        # Payments по месяцам (фильтруем по городам)
+        payments_by_month_qs = (
             Payment.objects
             .filter(date__gte=cutoff, type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD])
+        )
+        if cities:
+            payments_by_month_qs = payments_by_month_qs.filter(city__in=cities)
+        payments_by_month = (
+            payments_by_month_qs
             .annotate(month=TruncMonth('date'))
             .values('month', 'created_by_id')
             .annotate(total=Sum('amount'))
@@ -1480,9 +1507,60 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             )
             .select_related('paid_by_partner__user', 'category')
         )
-        if city:
-            investments_recent_qs = investments_recent_qs.filter(paid_by_partner__city=city)
+        if cities:
+            investments_recent_qs = investments_recent_qs.filter(paid_by_partner__city__in=cities)
         investments_recent = list(investments_recent_qs.order_by('-date', '-id')[:10])
+        
+        # ========================================
+        # СРАВНИТЕЛЬНАЯ СТАТИСТИКА ПО ГОРОДАМ (для админов)
+        # ========================================
+        city_comparison = None
+        if request.user.is_superuser:
+            from datetime import timedelta
+            today = timezone.localdate()
+            last_30_days = today - timedelta(days=30)
+            
+            all_cities = City.objects.filter(active=True)
+            city_stats = []
+            
+            for city_obj in all_cities:
+                # Доходы по городу за 30 дней
+                city_income = Payment.objects.filter(
+                    city=city_obj,
+                    date__gte=last_30_days,
+                    type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD]
+                ).aggregate(total=Sum('amount'))['total'] or Decimal(0)
+                
+                # Доходы за период (cutoff)
+                city_income_period = Payment.objects.filter(
+                    city=city_obj,
+                    date__gte=cutoff,
+                    type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD]
+                ).aggregate(total=Sum('amount'))['total'] or Decimal(0)
+                
+                # Модераторы города
+                city_mods = FinancePartner.objects.filter(city=city_obj, role=FinancePartner.Role.MODERATOR, active=True).count()
+                
+                # Батареи в городе
+                city_batteries = Battery.objects.filter(city=city_obj).count()
+                
+                # Активные клиенты
+                city_clients = Client.objects.filter(
+                    city=city_obj,
+                    rentals__status=Rental.Status.ACTIVE
+                ).distinct().count()
+                
+                city_stats.append({
+                    'city': city_obj,
+                    'income_30_days': city_income,
+                    'income_period': city_income_period,
+                    'moderators_count': city_mods,
+                    'batteries_count': city_batteries,
+                    'active_clients': city_clients,
+                })
+            
+            # Сортируем по доходу за 30 дней
+            city_comparison = sorted(city_stats, key=lambda x: x['income_30_days'], reverse=True)
         
         # ========================================
         # CONTEXT
@@ -1518,6 +1596,10 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             'transfers_history': transfers_history,
             'owner_transfers_recent': owner_transfers_recent,
             'investments_recent': investments_recent,
+            
+            # Сравнительная статистика по городам
+            'city_comparison': city_comparison,
+            'cities': City.objects.filter(active=True) if request.user.is_superuser else [],
             
             # Для форм
             'partner_choices': [{'id': p.id, 'name': p.user.username, 'role': p.role} for p in partners],
@@ -1707,6 +1789,27 @@ class ClientAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
         super().save_model(request, obj, form, change)
 
 
+class BatteryTransferActionForm(ActionForm):
+    """Форма для action создания запроса на перенос батарей"""
+    to_city = forms.ModelChoiceField(
+        queryset=City.objects.none(),  # Будет установлен в __init__
+        required=True,
+        label="Город назначения",
+        help_text="Выберите город, в который нужно перенести батареи"
+    )
+    note = forms.CharField(
+        widget=forms.Textarea(attrs={'rows': 3}),
+        required=False,
+        label="Комментарий",
+        help_text="Дополнительная информация о переносе"
+    )
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Устанавливаем queryset для выбора активных городов
+        self.fields['to_city'].queryset = City.objects.filter(active=True).order_by('name')
+
+
 @admin.register(Battery)
 class BatteryAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
     # Убираем тяжёлые колонки roi_progress из списка, возвращаем в detail
@@ -1717,6 +1820,8 @@ class BatteryAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
     change_list_template = 'admin/rental/battery/change_list.html'
     list_per_page = 50
     ordering = ['id']  # Сортировка по умолчанию от меньшего к большему
+    actions = ["create_transfer_request"]
+    action_form = BatteryTransferActionForm
 
     def get_queryset(self, request):
         """Оптимизация: предзагрузка assignments для избежания N+1"""
@@ -1902,6 +2007,92 @@ class BatteryAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
             bar_class, width, bar_style, pct, pct, days_total
         )
     roi_progress.short_description = "Окупаемость"
+    
+    @admin.action(description="Создать запрос на перенос батарей")
+    def create_transfer_request(self, request, queryset):
+        """Создает запросы на перенос для выбранных батарей"""
+        # Django admin автоматически показывает форму через action_form
+        # Когда форма подтверждена, данные приходят через request.POST
+        form_data = request.POST
+        
+        # Получаем данные из формы (Django admin передает их через POST)
+        to_city_id = form_data.get('to_city')
+        note = form_data.get('note', '')
+        
+        if not to_city_id:
+            self.message_user(
+                request,
+                "Необходимо выбрать город назначения",
+                level=messages.ERROR
+            )
+            return
+        
+        try:
+            to_city = City.objects.get(id=to_city_id, active=True)
+        except City.DoesNotExist:
+            self.message_user(
+                request,
+                "Выбранный город не найден",
+                level=messages.ERROR
+            )
+            return
+        
+        # Получаем город отправителя (модератора или из батареи)
+        user_city = get_user_city(request.user) if not request.user.is_superuser else None
+        
+        created_count = 0
+        errors = []
+        
+        for battery in queryset:
+            # Определяем город отправления
+            from_city = user_city if user_city else battery.city
+            
+            if not from_city:
+                errors.append(f"У батареи {battery.short_code} не указан город")
+                continue
+            
+            if from_city.id == to_city.id:
+                errors.append(f"Батарея {battery.short_code} уже находится в городе {to_city.name}")
+                continue
+            
+            # Проверяем активную аренду
+            now = timezone.now()
+            active_assignments = battery.assignments.filter(
+                start_at__lte=now
+            ).filter(
+                Q(end_at__isnull=True) | Q(end_at__gt=now)
+            ).filter(
+                rental__status=Rental.Status.ACTIVE
+            ).exists()
+            
+            if active_assignments:
+                errors.append(f"Батарея {battery.short_code} находится в активной аренде")
+                continue
+            
+            # Создаем запрос на перенос
+            try:
+                BatteryTransfer.objects.create(
+                    battery=battery,
+                    from_city=from_city,
+                    to_city=to_city,
+                    requested_by=request.user,
+                    note=note,
+                    status=BatteryTransfer.Status.PENDING
+                )
+                created_count += 1
+            except Exception as e:
+                errors.append(f"Ошибка при создании запроса для {battery.short_code}: {str(e)}")
+        
+        if created_count > 0:
+            self.message_user(
+                request,
+                f"Создано запросов на перенос: {created_count}",
+                level=messages.SUCCESS
+            )
+        
+        if errors:
+            for error in errors:
+                self.message_user(request, error, level=messages.ERROR)
 
     def changelist_view(self, request, extra_context=None):
         """Добавляем статистику в контекст списка батарей с кэшированием"""
@@ -3121,3 +3312,60 @@ class BatteryStatusLogAdmin(SimpleHistoryAdmin):
     def has_module_permission(self, request):
         # Только суперпользователи видят логи статусов батарей
         return request.user.is_superuser
+
+
+@admin.register(BatteryTransfer)
+class BatteryTransferAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
+    city_filter_field = 'from_city'  # Модераторы видят только запросы из своего города
+    
+    list_display = ("id", "battery", "from_city", "to_city", "status_display", "requested_by", "approved_by", "created_at")
+    list_filter = ("status", "from_city", "to_city", "created_at")
+    search_fields = ("battery__short_code", "note")
+    readonly_fields = ("created_at", "updated_at")
+    autocomplete_fields = ["battery", "from_city", "to_city"]
+    actions = ["approve_transfers", "reject_transfers"]
+    
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        qs = qs.select_related('battery', 'from_city', 'to_city', 'requested_by', 'approved_by')
+        return qs
+    
+    def status_display(self, obj):
+        """Цветовая индикация статусов"""
+        colors = {
+            BatteryTransfer.Status.PENDING: ('#ffd28a', 'rgba(255, 210, 138, 0.15)'),
+            BatteryTransfer.Status.APPROVED: ('#00d27a', 'rgba(0, 210, 122, 0.15)'),
+            BatteryTransfer.Status.REJECTED: ('#ff6b6b', 'rgba(255, 107, 107, 0.15)'),
+        }
+        color, bg_color = colors.get(obj.status, ('#9fa6bc', 'rgba(159, 166, 188, 0.15)'))
+        return format_html(
+            '<span class="badge" style="background-color: {}; color: {};">{}</span>',
+            bg_color, color, obj.get_status_display()
+        )
+    status_display.short_description = "Статус"
+    
+    @admin.action(description="Подтвердить выбранные переносы")
+    def approve_transfers(self, request, queryset):
+        pending = queryset.filter(status=BatteryTransfer.Status.PENDING)
+        count = 0
+        errors = []
+        for transfer in pending:
+            try:
+                transfer.approve(request.user)
+                count += 1
+            except ValidationError as e:
+                errors.append(f"{transfer}: {e.message}")
+        
+        if count:
+            self.message_user(request, f"Подтверждено переносов: {count}", level=messages.SUCCESS)
+        if errors:
+            for error in errors:
+                self.message_user(request, error, level=messages.ERROR)
+    
+    @admin.action(description="Отклонить выбранные переносы")
+    def reject_transfers(self, request, queryset):
+        # Можно добавить форму для указания причины отклонения
+        pending = queryset.filter(status=BatteryTransfer.Status.PENDING)
+        for transfer in pending:
+            transfer.reject(request.user)
+        self.message_user(request, f"Отклонено переносов: {pending.count()}", level=messages.SUCCESS)
