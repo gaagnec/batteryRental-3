@@ -3349,89 +3349,95 @@ class BatteryTransferAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
     @admin.action(description="Подтвердить выбранные переносы")
     def approve_transfers(self, request, queryset):
         from .logging_utils import log_error, log_action
-        import json
+        import logging
         import traceback
+        import os
         
-        pending = queryset.filter(status=BatteryTransfer.Status.PENDING)
-        count = 0
-        errors = []
-        for transfer in pending:
-            # #region agent log
-            try:
-                with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
-                    f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"A","location":"rental/admin.py:3354","message":"Attempting to approve transfer","data":{"transfer_id":transfer.id,"battery_code":transfer.battery.short_code,"battery_city_id":transfer.battery.city.id if transfer.battery.city else None,"from_city_id":transfer.from_city.id,"to_city_id":transfer.to_city.id,"status":transfer.status},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
-            except:
-                pass
-            # #endregion
-            try:
-                transfer.approve(request.user)
-                count += 1
-                # #region agent log
-                try:
-                    with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
-                        f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"A","location":"rental/admin.py:3360","message":"Transfer approved successfully","data":{"transfer_id":transfer.id,"battery_code":transfer.battery.short_code,"new_city_id":transfer.battery.city.id if transfer.battery.city else None},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
-                except:
-                    pass
-                # #endregion
-                log_action(
-                    "Подтверждён перенос батареи",
-                    user=request.user,
-                    details={
-                        'transfer_id': transfer.id,
-                        'battery': transfer.battery.short_code,
-                        'from_city': str(transfer.from_city),
-                        'to_city': str(transfer.to_city),
-                    },
-                    request=request
-                )
-            except ValidationError as e:
-                error_msg = str(e)
-                # #region agent log
-                try:
-                    with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
-                        f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"B","location":"rental/admin.py:3367","message":"ValidationError during approve","data":{"transfer_id":transfer.id,"battery_code":transfer.battery.short_code,"error":error_msg,"traceback":traceback.format_exc()},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
-                except:
-                    pass
-                # #endregion
-                errors.append(f"{transfer}: {error_msg}")
-                log_error(
-                    "Ошибка при подтверждении переноса батареи",
-                    exception=e,
-                    user=request.user,
-                    context={
-                        'transfer_id': transfer.id,
-                        'battery': transfer.battery.short_code,
-                        'from_city': str(transfer.from_city),
-                        'to_city': str(transfer.to_city),
-                    },
-                    request=request
-                )
-            except Exception as e:
-                error_msg = str(e)
-                # #region agent log
-                try:
-                    with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
-                        f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"C","location":"rental/admin.py:3383","message":"Unexpected exception during approve","data":{"transfer_id":transfer.id,"battery_code":transfer.battery.short_code,"error":error_msg,"traceback":traceback.format_exc()},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
-                except:
-                    pass
-                # #endregion
-                errors.append(f"{transfer}: {error_msg}")
-                log_error(
-                    "Неожиданная ошибка при подтверждении переноса батареи",
-                    exception=e,
-                    user=request.user,
-                    context={
-                        'transfer_id': transfer.id,
-                        'battery': transfer.battery.short_code,
-                    },
-                    request=request
-                )
+        logger = logging.getLogger('rental')
         
-        if count:
-            self.message_user(request, f"Подтверждено переносов: {count}", level=messages.SUCCESS)
-        if errors:
-            for error in errors:
-                self.message_user(request, error, level=messages.ERROR)
+        try:
+            pending = queryset.filter(status=BatteryTransfer.Status.PENDING)
+            count = 0
+            errors = []
+            
+            logger.info(f"Начало подтверждения переносов. Выбрано: {pending.count()}")
+            
+            for transfer in pending:
+                try:
+                    logger.debug(f"Попытка подтверждения переноса ID={transfer.id}, батарея={transfer.battery.short_code if transfer.battery else 'None'}, from_city={transfer.from_city.name if transfer.from_city else 'None'}, to_city={transfer.to_city.name if transfer.to_city else 'None'}")
+                    
+                    # Проверяем, что все необходимые объекты существуют
+                    if not transfer.battery:
+                        raise ValueError(f"У переноса {transfer.id} отсутствует батарея")
+                    if not transfer.from_city:
+                        raise ValueError(f"У переноса {transfer.id} отсутствует город отправления")
+                    if not transfer.to_city:
+                        raise ValueError(f"У переноса {transfer.id} отсутствует город назначения")
+                    
+                    transfer.approve(request.user)
+                    count += 1
+                    
+                    logger.info(f"Перенос {transfer.id} успешно подтверждён")
+                    
+                    log_action(
+                        "Подтверждён перенос батареи",
+                        user=request.user,
+                        details={
+                            'transfer_id': transfer.id,
+                            'battery': transfer.battery.short_code,
+                            'from_city': str(transfer.from_city),
+                            'to_city': str(transfer.to_city),
+                        },
+                        request=request
+                    )
+                except ValidationError as e:
+                    error_msg = str(e)
+                    logger.error(f"ValidationError при подтверждении переноса {transfer.id}: {error_msg}\n{traceback.format_exc()}")
+                    errors.append(f"{transfer}: {error_msg}")
+                    log_error(
+                        "Ошибка при подтверждении переноса батареи",
+                        exception=e,
+                        user=request.user,
+                        context={
+                            'transfer_id': transfer.id,
+                            'battery': transfer.battery.short_code if transfer.battery else None,
+                            'from_city': str(transfer.from_city) if transfer.from_city else None,
+                            'to_city': str(transfer.to_city) if transfer.to_city else None,
+                        },
+                        request=request
+                    )
+                except Exception as e:
+                    error_msg = str(e)
+                    logger.error(f"Неожиданная ошибка при подтверждении переноса {transfer.id}: {error_msg}\n{traceback.format_exc()}")
+                    errors.append(f"{transfer}: {error_msg}")
+                    log_error(
+                        "Неожиданная ошибка при подтверждении переноса батареи",
+                        exception=e,
+                        user=request.user,
+                        context={
+                            'transfer_id': transfer.id,
+                            'battery': transfer.battery.short_code if transfer.battery else None,
+                        },
+                        request=request
+                    )
+            
+            if count:
+                self.message_user(request, f"Подтверждено переносов: {count}", level=messages.SUCCESS)
+            if errors:
+                for error in errors:
+                    self.message_user(request, error, level=messages.ERROR)
+                    
+        except Exception as e:
+            error_msg = f"Критическая ошибка в approve_transfers: {str(e)}\n{traceback.format_exc()}"
+            logger.error(error_msg)
+            log_error(
+                "Критическая ошибка в approve_transfers",
+                exception=e,
+                user=request.user,
+                context={},
+                request=request
+            )
+            self.message_user(request, f"Произошла ошибка при подтверждении переносов: {str(e)}", level=messages.ERROR)
     
     @admin.action(description="Отклонить выбранные переносы")
     def reject_transfers(self, request, queryset):

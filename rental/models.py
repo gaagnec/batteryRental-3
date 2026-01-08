@@ -439,70 +439,66 @@ class BatteryTransfer(TimeStampedModel):
     
     def approve(self, approved_by_user):
         """Подтверждает перенос и меняет city батареи"""
-        import json
+        import logging
         import traceback
         
-        # #region agent log
+        logger = logging.getLogger('rental')
+        
         try:
-            with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
-                f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"D","location":"rental/models.py:440","message":"BatteryTransfer.approve() called","data":{"transfer_id":self.id,"battery_code":self.battery.short_code if self.battery else None,"battery_city_id":self.battery.city.id if self.battery and self.battery.city else None,"from_city_id":self.from_city.id if self.from_city else None,"to_city_id":self.to_city.id if self.to_city else None,"status":self.status},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
-        except:
-            pass
-        # #endregion
-        
-        if self.status != self.Status.PENDING:
-            raise ValidationError("Можно подтвердить только запросы в статусе PENDING")
-        
-        # Проверка: from_city должен совпадать с текущим city батареи
-        if self.battery.city and self.from_city and self.battery.city.id != self.from_city.id:
-            # #region agent log
-            try:
-                with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
-                    f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"E","location":"rental/models.py:454","message":"City mismatch detected","data":{"transfer_id":self.id,"battery_code":self.battery.short_code,"battery_city_id":self.battery.city.id,"from_city_id":self.from_city.id},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
-            except:
-                pass
-            # #endregion
-            raise ValidationError(
-                f"Город отправления ({self.from_city.name}) не совпадает с текущим городом батареи "
-                f"({self.battery.city.name}). Батарея могла быть перенесена другим запросом."
-            )
-        
-        # Проверка активной аренды перед подтверждением
-        from django.db.models import Q
-        now = timezone.now()
-        active_assignments = RentalBatteryAssignment.objects.filter(
-            battery=self.battery,
-            start_at__lte=now
-        ).filter(
-            Q(end_at__isnull=True) | Q(end_at__gt=now)
-        ).filter(
-            rental__status=Rental.Status.ACTIVE
-        ).exists()
-        
-        # #region agent log
-        try:
-            with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
-                f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"F","location":"rental/models.py:471","message":"Active assignments check","data":{"transfer_id":self.id,"battery_code":self.battery.short_code,"has_active_assignments":active_assignments},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
-        except:
-            pass
-        # #endregion
-        
-        if active_assignments:
-            raise ValidationError(f"Батарея {self.battery.short_code} находится в активной аренде. Перенос невозможен.")
-        
-        self.status = self.Status.APPROVED
-        self.approved_by = approved_by_user
-        self.battery.city = self.to_city
-        self.battery.save()
-        self.save()
-        
-        # #region agent log
-        try:
-            with open('d:\\cursor\\batttery3\\batteryRental-3\\.cursor\\debug.log', 'a', encoding='utf-8') as f:
-                f.write(json.dumps({"sessionId":"debug-session","runId":"initial","hypothesisId":"A","location":"rental/models.py:482","message":"Transfer approved and saved","data":{"transfer_id":self.id,"battery_code":self.battery.short_code,"new_city_id":self.battery.city.id if self.battery.city else None},"timestamp":int(timezone.now().timestamp()*1000)})+"\n")
-        except:
-            pass
-        # #endregion
+            logger.debug(f"BatteryTransfer.approve() вызван для transfer_id={self.id}, battery={self.battery.short_code if self.battery else None}, from_city={self.from_city.name if self.from_city else None}, to_city={self.to_city.name if self.to_city else None}")
+            
+            if self.status != self.Status.PENDING:
+                raise ValidationError("Можно подтвердить только запросы в статусе PENDING")
+            
+            # Проверяем наличие необходимых объектов
+            if not self.battery:
+                raise ValueError(f"У переноса {self.id} отсутствует батарея")
+            if not self.from_city:
+                raise ValueError(f"У переноса {self.id} отсутствует город отправления")
+            if not self.to_city:
+                raise ValueError(f"У переноса {self.id} отсутствует город назначения")
+            
+            # Проверка: from_city должен совпадать с текущим city батареи
+            if self.battery.city and self.from_city and self.battery.city.id != self.from_city.id:
+                logger.warning(f"Несоответствие городов для переноса {self.id}: батарея в городе {self.battery.city.name}, запрос из {self.from_city.name}")
+                raise ValidationError(
+                    f"Город отправления ({self.from_city.name}) не совпадает с текущим городом батареи "
+                    f"({self.battery.city.name}). Батарея могла быть перенесена другим запросом."
+                )
+            
+            # Проверка активной аренды перед подтверждением
+            from django.db.models import Q
+            now = timezone.now()
+            active_assignments = RentalBatteryAssignment.objects.filter(
+                battery=self.battery,
+                start_at__lte=now
+            ).filter(
+                Q(end_at__isnull=True) | Q(end_at__gt=now)
+            ).filter(
+                rental__status=Rental.Status.ACTIVE
+            ).exists()
+            
+            logger.debug(f"Проверка активной аренды для батареи {self.battery.short_code}: {active_assignments}")
+            
+            if active_assignments:
+                raise ValidationError(f"Батарея {self.battery.short_code} находится в активной аренде. Перенос невозможен.")
+            
+            # Выполняем перенос
+            self.status = self.Status.APPROVED
+            self.approved_by = approved_by_user
+            old_city = self.battery.city
+            self.battery.city = self.to_city
+            self.battery.save()
+            self.save()
+            
+            logger.info(f"Перенос {self.id} успешно подтверждён: батарея {self.battery.short_code} перенесена из {old_city.name if old_city else 'None'} в {self.to_city.name}")
+            
+        except (ValidationError, ValueError) as e:
+            logger.error(f"Ошибка валидации при подтверждении переноса {self.id}: {str(e)}\n{traceback.format_exc()}")
+            raise
+        except Exception as e:
+            logger.error(f"Неожиданная ошибка при подтверждении переноса {self.id}: {str(e)}\n{traceback.format_exc()}")
+            raise ValidationError(f"Ошибка при подтверждении переноса: {str(e)}")
     
     def reject(self, rejected_by_user, reason=""):
         """Отклоняет запрос на перенос"""
