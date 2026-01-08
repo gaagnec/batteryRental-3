@@ -497,25 +497,28 @@ class BatteryTransfer(TimeStampedModel):
                 self.status = self.Status.APPROVED
                 self.approved_by = approved_by_user
                 
-                # Меняем город батареи
-                self.battery.city = self.to_city
-                logger.debug(f"После присвоения city: battery.city_id={self.battery.city_id}, battery.city={self.battery.city.name if self.battery.city else None}")
+                # Меняем город батареи напрямую через QuerySet.update() для гарантированного обновления в БД
+                battery_id = self.battery.id
+                updated_count = Battery.objects.filter(id=battery_id).update(
+                    city=self.to_city,
+                    updated_by=approved_by_user
+                )
                 
-                # Сохраняем батарею - используем update_fields для явного указания обновляемых полей
-                self.battery.updated_by = approved_by_user
-                self.battery.save(update_fields=['city', 'updated_at', 'updated_by'])
+                logger.info(f"Обновление батареи через QuerySet.update(): updated_count={updated_count}, battery_id={battery_id}, new_city_id={self.to_city.id}")
                 
-                logger.debug(f"Батарея сохранена с update_fields=['city', 'updated_at', 'updated_by']")
+                if updated_count != 1:
+                    logger.error(f"ОШИБКА: Обновлено {updated_count} записей вместо 1 для батареи {battery_id}")
+                    raise ValueError(f"Не удалось обновить город батареи: обновлено {updated_count} записей")
                 
-                # Перезагружаем батарею из БД для проверки
+                # Перезагружаем батарею из БД для проверки и обновления объекта в памяти
                 self.battery.refresh_from_db()
                 actual_city_id = self.battery.city_id
                 actual_city_name = self.battery.city.name if self.battery.city else 'None'
                 
-                logger.info(f"После сохранения и refresh_from_db: battery.city_id={actual_city_id}, battery.city={actual_city_name}")
+                logger.info(f"После update() и refresh_from_db: battery.city_id={actual_city_id}, battery.city={actual_city_name}")
                 
                 if actual_city_id != self.to_city.id:
-                    logger.error(f"ОШИБКА: Город батареи не изменился после save()! Ожидался city_id={self.to_city.id}, но получили {actual_city_id}")
+                    logger.error(f"ОШИБКА: Город батареи не изменился после update()! Ожидался city_id={self.to_city.id}, но получили {actual_city_id}")
                     raise ValueError(f"Не удалось изменить город батареи: ожидался {self.to_city.name}, но остался {actual_city_name}")
                 
                 # Сохраняем перенос
