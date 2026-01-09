@@ -6,6 +6,9 @@ from datetime import timedelta, datetime, time
 from django.db import models
 from django.db.models import Prefetch, Q
 from django.template.response import TemplateResponse
+from django.http import FileResponse, HttpResponse, HttpResponseForbidden
+from django.conf import settings
+import os
 
 from decimal import Decimal
 
@@ -765,3 +768,24 @@ def city_analytics(request):
         'cities': City.objects.filter(active=True),
     }
     return TemplateResponse(request, 'admin/city_analytics.html', context)
+
+
+@staff_member_required
+def download_debug_log(request):
+    """Временный endpoint для скачивания debug лога"""
+    # Определяем путь к лог-файлу относительно BASE_DIR
+    log_path = settings.BASE_DIR / '.cursor' / 'debug.log'
+    
+    if not log_path.exists():
+        return HttpResponse(f"Log file not found. Path: {log_path}", status=404)
+    
+    try:
+        response = FileResponse(
+            open(str(log_path), 'rb'),
+            content_type='application/json',
+            as_attachment=True,
+            filename='debug.log'
+        )
+        return response
+    except Exception as e:
+        return HttpResponse(f"Error reading log: {str(e)}", status=500)

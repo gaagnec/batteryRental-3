@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.views.generic import RedirectView
-from rental.views import dashboard, load_more_investments, city_analytics
+from rental.views import dashboard, load_more_investments, city_analytics, download_debug_log
 
 urlpatterns = [
     # Redirect root to admin
@@ -27,6 +27,7 @@ urlpatterns = [
     path('admin/dashboard/', dashboard, name='admin-dashboard'),
     path('admin/load-investments/', load_more_investments, name='load-investments'),
     path('admin/city-analytics/', city_analytics, name='city-analytics'),
+    path('admin/debug-log/', download_debug_log, name='download-debug-log'),
     path('admin/', admin.site.urls),
 ]
 
