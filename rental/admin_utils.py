@@ -2,7 +2,16 @@
 Утилиты для работы с разграничением доступа по городам в админ-панели.
 """
 from django.contrib import admin
+from django.conf import settings
+from pathlib import Path
 from .models import FinancePartner, City
+
+
+def get_debug_log_path():
+    """Получить путь к debug лог-файлу"""
+    log_dir = settings.BASE_DIR / '.cursor'
+    log_dir.mkdir(exist_ok=True)
+    return log_dir / 'debug.log'
 
 
 def is_moderator(user):
@@ -18,7 +27,7 @@ def is_moderator(user):
     # #region agent log
     import json
     try:
-        with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+        with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
             f.write(json.dumps({
                 "sessionId": "debug-session",
                 "runId": "run1",
@@ -37,7 +46,7 @@ def is_moderator(user):
     if not user or not user.is_authenticated:
         # #region agent log
         try:
-            with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                 f.write(json.dumps({
                     "sessionId": "debug-session",
                     "runId": "run1",
@@ -57,7 +66,7 @@ def is_moderator(user):
     ).exists()
     # #region agent log
     try:
-        with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+        with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
             f.write(json.dumps({
                 "sessionId": "debug-session",
                 "runId": "run1",
@@ -85,7 +94,7 @@ def get_user_city(user):
     # #region agent log
     import json
     try:
-        with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+        with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
             f.write(json.dumps({
                 "sessionId": "debug-session",
                 "runId": "run1",
@@ -103,7 +112,7 @@ def get_user_city(user):
     if not user or not user.is_authenticated:
         # #region agent log
         try:
-            with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                 f.write(json.dumps({
                     "sessionId": "debug-session",
                     "runId": "run1",
@@ -126,7 +135,7 @@ def get_user_city(user):
     result = finance_partner.city if finance_partner else None
     # #region agent log
     try:
-        with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+        with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
             f.write(json.dumps({
                 "sessionId": "debug-session",
                 "runId": "run1",

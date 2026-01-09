@@ -30,7 +30,7 @@ from .models import (
     FinancePartner, OwnerContribution, OwnerWithdrawal, MoneyTransfer, FinanceAdjustment,
     City
 )
-from .admin_utils import CityFilteredAdminMixin, get_user_city, get_user_cities, is_moderator
+from .admin_utils import CityFilteredAdminMixin, get_user_city, get_user_cities, is_moderator, get_debug_log_path
 
 
 class ModeratorRestrictedMixin:
@@ -2278,7 +2278,7 @@ class RentalAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
         # #region agent log
         import json
         try:
-            with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                 f.write(json.dumps({
                     "sessionId": "debug-session",
                     "runId": "run1",
@@ -2302,7 +2302,7 @@ class RentalAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
         user_is_moderator = is_moderator(request.user)
         # #region agent log
         try:
-            with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                 f.write(json.dumps({
                     "sessionId": "debug-session",
                     "runId": "run1",
@@ -2321,7 +2321,7 @@ class RentalAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
             city = get_user_city(request.user)
             # #region agent log
             try:
-                with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                     f.write(json.dumps({
                         "sessionId": "debug-session",
                         "runId": "run1",
@@ -2340,7 +2340,7 @@ class RentalAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                 queryset = queryset.filter(city=city)
                 # #region agent log
                 try:
-                    with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                    with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                         f.write(json.dumps({
                             "sessionId": "debug-session",
                             "runId": "run1",
@@ -2823,7 +2823,7 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
         # #region agent log
         import json
         try:
-            with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                 f.write(json.dumps({
                     "sessionId": "debug-session",
                     "runId": "run1",
@@ -2843,7 +2843,7 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
         user_is_moderator = is_moderator(request.user)
         # #region agent log
         try:
-            with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                 f.write(json.dumps({
                     "sessionId": "debug-session",
                     "runId": "run1",
@@ -2868,7 +2868,7 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                 city = get_user_city(request.user)
                 # #region agent log
                 try:
-                    with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                    with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                         f.write(json.dumps({
                             "sessionId": "debug-session",
                             "runId": "run1",
@@ -2889,7 +2889,7 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                     form.base_fields['rental'].queryset = filtered_qs
                     # #region agent log
                     try:
-                        with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                        with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                             f.write(json.dumps({
                                 "sessionId": "debug-session",
                                 "runId": "run1",
@@ -2911,7 +2911,7 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
         # #region agent log
         import json
         try:
-            with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                 f.write(json.dumps({
                     "sessionId": "debug-session",
                     "runId": "run1",
@@ -2931,7 +2931,7 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
             user_is_moderator = is_moderator(request.user)
             # #region agent log
             try:
-                with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                     f.write(json.dumps({
                         "sessionId": "debug-session",
                         "runId": "run1",
@@ -2950,7 +2950,7 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                 city = get_user_city(request.user)
                 # #region agent log
                 try:
-                    with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                    with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                         f.write(json.dumps({
                             "sessionId": "debug-session",
                             "runId": "run1",
@@ -2970,7 +2970,7 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                     kwargs["queryset"] = filtered_qs
                     # #region agent log
                     try:
-                        with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                        with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                             f.write(json.dumps({
                                 "sessionId": "debug-session",
                                 "runId": "run1",
@@ -2989,7 +2989,7 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
         # #region agent log
         try:
             final_qs = result.queryset if hasattr(result, 'queryset') else None
-            with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                 f.write(json.dumps({
                     "sessionId": "debug-session",
                     "runId": "run1",

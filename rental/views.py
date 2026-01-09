@@ -13,7 +13,7 @@ import os
 from decimal import Decimal
 
 from .models import Client, Rental, Battery, Payment, Repair, RentalBatteryAssignment, FinancePartner, MoneyTransfer, City
-from .admin_utils import get_user_city
+from .admin_utils import get_user_city, get_debug_log_path
 
 
 def calculate_balances_for_rentals(rentals, tz, now_dt):
@@ -773,11 +773,11 @@ def city_analytics(request):
 @staff_member_required
 def download_debug_log(request):
     """Временный endpoint для скачивания debug лога"""
-    # Определяем путь к лог-файлу относительно BASE_DIR
-    log_path = settings.BASE_DIR / '.cursor' / 'debug.log'
+    # Используем функцию для получения пути к лог-файлу
+    log_path = get_debug_log_path()
     
     if not log_path.exists():
-        return HttpResponse(f"Log file not found. Path: {log_path}", status=404)
+        return HttpResponse(f"Log file not found. Path: {log_path}. The file will be created when you access the payment form as a moderator.", status=404)
     
     try:
         response = FileResponse(
