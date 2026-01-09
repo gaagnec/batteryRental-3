@@ -1,5 +1,6 @@
 {% extends "admin/base.html" %}
 {% load static %}
+{% load custom_filters %}
 
 {% block title %}Battery Rental Admin | {{ block.super }}{% endblock %}
 
@@ -65,6 +66,7 @@
 
   <!-- Sidebar -->
   <aside class="phoenix-sidebar" id="phoenixSidebar">
+    {% check_moderator user as user_is_moderator %}
     <ul class="phoenix-sidebar-menu">
       <!-- Главная -->
       <li class="phoenix-sidebar-section">Главная</li>
@@ -74,12 +76,14 @@
           <span>Dashboard</span>
         </a>
       </li>
+      {% if not user_is_moderator %}
       <li class="phoenix-sidebar-item">
         <a href="{% url 'city-analytics' %}" class="phoenix-sidebar-link {% if 'city-analytics' in request.path %}active{% endif %}">
           <i class="bi bi-geo-alt"></i>
           <span>Аналитика по городам</span>
         </a>
       </li>
+      {% endif %}
       
       <!-- Основное -->
       <li class="phoenix-sidebar-section">Основное</li>
@@ -102,7 +106,8 @@
         </a>
       </li>
       
-      <!-- Оборудование -->
+      <!-- Оборудование (скрыто для модераторов) -->
+      {% if not user_is_moderator %}
       <li class="phoenix-sidebar-section">Оборудование</li>
       <li class="phoenix-sidebar-item">
         <a href="{% url 'admin:rental_battery_changelist' %}" class="phoenix-sidebar-link {% if 'battery' in request.resolver_match.url_name %}active{% endif %}">
@@ -128,8 +133,10 @@
           <span>Логи статусов</span>
         </a>
       </li>
+      {% endif %}
       
-      <!-- Финансы -->
+      <!-- Финансы (скрыто для модераторов) -->
+      {% if not user_is_moderator %}
       <li class="phoenix-sidebar-section">Финансы</li>
       <li class="phoenix-sidebar-item">
         <a href="{% url 'admin:rental_financeoverviewproxy2_changelist' %}" class="phoenix-sidebar-link {% if 'financeoverview' in request.resolver_match.url_name %}active{% endif %}">
@@ -161,15 +168,18 @@
           <span>Расходы</span>
         </a>
       </li>
+      {% endif %}
       
       <!-- Система -->
       <li class="phoenix-sidebar-section">Система</li>
+      {% if not user_is_moderator %}
       <li class="phoenix-sidebar-item">
         <a href="{% url 'admin:rental_financepartner_changelist' %}" class="phoenix-sidebar-link {% if 'financepartner' in request.resolver_match.url_name %}active{% endif %}">
           <i class="bi bi-person-badge"></i>
           <span>Партнеры</span>
         </a>
       </li>
+      {% endif %}
       <li class="phoenix-sidebar-item">
         <a href="{% url 'admin:password_change' %}" class="phoenix-sidebar-link">
           <i class="bi bi-key"></i>
