@@ -1,5 +1,6 @@
 {% extends "admin/index.html" %}
 {% load static %}
+{% load custom_filters %}
 
 {% block content %}
 <style>
@@ -121,6 +122,7 @@
   </div>
 
   {% if app_list %}
+    {% check_moderator user as user_is_moderator %}
     {% for app in app_list %}
       {% if app.app_label == "rental" and app.models %}
         <div class="phoenix-sections">
@@ -156,7 +158,7 @@
             </div>
             <ul class="phoenix-section-links">
               {% for model in app.models %}
-                {% if model.object_name|lower == "client" or model.object_name|lower == "rental" or model.object_name|lower == "rentalbatteryassignment" %}
+                {% if model.object_name|lower == "client" or model.object_name|lower == "rental" %}
                   {% if model.perms.view %}
                     <li class="phoenix-section-link">
                       <a href="{{ model.admin_url }}">
@@ -164,8 +166,6 @@
                           <i class="bi bi-person"></i>
                         {% elif model.object_name|lower == "rental" %}
                           <i class="bi bi-file-earmark-text"></i>
-                        {% elif model.object_name|lower == "rentalbatteryassignment" %}
-                          <i class="bi bi-link-45deg"></i>
                         {% endif %}
                         <span>{{ model.name }}</span>
                       </a>
@@ -176,7 +176,8 @@
             </ul>
           </div>
           
-          <!-- Батареи -->
+          <!-- Батареи (скрыто для модераторов) -->
+          {% if not user_is_moderator %}
           <div class="phoenix-section">
             <div class="phoenix-section-header">
               <div class="phoenix-section-icon">
@@ -205,6 +206,7 @@
               {% endfor %}
             </ul>
           </div>
+          {% endif %}
           
           <!-- Финансы -->
           <div class="phoenix-section">
@@ -216,31 +218,47 @@
             </div>
             <ul class="phoenix-section-links">
               {% for model in app.models %}
-                {% if model.object_name|lower == "payment" or model.object_name|lower == "expense" or model.object_name|lower == "expensecategory" or model.object_name|lower == "financeoverviewproxy" or model.object_name|lower == "financeoverviewproxy2" %}
-                  {% if model.perms.view %}
-                    <li class="phoenix-section-link">
-                      <a href="{{ model.admin_url }}">
-                        {% if model.object_name|lower == "payment" %}
+                {% if user_is_moderator %}
+                  {# Для модераторов показываем только Payment #}
+                  {% if model.object_name|lower == "payment" %}
+                    {% if model.perms.view %}
+                      <li class="phoenix-section-link">
+                        <a href="{{ model.admin_url }}">
                           <i class="bi bi-credit-card"></i>
-                        {% elif model.object_name|lower == "expense" %}
-                          <i class="bi bi-cash-stack"></i>
-                        {% elif model.object_name|lower == "expensecategory" %}
-                          <i class="bi bi-folder"></i>
-                        {% elif model.object_name|lower == "financeoverviewproxy" %}
-                          <i class="bi bi-graph-up-arrow"></i>
-                        {% elif model.object_name|lower == "financeoverviewproxy2" %}
-                          <i class="bi bi-journal-text"></i>
-                        {% endif %}
-                        <span>{{ model.name }}</span>
-                      </a>
-                    </li>
+                          <span>{{ model.name }}</span>
+                        </a>
+                      </li>
+                    {% endif %}
+                  {% endif %}
+                {% else %}
+                  {# Для не-модераторов показываем все финансовые модели #}
+                  {% if model.object_name|lower == "payment" or model.object_name|lower == "expense" or model.object_name|lower == "expensecategory" or model.object_name|lower == "financeoverviewproxy" or model.object_name|lower == "financeoverviewproxy2" %}
+                    {% if model.perms.view %}
+                      <li class="phoenix-section-link">
+                        <a href="{{ model.admin_url }}">
+                          {% if model.object_name|lower == "payment" %}
+                            <i class="bi bi-credit-card"></i>
+                          {% elif model.object_name|lower == "expense" %}
+                            <i class="bi bi-cash-stack"></i>
+                          {% elif model.object_name|lower == "expensecategory" %}
+                            <i class="bi bi-folder"></i>
+                          {% elif model.object_name|lower == "financeoverviewproxy" %}
+                            <i class="bi bi-graph-up-arrow"></i>
+                          {% elif model.object_name|lower == "financeoverviewproxy2" %}
+                            <i class="bi bi-journal-text"></i>
+                          {% endif %}
+                          <span>{{ model.name }}</span>
+                        </a>
+                      </li>
+                    {% endif %}
                   {% endif %}
                 {% endif %}
               {% endfor %}
             </ul>
           </div>
           
-          <!-- Финансовые партнёры -->
+          <!-- Финансовые партнёры (скрыто для модераторов) -->
+          {% if not user_is_moderator %}
           <div class="phoenix-section">
             <div class="phoenix-section-header">
               <div class="phoenix-section-icon">
@@ -273,6 +291,7 @@
               {% endfor %}
             </ul>
           </div>
+          {% endif %}
         </div>
       {% endif %}
     {% endfor %}

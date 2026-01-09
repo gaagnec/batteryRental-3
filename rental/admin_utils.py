@@ -5,6 +5,25 @@ from django.contrib import admin
 from .models import FinancePartner, City
 
 
+def is_moderator(user):
+    """
+    Проверить, является ли пользователь модератором.
+    
+    Args:
+        user: Пользователь Django
+        
+    Returns:
+        bool: True если пользователь модератор, False в противном случае
+    """
+    if not user or not user.is_authenticated:
+        return False
+    return FinancePartner.objects.filter(
+        user=user,
+        role=FinancePartner.Role.MODERATOR,
+        active=True
+    ).exists()
+
+
 def get_user_city(user):
     """
     Получить город модератора через FinancePartner.

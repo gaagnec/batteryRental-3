@@ -1,4 +1,5 @@
 from django import template
+from rental.admin_utils import is_moderator
 
 register = template.Library()
 
@@ -39,3 +40,9 @@ def abs_value(value):
         return abs(float(value))
     except (ValueError, TypeError):
         return value
+
+
+@register.simple_tag
+def check_moderator(user):
+    """Check if user is moderator"""
+    return is_moderator(user)

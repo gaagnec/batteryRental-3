@@ -30,11 +30,22 @@ from .models import (
     FinancePartner, OwnerContribution, OwnerWithdrawal, MoneyTransfer, FinanceAdjustment,
     City
 )
-from .admin_utils import CityFilteredAdminMixin, get_user_city, get_user_cities
+from .admin_utils import CityFilteredAdminMixin, get_user_city, get_user_cities, is_moderator
+
+
+class ModeratorRestrictedMixin:
+    """
+    Mixin для скрытия моделей от модераторов.
+    Модераторы имеют доступ только к Dashboard, Payment, Client, Rental.
+    """
+    def has_module_permission(self, request):
+        if is_moderator(request.user):
+            return False
+        return super().has_module_permission(request) if hasattr(super(), 'has_module_permission') else True
 
 
 @admin.register(City)
-class CityAdmin(SimpleHistoryAdmin):
+class CityAdmin(ModeratorRestrictedMixin, SimpleHistoryAdmin):
     list_display = ("id", "name", "code", "active")
     list_filter = ("active",)
     search_fields = ("name", "code")
@@ -42,11 +53,13 @@ class CityAdmin(SimpleHistoryAdmin):
     
     def has_module_permission(self, request):
         # Только администраторы видят раздел городов
+        if is_moderator(request.user):
+            return False
         return request.user.is_superuser
 
 
 @admin.register(FinancePartner)
-class FinancePartnerAdmin(SimpleHistoryAdmin):
+class FinancePartnerAdmin(ModeratorRestrictedMixin, SimpleHistoryAdmin):
     list_display = ("id", "user", "role", "city", "cities_display", "share_percent", "active")
     list_filter = ("role", "active", "city")
     search_fields = ("user__username", "user__first_name", "user__last_name")
@@ -141,7 +154,7 @@ class OwnerContributionAdmin(SimpleHistoryAdmin):
 
 
 @admin.register(OwnerWithdrawal)
-class OwnerWithdrawalAdmin(SimpleHistoryAdmin):
+class OwnerWithdrawalAdmin(ModeratorRestrictedMixin, SimpleHistoryAdmin):
     list_display = ("id", "partner", "amount", "date")
     list_filter = ("date",)
     autocomplete_fields = ("partner",)
@@ -192,7 +205,7 @@ class OwnerWithdrawalAdmin(SimpleHistoryAdmin):
 
 
 @admin.register(MoneyTransfer)
-class MoneyTransferAdmin(SimpleHistoryAdmin):
+class MoneyTransferAdmin(ModeratorRestrictedMixin, SimpleHistoryAdmin):
     list_display = ("id", "from_partner", "to_partner", "amount", "date", "purpose", "use_collected")
     list_filter = ("purpose", "use_collected", "date")
     autocomplete_fields = ("from_partner", "to_partner")
@@ -311,7 +324,7 @@ class MoneyTransferAdmin(SimpleHistoryAdmin):
 
 
 @admin.register(FinanceAdjustment)
-class FinanceAdjustmentAdmin(SimpleHistoryAdmin):
+class FinanceAdjustmentAdmin(ModeratorRestrictedMixin, SimpleHistoryAdmin):
     list_display = ("id", "target", "amount", "date")
     
     def has_module_permission(self, request):
@@ -1036,7 +1049,7 @@ class FinanceOverviewAdmin(admin.ModelAdmin):
 from .models import FinanceOverviewProxy
 try:
     @admin.register(FinanceOverviewProxy)
-    class FinanceOverviewProxyAdmin(FinanceOverviewAdmin):
+    class FinanceOverviewProxyAdmin(ModeratorRestrictedMixin, FinanceOverviewAdmin):
         pass
 except admin.sites.AlreadyRegistered:
     pass
@@ -1617,7 +1630,7 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
 from .models import FinanceOverviewProxy2
 try:
     @admin.register(FinanceOverviewProxy2)
-    class FinanceOverviewProxy2Admin(FinanceOverviewAdmin2):
+    class FinanceOverviewProxy2Admin(ModeratorRestrictedMixin, FinanceOverviewAdmin2):
         pass
 except admin.sites.AlreadyRegistered:
     pass
@@ -1813,7 +1826,7 @@ class BatteryTransferActionForm(ActionForm):
 
 
 @admin.register(Battery)
-class BatteryAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
+class BatteryAdmin(ModeratorRestrictedMixin, CityFilteredAdminMixin, SimpleHistoryAdmin):
     # Убираем тяжёлые колонки roi_progress из списка, возвращаем в detail
     list_display = ("id", "short_code", "status_display", "usage_now", "serial_number", "city", "cost_price", "created_at")
     search_fields = ("short_code", "serial_number")
@@ -3159,7 +3172,7 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
 
 
 @admin.register(ExpenseCategory)
-class ExpenseCategoryAdmin(SimpleHistoryAdmin):
+class ExpenseCategoryAdmin(ModeratorRestrictedMixin, SimpleHistoryAdmin):
     list_display = ("id", "name")
     
     def has_module_permission(self, request):
@@ -3168,7 +3181,7 @@ class ExpenseCategoryAdmin(SimpleHistoryAdmin):
 
 
 @admin.register(Expense)
-class ExpenseAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
+class ExpenseAdmin(ModeratorRestrictedMixin, CityFilteredAdminMixin, SimpleHistoryAdmin):
     city_filter_field = 'paid_by_partner__city'  # Фильтруем через связанное поле
     
     list_display = ("id", "date", "amount", "category", "payment_type", "paid_by_partner")
@@ -3283,7 +3296,7 @@ class ExpenseAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
 
 
 @admin.register(Repair)
-class RepairAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
+class RepairAdmin(ModeratorRestrictedMixin, CityFilteredAdminMixin, SimpleHistoryAdmin):
     city_filter_field = 'battery__city'  # Фильтруем через связанное поле
     
     list_display = ("id", "battery", "start_at", "end_at", "cost")
@@ -3302,7 +3315,7 @@ class RepairAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
 
 
 @admin.register(BatteryStatusLog)
-class BatteryStatusLogAdmin(SimpleHistoryAdmin):
+class BatteryStatusLogAdmin(ModeratorRestrictedMixin, SimpleHistoryAdmin):
     list_display = ("id", "battery", "kind", "start_at", "end_at")
     
     def get_queryset(self, request):
@@ -3317,7 +3330,7 @@ class BatteryStatusLogAdmin(SimpleHistoryAdmin):
 
 
 @admin.register(BatteryTransfer)
-class BatteryTransferAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
+class BatteryTransferAdmin(ModeratorRestrictedMixin, CityFilteredAdminMixin, SimpleHistoryAdmin):
     city_filter_field = 'from_city'  # Модераторы видят только запросы из своего города
     
     list_display = ("id", "battery", "from_city", "to_city", "status_display", "requested_by", "approved_by", "created_at")
