@@ -15,13 +15,61 @@ def is_moderator(user):
     Returns:
         bool: True если пользователь модератор, False в противном случае
     """
+    # #region agent log
+    import json
+    try:
+        with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+            f.write(json.dumps({
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "A",
+                "location": "admin_utils.py:is_moderator:entry",
+                "message": "is_moderator called",
+                "data": {
+                    "user_id": user.id if user else None,
+                    "username": user.username if user else None,
+                    "is_authenticated": user.is_authenticated if user else False
+                },
+                "timestamp": __import__('time').time() * 1000
+            }, ensure_ascii=False) + '\n')
+    except: pass
+    # #endregion
     if not user or not user.is_authenticated:
+        # #region agent log
+        try:
+            with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A",
+                    "location": "admin_utils.py:is_moderator:early_return",
+                    "message": "is_moderator early return False",
+                    "data": {"reason": "user not authenticated or None"},
+                    "timestamp": __import__('time').time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         return False
-    return FinancePartner.objects.filter(
+    result = FinancePartner.objects.filter(
         user=user,
         role=FinancePartner.Role.MODERATOR,
         active=True
     ).exists()
+    # #region agent log
+    try:
+        with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+            f.write(json.dumps({
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "A",
+                "location": "admin_utils.py:is_moderator:exit",
+                "message": "is_moderator result",
+                "data": {"result": result, "user_id": user.id, "username": user.username},
+                "timestamp": __import__('time').time() * 1000
+            }, ensure_ascii=False) + '\n')
+    except: pass
+    # #endregion
+    return result
 
 
 def get_user_city(user):
@@ -34,7 +82,39 @@ def get_user_city(user):
     Returns:
         City или None, если пользователь не модератор или у него нет города
     """
+    # #region agent log
+    import json
+    try:
+        with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+            f.write(json.dumps({
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "B",
+                "location": "admin_utils.py:get_user_city:entry",
+                "message": "get_user_city called",
+                "data": {
+                    "user_id": user.id if user else None,
+                    "username": user.username if user else None
+                },
+                "timestamp": __import__('time').time() * 1000
+            }, ensure_ascii=False) + '\n')
+    except: pass
+    # #endregion
     if not user or not user.is_authenticated:
+        # #region agent log
+        try:
+            with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "B",
+                    "location": "admin_utils.py:get_user_city:early_return",
+                    "message": "get_user_city early return None",
+                    "data": {"reason": "user not authenticated or None"},
+                    "timestamp": __import__('time').time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         return None
     
     finance_partner = FinancePartner.objects.filter(
@@ -43,7 +123,26 @@ def get_user_city(user):
         active=True
     ).select_related('city').first()
     
-    return finance_partner.city if finance_partner else None
+    result = finance_partner.city if finance_partner else None
+    # #region agent log
+    try:
+        with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+            f.write(json.dumps({
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "B",
+                "location": "admin_utils.py:get_user_city:exit",
+                "message": "get_user_city result",
+                "data": {
+                    "city_id": result.id if result else None,
+                    "city_name": result.name if result else None,
+                    "has_finance_partner": finance_partner is not None
+                },
+                "timestamp": __import__('time').time() * 1000
+            }, ensure_ascii=False) + '\n')
+    except: pass
+    # #endregion
+    return result
 
 
 def get_user_cities(user):

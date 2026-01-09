@@ -2275,13 +2275,85 @@ class RentalAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
     
     def get_search_results(self, request, queryset, search_term):
         """Фильтрация результатов autocomplete для модераторов"""
+        # #region agent log
+        import json
+        try:
+            with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "F",
+                    "location": "admin.py:RentalAdmin.get_search_results:entry",
+                    "message": "RentalAdmin.get_search_results called",
+                    "data": {
+                        "user_id": request.user.id if request.user else None,
+                        "username": request.user.username if request.user else None,
+                        "search_term": search_term,
+                        "queryset_count_before": queryset.count() if queryset else None,
+                        "model_name": queryset.model.__name__ if queryset else None
+                    },
+                    "timestamp": __import__('time').time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         queryset, use_distinct = super().get_search_results(request, queryset, search_term)
         
         # Если пользователь модератор, фильтруем по городу
-        if is_moderator(request.user):
+        user_is_moderator = is_moderator(request.user)
+        # #region agent log
+        try:
+            with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A,F",
+                    "location": "admin.py:RentalAdmin.get_search_results:after_super",
+                    "message": "After super().get_search_results",
+                    "data": {
+                        "user_is_moderator": user_is_moderator,
+                        "queryset_count_after_super": queryset.count() if queryset else None
+                    },
+                    "timestamp": __import__('time').time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        if user_is_moderator:
             city = get_user_city(request.user)
+            # #region agent log
+            try:
+                with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({
+                        "sessionId": "debug-session",
+                        "runId": "run1",
+                        "hypothesisId": "B,F",
+                        "location": "admin.py:RentalAdmin.get_search_results:before_filter",
+                        "message": "Before filtering by city",
+                        "data": {
+                            "city_id": city.id if city else None,
+                            "city_name": city.name if city else None
+                        },
+                        "timestamp": __import__('time').time() * 1000
+                    }, ensure_ascii=False) + '\n')
+            except: pass
+            # #endregion
             if city:
                 queryset = queryset.filter(city=city)
+                # #region agent log
+                try:
+                    with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                        f.write(json.dumps({
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "F",
+                            "location": "admin.py:RentalAdmin.get_search_results:after_filter",
+                            "message": "After filtering by city",
+                            "data": {
+                                "queryset_count_after_filter": queryset.count() if queryset else None
+                            },
+                            "timestamp": __import__('time').time() * 1000
+                        }, ensure_ascii=False) + '\n')
+                except: pass
+                # #endregion
         
         return queryset, use_distinct
 
@@ -2748,25 +2820,191 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
     
     def get_form(self, request, obj=None, **kwargs):
         """Делаем поле city readonly для модераторов и фильтруем договоры"""
+        # #region agent log
+        import json
+        try:
+            with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "C",
+                    "location": "admin.py:PaymentAdmin.get_form:entry",
+                    "message": "get_form called",
+                    "data": {
+                        "user_id": request.user.id if request.user else None,
+                        "username": request.user.username if request.user else None,
+                        "obj_id": obj.id if obj else None
+                    },
+                    "timestamp": __import__('time').time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         form = super().get_form(request, obj, **kwargs)
-        if is_moderator(request.user):
+        user_is_moderator = is_moderator(request.user)
+        # #region agent log
+        try:
+            with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A,C",
+                    "location": "admin.py:PaymentAdmin.get_form:after_is_moderator",
+                    "message": "is_moderator check result",
+                    "data": {
+                        "user_is_moderator": user_is_moderator,
+                        "has_rental_field": 'rental' in form.base_fields,
+                        "has_city_field": 'city' in form.base_fields
+                    },
+                    "timestamp": __import__('time').time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        if user_is_moderator:
             if 'city' in form.base_fields:
                 form.base_fields['city'].disabled = True
                 form.base_fields['city'].help_text = "Город автоматически устанавливается из города договора или модератора"
             if 'rental' in form.base_fields:
                 # Фильтруем договоры по городу модератора
                 city = get_user_city(request.user)
+                # #region agent log
+                try:
+                    with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                        f.write(json.dumps({
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "B,C",
+                            "location": "admin.py:PaymentAdmin.get_form:before_queryset",
+                            "message": "Before setting rental queryset",
+                            "data": {
+                                "city_id": city.id if city else None,
+                                "city_name": city.name if city else None,
+                                "original_queryset_count": form.base_fields['rental'].queryset.count() if hasattr(form.base_fields['rental'], 'queryset') else None
+                            },
+                            "timestamp": __import__('time').time() * 1000
+                        }, ensure_ascii=False) + '\n')
+                except: pass
+                # #endregion
                 if city:
-                    form.base_fields['rental'].queryset = Rental.objects.filter(city=city).select_related('client', 'root')
+                    filtered_qs = Rental.objects.filter(city=city).select_related('client', 'root')
+                    form.base_fields['rental'].queryset = filtered_qs
+                    # #region agent log
+                    try:
+                        with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                            f.write(json.dumps({
+                                "sessionId": "debug-session",
+                                "runId": "run1",
+                                "hypothesisId": "C,E",
+                                "location": "admin.py:PaymentAdmin.get_form:after_queryset",
+                                "message": "After setting rental queryset",
+                                "data": {
+                                    "filtered_queryset_count": filtered_qs.count(),
+                                    "queryset_set": True
+                                },
+                                "timestamp": __import__('time').time() * 1000
+                            }, ensure_ascii=False) + '\n')
+                    except: pass
+                    # #endregion
         return form
     
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         """Фильтрация договоров по городу для модераторов"""
-        if db_field.name == "rental" and is_moderator(request.user):
-            city = get_user_city(request.user)
-            if city:
-                kwargs["queryset"] = Rental.objects.filter(city=city).select_related('client', 'root')
-        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+        # #region agent log
+        import json
+        try:
+            with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "D",
+                    "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:entry",
+                    "message": "formfield_for_foreignkey called",
+                    "data": {
+                        "db_field_name": db_field.name,
+                        "user_id": request.user.id if request.user else None,
+                        "username": request.user.username if request.user else None
+                    },
+                    "timestamp": __import__('time').time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        if db_field.name == "rental":
+            user_is_moderator = is_moderator(request.user)
+            # #region agent log
+            try:
+                with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({
+                        "sessionId": "debug-session",
+                        "runId": "run1",
+                        "hypothesisId": "A,D",
+                        "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:rental_check",
+                        "message": "rental field check",
+                        "data": {
+                            "user_is_moderator": user_is_moderator,
+                            "has_queryset_in_kwargs": "queryset" in kwargs
+                        },
+                        "timestamp": __import__('time').time() * 1000
+                    }, ensure_ascii=False) + '\n')
+            except: pass
+            # #endregion
+            if user_is_moderator:
+                city = get_user_city(request.user)
+                # #region agent log
+                try:
+                    with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                        f.write(json.dumps({
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "B,D",
+                            "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:before_filter",
+                            "message": "Before filtering queryset",
+                            "data": {
+                                "city_id": city.id if city else None,
+                                "city_name": city.name if city else None
+                            },
+                            "timestamp": __import__('time').time() * 1000
+                        }, ensure_ascii=False) + '\n')
+                except: pass
+                # #endregion
+                if city:
+                    filtered_qs = Rental.objects.filter(city=city).select_related('client', 'root')
+                    kwargs["queryset"] = filtered_qs
+                    # #region agent log
+                    try:
+                        with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                            f.write(json.dumps({
+                                "sessionId": "debug-session",
+                                "runId": "run1",
+                                "hypothesisId": "D,E",
+                                "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:after_filter",
+                                "message": "After filtering queryset",
+                                "data": {
+                                    "filtered_queryset_count": filtered_qs.count(),
+                                    "queryset_set": True
+                                },
+                                "timestamp": __import__('time').time() * 1000
+                            }, ensure_ascii=False) + '\n')
+                    except: pass
+                    # #endregion
+        result = super().formfield_for_foreignkey(db_field, request, **kwargs)
+        # #region agent log
+        try:
+            final_qs = result.queryset if hasattr(result, 'queryset') else None
+            with open(r'd:\cursor\batttery3\batteryRental-3\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "D,E",
+                    "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:exit",
+                    "message": "formfield_for_foreignkey result",
+                    "data": {
+                        "final_queryset_count": final_qs.count() if final_qs else None,
+                        "field_type": type(result).__name__
+                    },
+                    "timestamp": __import__('time').time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        return result
     
     def get_search_results(self, request, queryset, search_term):
         """Фильтрация результатов autocomplete для модераторов"""
