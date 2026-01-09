@@ -3006,6 +3006,142 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
         # #endregion
         return result
     
+    def get_field_queryset(self, db, db_field, request):
+        """Фильтрация queryset для ForeignKey полей для модераторов"""
+        # #region agent log
+        import json
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "G",
+                    "location": "admin.py:PaymentAdmin.get_field_queryset:entry",
+                    "message": "get_field_queryset called",
+                    "data": {
+                        "db_field_name": db_field.name if db_field else None,
+                        "db_field_model": db_field.related_model.__name__ if db_field and hasattr(db_field, 'related_model') else None,
+                        "user_id": request.user.id if request.user else None,
+                        "username": request.user.username if request.user else None
+                    },
+                    "timestamp": __import__('time').time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        
+        queryset = super().get_field_queryset(db, db_field, request)
+        
+        # Фильтруем поле rental для модераторов
+        if db_field and db_field.name == "rental" and is_moderator(request.user):
+            city = get_user_city(request.user)
+            # #region agent log
+            try:
+                with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({
+                        "sessionId": "debug-session",
+                        "runId": "run1",
+                        "hypothesisId": "B,G",
+                        "location": "admin.py:PaymentAdmin.get_field_queryset:before_filter",
+                        "message": "Before filtering rental queryset",
+                        "data": {
+                            "city_id": city.id if city else None,
+                            "city_name": city.name if city else None,
+                            "original_queryset_count": queryset.count() if queryset else None
+                        },
+                        "timestamp": __import__('time').time() * 1000
+                    }, ensure_ascii=False) + '\n')
+            except: pass
+            # #endregion
+            if city:
+                filtered_qs = queryset.filter(city=city).select_related('client', 'root')
+                # #region agent log
+                try:
+                    with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                        f.write(json.dumps({
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "G",
+                            "location": "admin.py:PaymentAdmin.get_field_queryset:after_filter",
+                            "message": "After filtering rental queryset",
+                            "data": {
+                                "filtered_queryset_count": filtered_qs.count()
+                            },
+                            "timestamp": __import__('time').time() * 1000
+                        }, ensure_ascii=False) + '\n')
+                except: pass
+                # #endregion
+                return filtered_qs
+        
+        return queryset
+    
+    def get_field_queryset(self, db, db_field, request):
+        """Фильтрация queryset для ForeignKey полей для модераторов (Django 5.0+)"""
+        # #region agent log
+        import json
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "G",
+                    "location": "admin.py:PaymentAdmin.get_field_queryset:entry",
+                    "message": "get_field_queryset called",
+                    "data": {
+                        "db_field_name": db_field.name if db_field else None,
+                        "db_field_model": db_field.related_model.__name__ if db_field and hasattr(db_field, 'related_model') else None,
+                        "user_id": request.user.id if request.user else None,
+                        "username": request.user.username if request.user else None
+                    },
+                    "timestamp": __import__('time').time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        
+        queryset = super().get_field_queryset(db, db_field, request)
+        
+        # Фильтруем поле rental для модераторов
+        if db_field and db_field.name == "rental" and is_moderator(request.user):
+            city = get_user_city(request.user)
+            # #region agent log
+            try:
+                with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({
+                        "sessionId": "debug-session",
+                        "runId": "run1",
+                        "hypothesisId": "B,G",
+                        "location": "admin.py:PaymentAdmin.get_field_queryset:before_filter",
+                        "message": "Before filtering rental queryset",
+                        "data": {
+                            "city_id": city.id if city else None,
+                            "city_name": city.name if city else None,
+                            "original_queryset_count": queryset.count() if queryset else None
+                        },
+                        "timestamp": __import__('time').time() * 1000
+                    }, ensure_ascii=False) + '\n')
+            except: pass
+            # #endregion
+            if city:
+                filtered_qs = queryset.filter(city=city).select_related('client', 'root')
+                # #region agent log
+                try:
+                    with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                        f.write(json.dumps({
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "G",
+                            "location": "admin.py:PaymentAdmin.get_field_queryset:after_filter",
+                            "message": "After filtering rental queryset",
+                            "data": {
+                                "filtered_queryset_count": filtered_qs.count()
+                            },
+                            "timestamp": __import__('time').time() * 1000
+                        }, ensure_ascii=False) + '\n')
+                except: pass
+                # #endregion
+                return filtered_qs
+        
+        return queryset
+    
     def get_search_results(self, request, queryset, search_term):
         """Фильтрация результатов autocomplete для модераторов"""
         queryset, use_distinct = super().get_search_results(request, queryset, search_term)
@@ -3019,6 +3155,111 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                     queryset = queryset.filter(city=city)
         
         return queryset, use_distinct
+    
+    def add_view(self, request, form_url='', extra_context=None):
+        """Переопределяем add_view для фильтрации поля rental"""
+        # #region agent log
+        import json
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "C",
+                    "location": "admin.py:PaymentAdmin.add_view:entry",
+                    "message": "add_view called",
+                    "data": {
+                        "user_id": request.user.id if request.user else None,
+                        "username": request.user.username if request.user else None
+                    },
+                    "timestamp": __import__('time').time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        
+        # Вызываем родительский метод для получения формы
+        response = super().add_view(request, form_url, extra_context)
+        
+        # Если это TemplateResponse, можем получить форму из контекста
+        if hasattr(response, 'context_data'):
+            form = response.context_data.get('adminform') or response.context_data.get('form')
+            if form and hasattr(form, 'fields') and 'rental' in form.fields:
+                if is_moderator(request.user):
+                    city = get_user_city(request.user)
+                    # #region agent log
+                    try:
+                        with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                            f.write(json.dumps({
+                                "sessionId": "debug-session",
+                                "runId": "run1",
+                                "hypothesisId": "B,C",
+                                "location": "admin.py:PaymentAdmin.add_view:filtering_form",
+                                "message": "Filtering rental field in form",
+                                "data": {
+                                    "city_id": city.id if city else None,
+                                    "city_name": city.name if city else None,
+                                    "original_queryset_count": form.fields['rental'].queryset.count() if hasattr(form.fields['rental'], 'queryset') else None
+                                },
+                                "timestamp": __import__('time').time() * 1000
+                            }, ensure_ascii=False) + '\n')
+                    except: pass
+                    # #endregion
+                    if city:
+                        form.fields['rental'].queryset = Rental.objects.filter(city=city).select_related('client', 'root')
+                        # #region agent log
+                        try:
+                            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                                f.write(json.dumps({
+                                    "sessionId": "debug-session",
+                                    "runId": "run1",
+                                    "hypothesisId": "C,E",
+                                    "location": "admin.py:PaymentAdmin.add_view:after_filter",
+                                    "message": "After filtering rental queryset in form",
+                                    "data": {
+                                        "filtered_queryset_count": form.fields['rental'].queryset.count()
+                                    },
+                                    "timestamp": __import__('time').time() * 1000
+                                }, ensure_ascii=False) + '\n')
+                        except: pass
+                        # #endregion
+        
+        return response
+    
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        """Переопределяем change_view для фильтрации поля rental"""
+        # #region agent log
+        import json
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "C",
+                    "location": "admin.py:PaymentAdmin.change_view:entry",
+                    "message": "change_view called",
+                    "data": {
+                        "user_id": request.user.id if request.user else None,
+                        "username": request.user.username if request.user else None,
+                        "object_id": object_id
+                    },
+                    "timestamp": __import__('time').time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        
+        # Вызываем родительский метод для получения формы
+        response = super().change_view(request, object_id, form_url, extra_context)
+        
+        # Если это TemplateResponse, можем получить форму из контекста
+        if hasattr(response, 'context_data'):
+            form = response.context_data.get('adminform') or response.context_data.get('form')
+            if form and hasattr(form, 'fields') and 'rental' in form.fields:
+                if is_moderator(request.user):
+                    city = get_user_city(request.user)
+                    if city:
+                        form.fields['rental'].queryset = Rental.objects.filter(city=city).select_related('client', 'root')
+        
+        return response
     
     def save_model(self, request, obj, form, change):
         """Автоматически устанавливаем city для модераторов с обработкой ошибок"""
@@ -3235,22 +3476,68 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
         if db_field.name == "rental":
             from .models import Rental
             
-            # Проверяем параметр show_all_rentals в GET или POST
-            show_all = request.GET.get('show_all_rentals') == '1' or request.POST.get('show_all_rentals') == '1'
-            
-            if show_all:
-                # Показываем все договора, отсортированные от большего к меньшему
-                kwargs["queryset"] = Rental.objects.select_related('client').order_by('-id')
+            # Если пользователь модератор, фильтруем по городу
+            if is_moderator(request.user):
+                city = get_user_city(request.user)
+                # #region agent log
+                try:
+                    with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                        f.write(json.dumps({
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "D,FIX",
+                            "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:FIX:entry",
+                            "message": "formfield_for_foreignkey FIX called for moderator",
+                            "data": {
+                                "city_id": city.id if city else None,
+                                "city_name": city.name if city else None,
+                                "user_id": request.user.id if request.user else None,
+                                "username": request.user.username if request.user else None
+                            },
+                            "timestamp": __import__('time').time() * 1000
+                        }, ensure_ascii=False) + '\n')
+                except: pass
+                # #endregion
+                if city:
+                    # Для модераторов всегда показываем только договора их города
+                    kwargs["queryset"] = Rental.objects.filter(city=city).select_related('client', 'root').order_by('-id')
+                    # #region agent log
+                    try:
+                        with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                            f.write(json.dumps({
+                                "sessionId": "debug-session",
+                                "runId": "run1",
+                                "hypothesisId": "D,FIX",
+                                "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:FIX:after_filter",
+                                "message": "After filtering for moderator",
+                                "data": {
+                                    "queryset_count": kwargs["queryset"].count() if "queryset" in kwargs else None
+                                },
+                                "timestamp": __import__('time').time() * 1000
+                            }, ensure_ascii=False) + '\n')
+                    except: pass
+                    # #endregion
+                else:
+                    # Если у модератора нет города, показываем пустой queryset
+                    kwargs["queryset"] = Rental.objects.none()
             else:
-                # По умолчанию показываем только активные договора последней версии
-                # Последняя версия = договор не имеет детей (children)
-                from django.db.models import Count, Q
-                queryset = Rental.objects.select_related('client').annotate(
-                    children_count=Count('children')
-                ).filter(
-                    Q(status=Rental.Status.ACTIVE) & Q(children_count=0)
-                ).order_by('-id')
-                kwargs["queryset"] = queryset
+                # Для не-модераторов используем существующую логику
+                # Проверяем параметр show_all_rentals в GET или POST
+                show_all = request.GET.get('show_all_rentals') == '1' or request.POST.get('show_all_rentals') == '1'
+                
+                if show_all:
+                    # Показываем все договора, отсортированные от большего к меньшему
+                    kwargs["queryset"] = Rental.objects.select_related('client').order_by('-id')
+                else:
+                    # По умолчанию показываем только активные договора последней версии
+                    # Последняя версия = договор не имеет детей (children)
+                    from django.db.models import Count, Q
+                    queryset = Rental.objects.select_related('client').annotate(
+                        children_count=Count('children')
+                    ).filter(
+                        Q(status=Rental.Status.ACTIVE) & Q(children_count=0)
+                    ).order_by('-id')
+                    kwargs["queryset"] = queryset
         
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
     
