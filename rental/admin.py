@@ -2272,6 +2272,18 @@ class RentalAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
             else:
                 obj.row_class = ''
         return qs
+    
+    def get_search_results(self, request, queryset, search_term):
+        """Фильтрация результатов autocomplete для модераторов"""
+        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
+        
+        # Если пользователь модератор, фильтруем по городу
+        if is_moderator(request.user):
+            city = get_user_city(request.user)
+            if city:
+                queryset = queryset.filter(city=city)
+        
+        return queryset, use_distinct
 
     class Media:
         css = {
@@ -2737,7 +2749,7 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
     def get_form(self, request, obj=None, **kwargs):
         """Делаем поле city readonly для модераторов и фильтруем договоры"""
         form = super().get_form(request, obj, **kwargs)
-        if not request.user.is_superuser:
+        if is_moderator(request.user):
             if 'city' in form.base_fields:
                 form.base_fields['city'].disabled = True
                 form.base_fields['city'].help_text = "Город автоматически устанавливается из города договора или модератора"
@@ -2745,16 +2757,30 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                 # Фильтруем договоры по городу модератора
                 city = get_user_city(request.user)
                 if city:
-                    form.base_fields['rental'].queryset = Rental.objects.filter(city=city)
+                    form.base_fields['rental'].queryset = Rental.objects.filter(city=city).select_related('client', 'root')
         return form
     
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         """Фильтрация договоров по городу для модераторов"""
-        if db_field.name == "rental" and not request.user.is_superuser:
+        if db_field.name == "rental" and is_moderator(request.user):
             city = get_user_city(request.user)
             if city:
-                kwargs["queryset"] = Rental.objects.filter(city=city)
+                kwargs["queryset"] = Rental.objects.filter(city=city).select_related('client', 'root')
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
+    
+    def get_search_results(self, request, queryset, search_term):
+        """Фильтрация результатов autocomplete для модераторов"""
+        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
+        
+        # Если это autocomplete запрос для поля rental и пользователь модератор
+        if is_moderator(request.user):
+            city = get_user_city(request.user)
+            if city:
+                # Фильтруем queryset по городу, если это Rental queryset
+                if hasattr(queryset.model, 'city'):
+                    queryset = queryset.filter(city=city)
+        
+        return queryset, use_distinct
     
     def save_model(self, request, obj, form, change):
         """Автоматически устанавливаем city для модераторов с обработкой ошибок"""
