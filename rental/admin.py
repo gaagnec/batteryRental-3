@@ -1762,6 +1762,26 @@ class ClientAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
     balance_badge.short_description = "Баланс"
 
     def changelist_view(self, request, extra_context=None):
+        # #region agent log
+        import json
+        import time as time_module
+        start_time = time_module.time()
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A,E",
+                    "location": "admin.py:ClientAdmin.changelist_view:entry",
+                    "message": "ClientAdmin.changelist_view started",
+                    "data": {
+                        "user_id": request.user.id if request.user else None,
+                        "is_htmx": getattr(request, "htmx", False)
+                    },
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         self.list_filter = (ActiveRentalFilter,)
         if getattr(request, "htmx", False):
             # Для HTMX отдаём только таблицу результатов
@@ -1772,12 +1792,60 @@ class ClientAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                 response.template_name = 'admin/change_list_results.html'
             except Exception:
                 pass
+            # #region agent log
+            try:
+                elapsed = (time_module.time() - start_time) * 1000
+                with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({
+                        "sessionId": "debug-session",
+                        "runId": "run1",
+                        "hypothesisId": "E",
+                        "location": "admin.py:ClientAdmin.changelist_view:htmx_exit",
+                        "message": "ClientAdmin.changelist_view HTMX completed",
+                        "data": {"elapsed_ms": elapsed},
+                        "timestamp": time_module.time() * 1000
+                    }, ensure_ascii=False) + '\n')
+            except: pass
+            # #endregion
             return response
         # Не-HTMX: обычная страница
         self.list_display = ("id", "name", "phone", "pesel", "created_at", "has_active")
-        return super().changelist_view(request, extra_context)
+        response = super().changelist_view(request, extra_context)
+        # #region agent log
+        try:
+            elapsed = (time_module.time() - start_time) * 1000
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "E",
+                    "location": "admin.py:ClientAdmin.changelist_view:exit",
+                    "message": "ClientAdmin.changelist_view completed",
+                    "data": {"elapsed_ms": elapsed},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        return response
 
     def get_queryset(self, request):
+        # #region agent log
+        import json
+        import time as time_module
+        start_time = time_module.time()
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A,F",
+                    "location": "admin.py:ClientAdmin.get_queryset:entry",
+                    "message": "ClientAdmin.get_queryset started",
+                    "data": {},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         qs = super().get_queryset(request)
         qs = qs.select_related('city')
         from django.db.models import Exists, OuterRef, Q
@@ -1786,6 +1854,22 @@ class ClientAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
             status=Rental.Status.ACTIVE
         ).filter(Q(end_at__isnull=True) | Q(end_at__gt=now))
         qs = qs.annotate(has_active=Exists(active_qs))
+        # #region agent log
+        try:
+            count = qs.count()
+            elapsed = (time_module.time() - start_time) * 1000
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "F",
+                    "location": "admin.py:ClientAdmin.get_queryset:exit",
+                    "message": "ClientAdmin.get_queryset completed",
+                    "data": {"count": count, "elapsed_ms": elapsed},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         return qs
     
     def get_form(self, request, obj=None, **kwargs):
@@ -2239,12 +2323,45 @@ class RentalAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
     autocomplete_fields = ('client', 'city')
 
     def changelist_view(self, request, extra_context=None):
+        # #region agent log
+        import json
+        import time as time_module
+        start_time = time_module.time()
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A,E",
+                    "location": "admin.py:RentalAdmin.changelist_view:entry",
+                    "message": "RentalAdmin.changelist_view started",
+                    "data": {},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         if extra_context is None:
             extra_context = {}
         from .models import Client
         # Используем только необходимые поля, чтобы не тянуть всё
         extra_context['clients'] = Client.objects.only('id', 'name').order_by('name')
-        return super().changelist_view(request, extra_context=extra_context)
+        response = super().changelist_view(request, extra_context=extra_context)
+        # #region agent log
+        try:
+            elapsed = (time_module.time() - start_time) * 1000
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "E",
+                    "location": "admin.py:RentalAdmin.changelist_view:exit",
+                    "message": "RentalAdmin.changelist_view completed",
+                    "data": {"elapsed_ms": elapsed},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        return response
 
     def get_changelist(self, request, **kwargs):
         from django.contrib.admin.views.main import ChangeList
@@ -2260,6 +2377,23 @@ class RentalAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
         return CustomChangeList
 
     def get_queryset(self, request):
+        # #region agent log
+        import json
+        import time as time_module
+        start_time = time_module.time()
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A,F",
+                    "location": "admin.py:RentalAdmin.get_queryset:entry",
+                    "message": "RentalAdmin.get_queryset started",
+                    "data": {},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         qs = super().get_queryset(request)
         # Предзагрузить связанные объекты, чтобы избежать N+1
         from django.db.models import Count
@@ -2271,6 +2405,22 @@ class RentalAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                 obj.row_class = 'opacity-80'
             else:
                 obj.row_class = ''
+        # #region agent log
+        try:
+            count = qs.count()
+            elapsed = (time_module.time() - start_time) * 1000
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "F",
+                    "location": "admin.py:RentalAdmin.get_queryset:exit",
+                    "message": "RentalAdmin.get_queryset completed",
+                    "data": {"count": count, "elapsed_ms": elapsed},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         return qs
     
     def get_search_results(self, request, queryset, search_term):
@@ -2389,14 +2539,62 @@ class RentalAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
         return count
 
     def assigned_batteries_short(self, obj):
+        # #region agent log
+        import json
+        import time as time_module
+        start_time = time_module.time()
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "B",
+                    "location": "admin.py:RentalAdmin.assigned_batteries_short:entry",
+                    "message": "assigned_batteries_short called",
+                    "data": {"rental_id": obj.id if obj else None},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         tz = timezone.get_current_timezone()
         now = timezone.now()
         codes = []
+        # #region agent log
+        try:
+            assignments_before = getattr(obj, '_prefetched_objects_cache', {}).get('assignments', None)
+            has_prefetch = assignments_before is not None
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "B",
+                    "location": "admin.py:RentalAdmin.assigned_batteries_short:before_query",
+                    "message": "Before assignments query",
+                    "data": {"has_prefetch": has_prefetch, "prefetch_count": len(assignments_before) if assignments_before else None},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         for a in obj.assignments.select_related('battery').all():
             a_start = timezone.localtime(a.start_at, tz)
             a_end = timezone.localtime(a.end_at, tz) if a.end_at else None
             if a_start <= now and (a_end is None or a_end > now):
                 codes.append(a.battery.short_code)
+        # #region agent log
+        try:
+            elapsed = (time_module.time() - start_time) * 1000
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "B",
+                    "location": "admin.py:RentalAdmin.assigned_batteries_short:exit",
+                    "message": "assigned_batteries_short completed",
+                    "data": {"codes_count": len(codes), "elapsed_ms": elapsed},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         if obj.status in [obj.Status.ACTIVE, obj.Status.MODIFIED]:
             if codes:
                 return format_html(' '.join(['<span class="badge bg-secondary me-1">{}</span>'] * len(codes)), *codes)
@@ -2812,10 +3010,79 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
     list_per_page = 50
     change_form_template = 'admin/rental/payment/change_form.html'
     
+    def changelist_view(self, request, extra_context=None):
+        # #region agent log
+        import json
+        import time as time_module
+        start_time = time_module.time()
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A,E",
+                    "location": "admin.py:PaymentAdmin.changelist_view:entry",
+                    "message": "PaymentAdmin.changelist_view started",
+                    "data": {},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        response = super().changelist_view(request, extra_context)
+        # #region agent log
+        try:
+            elapsed = (time_module.time() - start_time) * 1000
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "E",
+                    "location": "admin.py:PaymentAdmin.changelist_view:exit",
+                    "message": "PaymentAdmin.changelist_view completed",
+                    "data": {"elapsed_ms": elapsed},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        return response
+    
     def get_queryset(self, request):
         """Оптимизация: предзагрузка связанных rental и client для избежания N+1"""
+        # #region agent log
+        import json
+        import time as time_module
+        start_time = time_module.time()
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A,F",
+                    "location": "admin.py:PaymentAdmin.get_queryset:entry",
+                    "message": "PaymentAdmin.get_queryset started",
+                    "data": {},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         qs = super().get_queryset(request)
         qs = qs.select_related('rental__client', 'rental__root', 'created_by', 'city')
+        # #region agent log
+        try:
+            count = qs.count()
+            elapsed = (time_module.time() - start_time) * 1000
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "F",
+                    "location": "admin.py:PaymentAdmin.get_queryset:exit",
+                    "message": "PaymentAdmin.get_queryset completed",
+                    "data": {"count": count, "elapsed_ms": elapsed},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         return qs
     
     def get_form(self, request, obj=None, **kwargs):

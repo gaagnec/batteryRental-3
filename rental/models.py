@@ -161,6 +161,25 @@ class Rental(TimeStampedModel):
         """Charges for this version only, multiplied by number of assigned batteries per day.
         Day is billable if 14:00 anchor of that day lies within [start, end).
         """
+        # #region agent log
+        import json
+        import time as time_module
+        start_time = time_module.time()
+        rental_id = self.id if self else None
+        try:
+            from rental.admin_utils import get_debug_log_path
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A",
+                    "location": "models.py:Rental.charges_until:entry",
+                    "message": "charges_until called",
+                    "data": {"rental_id": rental_id},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         from datetime import datetime, time, timedelta
         tz = timezone.get_current_timezone()
         start = timezone.localtime(self.start_at, tz)
@@ -169,6 +188,21 @@ class Rental(TimeStampedModel):
             return Decimal(0)
         # Preload assignments for this version
         assignments = list(self.assignments.all())
+        # #region agent log
+        try:
+            elapsed_query = (time_module.time() - start_time) * 1000
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A",
+                    "location": "models.py:Rental.charges_until:after_assignments",
+                    "message": "After assignments query",
+                    "data": {"assignments_count": len(assignments), "query_elapsed_ms": elapsed_query},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         total = Decimal(0)
         d = start.date()
         end_date = end.date()
@@ -194,26 +228,148 @@ class Rental(TimeStampedModel):
 
     def group_charges_until(self, until: timezone.datetime | None = None) -> Decimal:
         """Sum of charges across all versions in the group (root)."""
+        # #region agent log
+        import json
+        import time as time_module
+        start_time = time_module.time()
+        rental_id = self.id if self else None
+        root_id = self.root_id if self else None
+        try:
+            from rental.admin_utils import get_debug_log_path
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A",
+                    "location": "models.py:Rental.group_charges_until:entry",
+                    "message": "group_charges_until called",
+                    "data": {"rental_id": rental_id, "root_id": root_id},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         total = Decimal(0)
-        for v in self.group_versions():
+        versions = self.group_versions()
+        # #region agent log
+        try:
+            versions_count = versions.count()
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A",
+                    "location": "models.py:Rental.group_charges_until:after_group_versions",
+                    "message": "After group_versions query",
+                    "data": {"versions_count": versions_count},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        for v in versions:
             # Limit 'until' within each version interval
             v_until = until
             if v_until and v.end_at and v.end_at < v_until:
                 v_until = v.end_at
             total += v.charges_until(until=v_until)
+        # #region agent log
+        try:
+            elapsed = (time_module.time() - start_time) * 1000
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A",
+                    "location": "models.py:Rental.group_charges_until:exit",
+                    "message": "group_charges_until completed",
+                    "data": {"total": float(total), "elapsed_ms": elapsed},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         return total
     def group_payments(self):
         root = self.root or self
         return Payment.objects.filter(rental__root=root)
 
     def group_paid_total(self) -> Decimal:
+        # #region agent log
+        import json
+        import time as time_module
+        start_time = time_module.time()
+        rental_id = self.id if self else None
+        root_id = self.root_id if self else None
+        try:
+            from rental.admin_utils import get_debug_log_path
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A",
+                    "location": "models.py:Rental.group_paid_total:entry",
+                    "message": "group_paid_total called",
+                    "data": {"rental_id": rental_id, "root_id": root_id},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         total = self.group_payments().filter(type=Payment.PaymentType.RENT).aggregate(s=Sum("amount"))['s'] or Decimal(0)
+        # #region agent log
+        try:
+            elapsed = (time_module.time() - start_time) * 1000
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A",
+                    "location": "models.py:Rental.group_paid_total:exit",
+                    "message": "group_paid_total completed",
+                    "data": {"total": float(total), "elapsed_ms": elapsed},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         return total
 
     def group_deposit_total(self) -> Decimal:
+        # #region agent log
+        import json
+        import time as time_module
+        start_time = time_module.time()
+        rental_id = self.id if self else None
+        root_id = self.root_id if self else None
+        try:
+            from rental.admin_utils import get_debug_log_path
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A",
+                    "location": "models.py:Rental.group_deposit_total:entry",
+                    "message": "group_deposit_total called",
+                    "data": {"rental_id": rental_id, "root_id": root_id},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         paid = self.group_payments().filter(type=Payment.PaymentType.DEPOSIT).aggregate(s=Sum("amount"))['s'] or Decimal(0)
         returned = self.group_payments().filter(type=Payment.PaymentType.RETURN_DEPOSIT).aggregate(s=Sum("amount"))['s'] or Decimal(0)
-        return paid - returned
+        result = paid - returned
+        # #region agent log
+        try:
+            elapsed = (time_module.time() - start_time) * 1000
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A",
+                    "location": "models.py:Rental.group_deposit_total:exit",
+                    "message": "group_deposit_total completed",
+                    "data": {"result": float(result), "elapsed_ms": elapsed},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        return result
 
     def group_balance(self, until: timezone.datetime | None = None) -> Decimal:
         charges = self.group_charges_until(until=until)
