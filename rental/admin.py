@@ -2650,26 +2650,150 @@ class RentalAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
 
     group_balance_now.short_description = "Баланс"
 
+    def add_view(self, request, form_url='', extra_context=None):
+        """Логирование для страницы добавления"""
+        # #region agent log
+        import json
+        import time as time_module
+        start_time = time_module.time()
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "H",
+                    "location": "admin.py:RentalAdmin.add_view:entry",
+                    "message": "RentalAdmin.add_view started",
+                    "data": {},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        response = super().add_view(request, form_url, extra_context)
+        # #region agent log
+        try:
+            elapsed = (time_module.time() - start_time) * 1000
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "H",
+                    "location": "admin.py:RentalAdmin.add_view:exit",
+                    "message": "RentalAdmin.add_view completed",
+                    "data": {"elapsed_ms": elapsed},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        return response
+    
     def get_form(self, request, obj=None, **kwargs):
         """Делаем поле city readonly для модераторов и фильтруем клиентов"""
+        # #region agent log
+        import json
+        import time as time_module
+        start_time = time_module.time()
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "H",
+                    "location": "admin.py:RentalAdmin.get_form:entry",
+                    "message": "get_form called",
+                    "data": {
+                        "user_id": request.user.id if request.user else None,
+                        "obj_id": obj.id if obj else None,
+                        "is_add": obj is None
+                    },
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         form = super().get_form(request, obj, **kwargs)
         if not request.user.is_superuser:
             if 'city' in form.base_fields:
                 form.base_fields['city'].disabled = True
                 form.base_fields['city'].help_text = "Город автоматически устанавливается из города клиента или модератора"
+        # #region agent log
+        try:
+            elapsed = (time_module.time() - start_time) * 1000
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "H",
+                    "location": "admin.py:RentalAdmin.get_form:exit",
+                    "message": "get_form completed",
+                    "data": {"elapsed_ms": elapsed},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        return form
             if 'client' in form.base_fields:
                 # Фильтруем клиентов по городу модератора
                 city = get_user_city(request.user)
                 if city:
-                    form.base_fields['client'].queryset = Client.objects.filter(city=city)
+                    form.base_fields['client'].queryset = Client.objects.filter(city=city).only('id', 'name')
+        # #region agent log
+        try:
+            elapsed = (time_module.time() - start_time) * 1000
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "H",
+                    "location": "admin.py:RentalAdmin.get_form:exit",
+                    "message": "get_form completed",
+                    "data": {"elapsed_ms": elapsed},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         return form
     
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         """Фильтрация клиентов и батарей по городу для модераторов"""
+        # #region agent log
+        import json
+        import time as time_module
+        start_time = time_module.time()
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "H",
+                    "location": "admin.py:RentalAdmin.formfield_for_foreignkey:entry",
+                    "message": "formfield_for_foreignkey called",
+                    "data": {
+                        "db_field_name": db_field.name,
+                        "user_id": request.user.id if request.user else None
+                    },
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         if db_field.name == "client" and not request.user.is_superuser:
             city = get_user_city(request.user)
             if city:
-                kwargs["queryset"] = Client.objects.filter(city=city)
+                kwargs["queryset"] = Client.objects.filter(city=city).only('id', 'name')
+                # #region agent log
+                try:
+                    elapsed = (time_module.time() - start_time) * 1000
+                    with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                        f.write(json.dumps({
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "H",
+                            "location": "admin.py:RentalAdmin.formfield_for_foreignkey:after_client_filter",
+                            "message": "After filtering client queryset",
+                            "data": {"elapsed_ms": elapsed},
+                            "timestamp": time_module.time() * 1000
+                        }, ensure_ascii=False) + '\n')
+                except: pass
+                # #endregion
         elif db_field.name == "battery" and not request.user.is_superuser:
             city = get_user_city(request.user)
             if city:
@@ -3072,24 +3196,64 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
         # #endregion
         return qs
     
-    def get_form(self, request, obj=None, **kwargs):
-        """Делаем поле city readonly для модераторов и фильтруем договоры"""
+    def add_view(self, request, form_url='', extra_context=None):
+        """Логирование для страницы добавления"""
         # #region agent log
         import json
+        import time as time_module
+        start_time = time_module.time()
         try:
             with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                 f.write(json.dumps({
                     "sessionId": "debug-session",
                     "runId": "run1",
-                    "hypothesisId": "C",
+                    "hypothesisId": "H",
+                    "location": "admin.py:PaymentAdmin.add_view:entry",
+                    "message": "PaymentAdmin.add_view started",
+                    "data": {},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        response = super().add_view(request, form_url, extra_context)
+        # #region agent log
+        try:
+            elapsed = (time_module.time() - start_time) * 1000
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "H",
+                    "location": "admin.py:PaymentAdmin.add_view:exit",
+                    "message": "PaymentAdmin.add_view completed",
+                    "data": {"elapsed_ms": elapsed},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        return response
+    
+    def get_form(self, request, obj=None, **kwargs):
+        """Делаем поле city readonly для модераторов и фильтруем договоры"""
+        # #region agent log
+        import json
+        import time as time_module
+        start_time = time_module.time()
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "C,H",
                     "location": "admin.py:PaymentAdmin.get_form:entry",
                     "message": "get_form called",
                     "data": {
                         "user_id": request.user.id if request.user else None,
                         "username": request.user.username if request.user else None,
-                        "obj_id": obj.id if obj else None
+                        "obj_id": obj.id if obj else None,
+                        "is_add": obj is None
                     },
-                    "timestamp": __import__('time').time() * 1000
+                    "timestamp": time_module.time() * 1000
                 }, ensure_ascii=False) + '\n')
         except: pass
         # #endregion
@@ -3139,25 +3303,41 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                 except: pass
                 # #endregion
                 if city:
-                    filtered_qs = Rental.objects.filter(city=city).select_related('client', 'root')
+                    filtered_qs = Rental.objects.filter(city=city).select_related('client', 'root').only('id', 'contract_code', 'client_id', 'root_id', 'client__name')
                     form.base_fields['rental'].queryset = filtered_qs
                     # #region agent log
                     try:
+                        elapsed = (time_module.time() - start_time) * 1000
                         with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                             f.write(json.dumps({
                                 "sessionId": "debug-session",
                                 "runId": "run1",
-                                "hypothesisId": "C,E",
+                                "hypothesisId": "C,E,H",
                                 "location": "admin.py:PaymentAdmin.get_form:after_queryset",
                                 "message": "After setting rental queryset",
                                 "data": {
-                                    "filtered_queryset_count": filtered_qs.count(),
-                                    "queryset_set": True
+                                    "queryset_set": True,
+                                    "elapsed_ms": elapsed
                                 },
-                                "timestamp": __import__('time').time() * 1000
+                                "timestamp": time_module.time() * 1000
                             }, ensure_ascii=False) + '\n')
                     except: pass
                     # #endregion
+        # #region agent log
+        try:
+            elapsed = (time_module.time() - start_time) * 1000
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "H",
+                    "location": "admin.py:PaymentAdmin.get_form:exit",
+                    "message": "get_form completed",
+                    "data": {"elapsed_ms": elapsed},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         return form
     
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
@@ -3220,7 +3400,7 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                 except: pass
                 # #endregion
                 if city:
-                    filtered_qs = Rental.objects.filter(city=city).select_related('client', 'root')
+                    filtered_qs = Rental.objects.filter(city=city).select_related('client', 'root').only('id', 'contract_code', 'client_id', 'root_id', 'client__name')
                     kwargs["queryset"] = filtered_qs
                     # #region agent log
                     try:
@@ -3228,11 +3408,10 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                             f.write(json.dumps({
                                 "sessionId": "debug-session",
                                 "runId": "run1",
-                                "hypothesisId": "D,E",
+                                "hypothesisId": "D,E,H",
                                 "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:after_filter",
                                 "message": "After filtering queryset",
                                 "data": {
-                                    "filtered_queryset_count": filtered_qs.count(),
                                     "queryset_set": True
                                 },
                                 "timestamp": __import__('time').time() * 1000
