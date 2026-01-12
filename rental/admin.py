@@ -50,7 +50,60 @@ class ModeratorReadOnlyRelatedMixin:
     Модераторы могут только выбирать из существующих объектов, но не добавлять/редактировать их.
     """
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        # #region agent log
+        import json
+        import time as time_module
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A",
+                    "location": "admin.py:ModeratorReadOnlyRelatedMixin.formfield_for_foreignkey:entry",
+                    "message": "Mixin formfield_for_foreignkey called",
+                    "data": {
+                        "db_field_name": db_field.name,
+                        "user_id": request.user.id if request.user else None,
+                        "user_is_moderator": is_moderator(request.user) if request.user else False
+                    },
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        
         field = super().formfield_for_foreignkey(db_field, request, **kwargs)
+        
+        # #region agent log
+        try:
+            widget_type = type(field.widget).__name__
+            has_can_add = hasattr(field.widget, 'can_add_related')
+            has_can_change = hasattr(field.widget, 'can_change_related')
+            has_can_delete = hasattr(field.widget, 'can_delete_related')
+            has_can_view = hasattr(field.widget, 'can_view_related')
+            can_add_value = getattr(field.widget, 'can_add_related', None) if has_can_add else None
+            can_change_value = getattr(field.widget, 'can_change_related', None) if has_can_change else None
+            
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "B",
+                    "location": "admin.py:ModeratorReadOnlyRelatedMixin.formfield_for_foreignkey:after_super",
+                    "message": "After super(), widget info",
+                    "data": {
+                        "db_field_name": db_field.name,
+                        "widget_type": widget_type,
+                        "has_can_add_related": has_can_add,
+                        "has_can_change_related": has_can_change,
+                        "has_can_delete_related": has_can_delete,
+                        "has_can_view_related": has_can_view,
+                        "can_add_value_before": can_add_value,
+                        "can_change_value_before": can_change_value
+                    },
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         
         if is_moderator(request.user):
             # Запрещаем все действия со связанными объектами для модераторов
@@ -62,6 +115,27 @@ class ModeratorReadOnlyRelatedMixin:
                 field.widget.can_delete_related = False
             if hasattr(field.widget, 'can_view_related'):
                 field.widget.can_view_related = False
+            
+            # #region agent log
+            try:
+                can_add_after = getattr(field.widget, 'can_add_related', None) if hasattr(field.widget, 'can_add_related') else None
+                can_change_after = getattr(field.widget, 'can_change_related', None) if hasattr(field.widget, 'can_change_related') else None
+                with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({
+                        "sessionId": "debug-session",
+                        "runId": "run1",
+                        "hypothesisId": "C",
+                        "location": "admin.py:ModeratorReadOnlyRelatedMixin.formfield_for_foreignkey:after_set_false",
+                        "message": "After setting can_*_related to False",
+                        "data": {
+                            "db_field_name": db_field.name,
+                            "can_add_value_after": can_add_after,
+                            "can_change_value_after": can_change_after
+                        },
+                        "timestamp": time_module.time() * 1000
+                    }, ensure_ascii=False) + '\n')
+            except: pass
+            # #endregion
         
         return field
     
