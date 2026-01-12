@@ -3280,7 +3280,7 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                             "data": {
                                 "city_id": city.id if city else None,
                                 "city_name": city.name if city else None,
-                                "original_queryset_count": form.base_fields['rental'].queryset.count() if hasattr(form.base_fields['rental'], 'queryset') else None
+                                "has_queryset": hasattr(form.base_fields['rental'], 'queryset')
                             },
                             "timestamp": __import__('time').time() * 1000
                         }, ensure_ascii=False) + '\n')
@@ -3414,7 +3414,7 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                     "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:exit",
                     "message": "formfield_for_foreignkey result",
                     "data": {
-                        "final_queryset_count": final_qs.count() if final_qs else None,
+                        "has_queryset": final_qs is not None,
                         "field_type": type(result).__name__
                     },
                     "timestamp": __import__('time').time() * 1000
@@ -3463,7 +3463,7 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                         "data": {
                             "city_id": city.id if city else None,
                             "city_name": city.name if city else None,
-                            "original_queryset_count": queryset.count() if queryset else None
+                            "has_queryset": queryset is not None
                         },
                         "timestamp": __import__('time').time() * 1000
                     }, ensure_ascii=False) + '\n')
@@ -3481,7 +3481,7 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                             "location": "admin.py:PaymentAdmin.get_field_queryset:after_filter",
                             "message": "After filtering rental queryset",
                             "data": {
-                                "filtered_queryset_count": filtered_qs.count()
+                                "queryset_set": True
                             },
                             "timestamp": __import__('time').time() * 1000
                         }, ensure_ascii=False) + '\n')
@@ -3531,7 +3531,7 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                         "data": {
                             "city_id": city.id if city else None,
                             "city_name": city.name if city else None,
-                            "original_queryset_count": queryset.count() if queryset else None
+                            "has_queryset": queryset is not None
                         },
                         "timestamp": __import__('time').time() * 1000
                     }, ensure_ascii=False) + '\n')
@@ -3549,7 +3549,7 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                             "location": "admin.py:PaymentAdmin.get_field_queryset:after_filter",
                             "message": "After filtering rental queryset",
                             "data": {
-                                "filtered_queryset_count": filtered_qs.count()
+                                "queryset_set": True
                             },
                             "timestamp": __import__('time').time() * 1000
                         }, ensure_ascii=False) + '\n')
@@ -3577,6 +3577,8 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
         """Переопределяем add_view для фильтрации поля rental"""
         # #region agent log
         import json
+        import time as time_module
+        start_time = time_module.time()
         try:
             with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                 f.write(json.dumps({
@@ -3589,7 +3591,7 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                         "user_id": request.user.id if request.user else None,
                         "username": request.user.username if request.user else None
                     },
-                    "timestamp": __import__('time').time() * 1000
+                    "timestamp": time_module.time() * 1000
                 }, ensure_ascii=False) + '\n')
         except: pass
         # #endregion
@@ -3615,7 +3617,7 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                                 "data": {
                                     "city_id": city.id if city else None,
                                     "city_name": city.name if city else None,
-                                    "original_queryset_count": form.fields['rental'].queryset.count() if hasattr(form.fields['rental'], 'queryset') else None
+                                    "has_queryset": hasattr(form.fields['rental'], 'queryset')
                                 },
                                 "timestamp": __import__('time').time() * 1000
                             }, ensure_ascii=False) + '\n')
@@ -3633,13 +3635,28 @@ class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                                     "location": "admin.py:PaymentAdmin.add_view:after_filter",
                                     "message": "After filtering rental queryset in form",
                                     "data": {
-                                        "filtered_queryset_count": form.fields['rental'].queryset.count()
+                                        "queryset_set": True
                                     },
                                     "timestamp": __import__('time').time() * 1000
                                 }, ensure_ascii=False) + '\n')
                         except: pass
                         # #endregion
-        
+        # #region agent log
+        import time as time_module
+        try:
+            elapsed = (time_module.time() - start_time) * 1000
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "C",
+                    "location": "admin.py:PaymentAdmin.add_view:exit",
+                    "message": "PaymentAdmin.add_view completed",
+                    "data": {"elapsed_ms": elapsed},
+                    "timestamp": time_module.time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         return response
     
     def change_view(self, request, object_id, form_url='', extra_context=None):
