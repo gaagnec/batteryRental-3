@@ -49,6 +49,25 @@ class ModeratorReadOnlyRelatedMixin:
     Mixin для запрета добавления/редактирования связанных объектов модераторами.
     Модераторы могут только выбирать из существующих объектов, но не добавлять/редактировать их.
     """
+    def get_form(self, request, obj=None, **kwargs):
+        """Переопределяем get_form для работы с autocomplete полями"""
+        form = super().get_form(request, obj, **kwargs)
+        
+        if is_moderator(request.user):
+            # Для модераторов запрещаем все действия со связанными объектами
+            for field_name, field in form.base_fields.items():
+                if hasattr(field, 'widget'):
+                    if hasattr(field.widget, 'can_add_related'):
+                        field.widget.can_add_related = False
+                    if hasattr(field.widget, 'can_change_related'):
+                        field.widget.can_change_related = False
+                    if hasattr(field.widget, 'can_delete_related'):
+                        field.widget.can_delete_related = False
+                    if hasattr(field.widget, 'can_view_related'):
+                        field.widget.can_view_related = False
+        
+        return form
+    
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         # #region agent log
         import json
