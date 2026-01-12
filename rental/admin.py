@@ -2769,6 +2769,15 @@ class RentalAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
     inlines = [RentalBatteryAssignmentInline, PaymentInline]
 
     readonly_fields = ("group_charges_now", "group_paid_total", "group_deposit_total", "group_balance_now", "created_by", "updated_by")
+    
+    def get_inlines(self, request, obj):
+        """Скрываем PaymentInline для модераторов"""
+        inlines = list(super().get_inlines(request, obj))
+        if is_moderator(request.user):
+            # Убираем PaymentInline для модераторов
+            inlines = [inline for inline in inlines if inline != PaymentInline]
+        return inlines
+    
     def batteries_count_now(self, obj):
         tz = timezone.get_current_timezone()
         now = timezone.now()
@@ -2956,15 +2965,36 @@ class RentalAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
         except: pass
         # #endregion
         form = super().get_form(request, obj, **kwargs)
+        user_is_moderator = is_moderator(request.user)
         if not request.user.is_superuser:
             if 'city' in form.base_fields:
-                form.base_fields['city'].disabled = True
-                form.base_fields['city'].help_text = "Город автоматически устанавливается из города клиента или модератора"
+                if user_is_moderator:
+                    # Скрываем поле city для модераторов
+                    form.base_fields.pop('city', None)
+                else:
+                    form.base_fields['city'].disabled = True
+                    form.base_fields['city'].help_text = "Город автоматически устанавливается из города клиента или модератора"
             if 'client' in form.base_fields:
                 # Фильтруем клиентов по городу модератора
                 city = get_user_city(request.user)
                 if city:
                     form.base_fields['client'].queryset = Client.objects.filter(city=city).only('id', 'name')
+        
+        # Скрываем поля для модераторов
+        if user_is_moderator:
+            fields_to_hide = [
+                'battery_type',
+                'battery_numbers',
+                'created_by_name',
+                'updated_by_name',
+                'parent',
+                'root',
+                'version',
+                'contract_code'
+            ]
+            for field_name in fields_to_hide:
+                if field_name in form.base_fields:
+                    form.base_fields.pop(field_name, None)
         # #region agent log
         try:
             elapsed = (time_module.time() - start_time) * 1000
