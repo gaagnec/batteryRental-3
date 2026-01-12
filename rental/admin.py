@@ -82,6 +82,50 @@ class FinancePartnerAdmin(ModeratorRestrictedMixin, SimpleHistoryAdmin):
         qs = qs.select_related('user', 'city').prefetch_related('cities')
         return qs
     
+    def get_search_results(self, request, queryset, search_term):
+        """Фильтрация результатов autocomplete"""
+        # #region agent log
+        import json
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "J",
+                    "location": "admin.py:FinancePartnerAdmin.get_search_results:entry",
+                    "message": "FinancePartnerAdmin.get_search_results called",
+                    "data": {
+                        "user_id": request.user.id if request.user else None,
+                        "username": request.user.username if request.user else None,
+                        "is_superuser": request.user.is_superuser if request.user else False,
+                        "search_term": search_term,
+                        "path": request.path if hasattr(request, 'path') else None,
+                        "has_queryset": queryset is not None
+                    },
+                    "timestamp": __import__('time').time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
+        
+        # #region agent log
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "J",
+                    "location": "admin.py:FinancePartnerAdmin.get_search_results:exit",
+                    "message": "FinancePartnerAdmin.get_search_results completed",
+                    "data": {
+                        "queryset_filtered": True
+                    },
+                    "timestamp": __import__('time').time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        return queryset, use_distinct
+    
     def save_model(self, request, obj, form, change):
         """Вызываем clean() для валидации перед сохранением"""
         from django.core.exceptions import ValidationError
@@ -128,7 +172,18 @@ class FinancePartnerAdmin(ModeratorRestrictedMixin, SimpleHistoryAdmin):
             return  # Не сохраняем объект
     
     def has_module_permission(self, request):
-        # Только суперпользователи видят финансовых партнёров
+        """Скрываем модуль из списка для не-суперпользователей, но разрешаем autocomplete"""
+        if is_moderator(request.user):
+            return False
+        return request.user.is_superuser
+    
+    def has_view_permission(self, request, obj=None):
+        """Разрешаем просмотр для autocomplete запросов"""
+        # Проверяем, является ли это autocomplete запросом
+        if request.path and '/autocomplete/' in request.path:
+            return True
+        if is_moderator(request.user):
+            return False
         return request.user.is_superuser
 
 
