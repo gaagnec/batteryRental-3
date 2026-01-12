@@ -2575,11 +2575,17 @@ class RentalAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                 }, ensure_ascii=False) + '\n')
         except: pass
         # #endregion
-        for a in obj.assignments.select_related('battery').all():
+        # Используем prefetch_related если доступен (Django автоматически использует его)
+        # Просто обращаемся к assignments.all() - Django использует prefetch если он был установлен
+        assignments = obj.assignments.all()
+        
+        for a in assignments:
             a_start = timezone.localtime(a.start_at, tz)
             a_end = timezone.localtime(a.end_at, tz) if a.end_at else None
             if a_start <= now and (a_end is None or a_end > now):
-                codes.append(a.battery.short_code)
+                # Батарея должна быть загружена через prefetch_related('assignments__battery')
+                if hasattr(a, 'battery') and a.battery:
+                    codes.append(a.battery.short_code)
         # #region agent log
         try:
             elapsed = (time_module.time() - start_time) * 1000
@@ -2590,7 +2596,7 @@ class RentalAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                     "hypothesisId": "B",
                     "location": "admin.py:RentalAdmin.assigned_batteries_short:exit",
                     "message": "assigned_batteries_short completed",
-                    "data": {"codes_count": len(codes), "elapsed_ms": elapsed},
+                    "data": {"codes_count": len(codes), "elapsed_ms": elapsed, "used_prefetch": has_prefetch},
                     "timestamp": time_module.time() * 1000
                 }, ensure_ascii=False) + '\n')
         except: pass
@@ -2623,25 +2629,6 @@ class RentalAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
         except Exception:
             return value
 
-    def assigned_batteries_short(self, obj):
-        tz = timezone.get_current_timezone()
-        now = timezone.now()
-        codes = []
-        for a in obj.assignments.select_related('battery').all():
-            a_start = timezone.localtime(a.start_at, tz)
-            a_end = timezone.localtime(a.end_at, tz) if a.end_at else None
-            if a_start <= now and (a_end is None or a_end > now):
-                codes.append(a.battery.short_code)
-        if obj.status in [obj.Status.ACTIVE, obj.Status.MODIFIED]:
-            if codes:
-                # badges for active or modified
-                return format_html(' '.join(['<span class="badge bg-secondary me-1">{}</span>'] * len(codes)), *codes)
-            else:
-                return mark_safe('<span class="text-muted">—</span>')
-        if obj.status == obj.Status.CLOSED:
-            return mark_safe('<span class="text-muted">—</span>')
-        return ''
-    assigned_batteries_short.short_description = "Батареи"
 
     def group_charges_now(self, obj):
         return self.fmt_pln(obj.group_charges_until(until=timezone.now()))

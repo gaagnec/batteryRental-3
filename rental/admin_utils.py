@@ -17,6 +17,7 @@ def get_debug_log_path():
 def is_moderator(user):
     """
     Проверить, является ли пользователь модератором.
+    Использует кэширование на уровне запроса для оптимизации.
     
     Args:
         user: Пользователь Django
@@ -31,7 +32,7 @@ def is_moderator(user):
             f.write(json.dumps({
                 "sessionId": "debug-session",
                 "runId": "run1",
-                "hypothesisId": "A",
+                "hypothesisId": "A,G",
                 "location": "admin_utils.py:is_moderator:entry",
                 "message": "is_moderator called",
                 "data": {
@@ -59,21 +60,45 @@ def is_moderator(user):
         except: pass
         # #endregion
         return False
+    
+    # Кэширование на уровне запроса
+    cache_key = f'_is_moderator_{user.id}'
+    if hasattr(user, cache_key):
+        # #region agent log
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "G",
+                    "location": "admin_utils.py:is_moderator:cache_hit",
+                    "message": "is_moderator cache hit",
+                    "data": {"user_id": user.id, "cached_result": getattr(user, cache_key)},
+                    "timestamp": __import__('time').time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        return getattr(user, cache_key)
+    
     result = FinancePartner.objects.filter(
         user=user,
         role=FinancePartner.Role.MODERATOR,
         active=True
     ).exists()
+    
+    # Сохраняем результат в кэш
+    setattr(user, cache_key, result)
+    
     # #region agent log
     try:
         with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
             f.write(json.dumps({
                 "sessionId": "debug-session",
                 "runId": "run1",
-                "hypothesisId": "A",
+                "hypothesisId": "A,G",
                 "location": "admin_utils.py:is_moderator:exit",
                 "message": "is_moderator result",
-                "data": {"result": result, "user_id": user.id, "username": user.username},
+                "data": {"result": result, "user_id": user.id, "username": user.username, "cached": True},
                 "timestamp": __import__('time').time() * 1000
             }, ensure_ascii=False) + '\n')
     except: pass
@@ -84,6 +109,7 @@ def is_moderator(user):
 def get_user_city(user):
     """
     Получить город модератора через FinancePartner.
+    Использует кэширование на уровне запроса для оптимизации.
     
     Args:
         user: Пользователь Django
@@ -98,7 +124,7 @@ def get_user_city(user):
             f.write(json.dumps({
                 "sessionId": "debug-session",
                 "runId": "run1",
-                "hypothesisId": "B",
+                "hypothesisId": "B,G",
                 "location": "admin_utils.py:get_user_city:entry",
                 "message": "get_user_city called",
                 "data": {
@@ -126,6 +152,30 @@ def get_user_city(user):
         # #endregion
         return None
     
+    # Кэширование на уровне запроса
+    cache_key = '_user_city'
+    if hasattr(user, cache_key):
+        # #region agent log
+        try:
+            cached_city = getattr(user, cache_key)
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "G",
+                    "location": "admin_utils.py:get_user_city:cache_hit",
+                    "message": "get_user_city cache hit",
+                    "data": {
+                        "user_id": user.id,
+                        "city_id": cached_city.id if cached_city else None,
+                        "city_name": cached_city.name if cached_city else None
+                    },
+                    "timestamp": __import__('time').time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        return getattr(user, cache_key)
+    
     finance_partner = FinancePartner.objects.filter(
         user=user,
         role=FinancePartner.Role.MODERATOR,
@@ -133,19 +183,24 @@ def get_user_city(user):
     ).select_related('city').first()
     
     result = finance_partner.city if finance_partner else None
+    
+    # Сохраняем результат в кэш
+    setattr(user, cache_key, result)
+    
     # #region agent log
     try:
         with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
             f.write(json.dumps({
                 "sessionId": "debug-session",
                 "runId": "run1",
-                "hypothesisId": "B",
+                "hypothesisId": "B,G",
                 "location": "admin_utils.py:get_user_city:exit",
                 "message": "get_user_city result",
                 "data": {
                     "city_id": result.id if result else None,
                     "city_name": result.name if result else None,
-                    "has_finance_partner": finance_partner is not None
+                    "has_finance_partner": finance_partner is not None,
+                    "cached": True
                 },
                 "timestamp": __import__('time').time() * 1000
             }, ensure_ascii=False) + '\n')
@@ -157,6 +212,7 @@ def get_user_city(user):
 def get_user_cities(user):
     """
     Получить города пользователя (для владельцев - все их города).
+    Использует кэширование на уровне запроса для оптимизации.
     
     Args:
         user: Пользователь Django
@@ -167,29 +223,35 @@ def get_user_cities(user):
     if not user or not user.is_authenticated:
         return None
     
+    # Кэширование на уровне запроса
+    cache_key = '_user_cities'
+    if hasattr(user, cache_key):
+        return getattr(user, cache_key)
+    
     if user.is_superuser:
-        return None  # все города
+        result = None  # все города
+    else:
+        # Модератор - один город (используем кэшированный get_user_city)
+        city = get_user_city(user)
+        if city:
+            result = [city]
+        else:
+            # Владелец - может иметь несколько городов
+            owner_fps = FinancePartner.objects.filter(
+                user=user, role=FinancePartner.Role.OWNER, active=True
+            ).prefetch_related('cities')
+            
+            cities = []
+            for fp in owner_fps:
+                if fp.city:
+                    cities.append(fp.city)
+                cities.extend(fp.cities.all())
+            
+            result = list(set(cities)) if cities else None
     
-    # Модератор - один город
-    moderator_fp = FinancePartner.objects.filter(
-        user=user, role=FinancePartner.Role.MODERATOR, active=True
-    ).select_related('city').first()
-    
-    if moderator_fp and moderator_fp.city:
-        return [moderator_fp.city]
-    
-    # Владелец - может иметь несколько городов
-    owner_fps = FinancePartner.objects.filter(
-        user=user, role=FinancePartner.Role.OWNER, active=True
-    ).prefetch_related('cities')
-    
-    cities = []
-    for fp in owner_fps:
-        if fp.city:
-            cities.append(fp.city)
-        cities.extend(fp.cities.all())
-    
-    return list(set(cities)) if cities else None
+    # Сохраняем результат в кэш
+    setattr(user, cache_key, result)
+    return result
 
 
 class CityFilteredAdminMixin:
