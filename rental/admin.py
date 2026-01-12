@@ -44,6 +44,44 @@ class ModeratorRestrictedMixin:
         return super().has_module_permission(request) if hasattr(super(), 'has_module_permission') else True
 
 
+class ModeratorReadOnlyRelatedMixin:
+    """
+    Mixin для запрета добавления/редактирования связанных объектов модераторами.
+    Модераторы могут только выбирать из существующих объектов, но не добавлять/редактировать их.
+    """
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        field = super().formfield_for_foreignkey(db_field, request, **kwargs)
+        
+        if is_moderator(request.user):
+            # Запрещаем все действия со связанными объектами для модераторов
+            if hasattr(field.widget, 'can_add_related'):
+                field.widget.can_add_related = False
+            if hasattr(field.widget, 'can_change_related'):
+                field.widget.can_change_related = False
+            if hasattr(field.widget, 'can_delete_related'):
+                field.widget.can_delete_related = False
+            if hasattr(field.widget, 'can_view_related'):
+                field.widget.can_view_related = False
+        
+        return field
+    
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        field = super().formfield_for_manytomany(db_field, request, **kwargs)
+        
+        if is_moderator(request.user):
+            # Запрещаем все действия со связанными объектами для модераторов
+            if hasattr(field.widget, 'can_add_related'):
+                field.widget.can_add_related = False
+            if hasattr(field.widget, 'can_change_related'):
+                field.widget.can_change_related = False
+            if hasattr(field.widget, 'can_delete_related'):
+                field.widget.can_delete_related = False
+            if hasattr(field.widget, 'can_view_related'):
+                field.widget.can_view_related = False
+        
+        return field
+
+
 @admin.register(City)
 class CityAdmin(ModeratorRestrictedMixin, SimpleHistoryAdmin):
     list_display = ("id", "name", "code", "active")
@@ -1824,7 +1862,7 @@ class ActiveRentalFilter(admin.SimpleListFilter):
 
 
 @admin.register(Client)
-class ClientAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
+class ClientAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleHistoryAdmin):
     list_display = ("id", "name", "phone", "pesel", "city", "created_at", "has_active")
     list_filter = (ActiveRentalFilter, "city")
     search_fields = ("name", "phone", "pesel")
@@ -2564,7 +2602,7 @@ class NewVersionActionForm(ActionForm):
 
 
 @admin.register(Rental)
-class RentalAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
+class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleHistoryAdmin):
     autocomplete_fields = ('client', 'city')
 
     def changelist_view(self, request, extra_context=None):
@@ -3366,7 +3404,7 @@ class RentalAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
 
 
 @admin.register(Payment)
-class PaymentAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
+class PaymentAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleHistoryAdmin):
     class RentalFilter(AutocompleteFilter):
         title = 'Договор'
         field_name = 'rental'
