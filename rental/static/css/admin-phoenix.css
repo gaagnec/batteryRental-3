@@ -164,6 +164,8 @@
       border: 1px solid var(--phoenix-border);
       border-radius: 0.375rem;
       padding: 0.5rem;
+      min-width: 165px;
+      min-height: 40px;
     }
     
     input[type="text"]:focus,

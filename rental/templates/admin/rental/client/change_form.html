@@ -4,15 +4,44 @@
 
 {% block content %}
 <style>
-  .balance-green { background-color: #d4edda; }
+  .balance-green { 
+    background-color: #155724; 
+    color: #d4edda;
+    padding: 4px;
+    border-radius: 6px;
+  }
   .balance-yellow { background-color: #fff3cd; }
-  .balance-red { background-color: #f8d7da; }
+  .balance-red { 
+    background-color: #721c24; 
+    color: #f8d7da;
+    padding: 4px;
+    border-radius: 6px;
+  }
   .balance-gray { background-color: #e2e3e5; }
   .rental-info { margin-bottom: 1em; padding: 0.5em; border: 1px solid #ccc; border-radius: 4px; }
   .rental-row { margin-bottom: 0.5em; }
-  .payments-table { width: 100%; border-collapse: collapse; margin-top: 1em; }
-  .payments-table th, .payments-table td { border: 1px solid #ddd; padding: 8px; }
-  .payments-table th { background-color: #f2f2f2; }
+  .payments-table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    margin-top: 1em;
+    background-color: #1c1e2d;
+    color: #9fa6bc;
+  }
+  .payments-table th, .payments-table td { 
+    border: 1px solid #2a2e41; 
+    padding: 8px; 
+  }
+  .payments-table th { 
+    background-color: #0e1018; 
+    color: #9fa6bc;
+    font-weight: 500;
+  }
+  .payments-table tbody tr {
+    background-color: #1c1e2d;
+  }
+  .payments-table tbody tr:hover {
+    background-color: #252840;
+  }
 </style>
 
 <h1>{{ original.name }}</h1>
