@@ -179,12 +179,121 @@ class FinancePartnerAdmin(ModeratorRestrictedMixin, SimpleHistoryAdmin):
     
     def has_view_permission(self, request, obj=None):
         """Разрешаем просмотр для autocomplete запросов"""
+        # #region agent log
+        import json
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "J",
+                    "location": "admin.py:FinancePartnerAdmin.has_view_permission:entry",
+                    "message": "FinancePartnerAdmin.has_view_permission called",
+                    "data": {
+                        "user_id": request.user.id if request.user else None,
+                        "username": request.user.username if request.user else None,
+                        "is_superuser": request.user.is_superuser if request.user else False,
+                        "path": request.path if hasattr(request, 'path') else None,
+                        "is_autocomplete": request.path and '/autocomplete/' in request.path if hasattr(request, 'path') else False
+                    },
+                    "timestamp": __import__('time').time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         # Проверяем, является ли это autocomplete запросом
         if request.path and '/autocomplete/' in request.path:
+            # #region agent log
+            try:
+                with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({
+                        "sessionId": "debug-session",
+                        "runId": "run1",
+                        "hypothesisId": "J",
+                        "location": "admin.py:FinancePartnerAdmin.has_view_permission:autocomplete_allowed",
+                        "message": "Autocomplete request allowed",
+                        "data": {"result": True},
+                        "timestamp": __import__('time').time() * 1000
+                    }, ensure_ascii=False) + '\n')
+            except: pass
+            # #endregion
             return True
         if is_moderator(request.user):
             return False
-        return request.user.is_superuser
+        result = request.user.is_superuser
+        # #region agent log
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "J",
+                    "location": "admin.py:FinancePartnerAdmin.has_view_permission:exit",
+                    "message": "FinancePartnerAdmin.has_view_permission result",
+                    "data": {"result": result},
+                    "timestamp": __import__('time').time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        return result
+    
+    def has_change_permission(self, request, obj=None):
+        """Разрешаем изменение для autocomplete запросов"""
+        # #region agent log
+        import json
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "J",
+                    "location": "admin.py:FinancePartnerAdmin.has_change_permission:entry",
+                    "message": "FinancePartnerAdmin.has_change_permission called",
+                    "data": {
+                        "user_id": request.user.id if request.user else None,
+                        "username": request.user.username if request.user else None,
+                        "is_superuser": request.user.is_superuser if request.user else False,
+                        "path": request.path if hasattr(request, 'path') else None,
+                        "is_autocomplete": request.path and '/autocomplete/' in request.path if hasattr(request, 'path') else False
+                    },
+                    "timestamp": __import__('time').time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        # Проверяем, является ли это autocomplete запросом
+        if request.path and '/autocomplete/' in request.path:
+            # #region agent log
+            try:
+                with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({
+                        "sessionId": "debug-session",
+                        "runId": "run1",
+                        "hypothesisId": "J",
+                        "location": "admin.py:FinancePartnerAdmin.has_change_permission:autocomplete_allowed",
+                        "message": "Autocomplete request allowed",
+                        "data": {"result": True},
+                        "timestamp": __import__('time').time() * 1000
+                    }, ensure_ascii=False) + '\n')
+            except: pass
+            # #endregion
+            return True
+        if is_moderator(request.user):
+            return False
+        result = request.user.is_superuser
+        # #region agent log
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "J",
+                    "location": "admin.py:FinancePartnerAdmin.has_change_permission:exit",
+                    "message": "FinancePartnerAdmin.has_change_permission result",
+                    "data": {"result": result},
+                    "timestamp": __import__('time').time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
+        return result
 
 
 # @admin.register(OwnerContribution)
