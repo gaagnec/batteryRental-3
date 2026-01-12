@@ -1922,6 +1922,21 @@ class BatteryAdmin(ModeratorRestrictedMixin, CityFilteredAdminMixin, SimpleHisto
     actions = ["create_transfer_request"]
     action_form = BatteryTransferActionForm
 
+    def has_module_permission(self, request):
+        """Скрываем модуль из списка для модераторов, но разрешаем autocomplete"""
+        if is_moderator(request.user):
+            return False
+        return super().has_module_permission(request) if hasattr(super(), 'has_module_permission') else True
+    
+    def has_view_permission(self, request, obj=None):
+        """Разрешаем просмотр для autocomplete запросов"""
+        # Проверяем, является ли это autocomplete запросом
+        if request.path and '/autocomplete/' in request.path:
+            return True
+        if is_moderator(request.user):
+            return False
+        return super().has_view_permission(request, obj) if hasattr(super(), 'has_view_permission') else True
+
     def get_queryset(self, request):
         """Оптимизация: предзагрузка assignments для избежания N+1"""
         qs = super().get_queryset(request)
@@ -1942,14 +1957,68 @@ class BatteryAdmin(ModeratorRestrictedMixin, CityFilteredAdminMixin, SimpleHisto
     
     def get_search_results(self, request, queryset, search_term):
         """Фильтрация результатов autocomplete для модераторов"""
+        # #region agent log
+        import json
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "I",
+                    "location": "admin.py:BatteryAdmin.get_search_results:entry",
+                    "message": "BatteryAdmin.get_search_results called",
+                    "data": {
+                        "user_id": request.user.id if request.user else None,
+                        "username": request.user.username if request.user else None,
+                        "search_term": search_term,
+                        "path": request.path if hasattr(request, 'path') else None,
+                        "has_queryset": queryset is not None
+                    },
+                    "timestamp": __import__('time').time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         queryset, use_distinct = super().get_search_results(request, queryset, search_term)
         
         # Если пользователь модератор, фильтруем по городу
         if is_moderator(request.user):
             city = get_user_city(request.user)
+            # #region agent log
+            try:
+                with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({
+                        "sessionId": "debug-session",
+                        "runId": "run1",
+                        "hypothesisId": "I",
+                        "location": "admin.py:BatteryAdmin.get_search_results:filtering",
+                        "message": "Filtering batteries by city for moderator",
+                        "data": {
+                            "city_id": city.id if city else None,
+                            "city_name": city.name if city else None
+                        },
+                        "timestamp": __import__('time').time() * 1000
+                    }, ensure_ascii=False) + '\n')
+            except: pass
+            # #endregion
             if city:
                 queryset = queryset.filter(city=city)
         
+        # #region agent log
+        try:
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "I",
+                    "location": "admin.py:BatteryAdmin.get_search_results:exit",
+                    "message": "BatteryAdmin.get_search_results completed",
+                    "data": {
+                        "queryset_filtered": True
+                    },
+                    "timestamp": __import__('time').time() * 1000
+                }, ensure_ascii=False) + '\n')
+        except: pass
+        # #endregion
         return queryset, use_distinct
     
     def save_model(self, request, obj, form, change):
