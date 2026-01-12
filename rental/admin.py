@@ -1940,6 +1940,18 @@ class BatteryAdmin(ModeratorRestrictedMixin, CityFilteredAdminMixin, SimpleHisto
             form.base_fields['city'].help_text = "Город автоматически устанавливается из города модератора"
         return form
     
+    def get_search_results(self, request, queryset, search_term):
+        """Фильтрация результатов autocomplete для модераторов"""
+        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
+        
+        # Если пользователь модератор, фильтруем по городу
+        if is_moderator(request.user):
+            city = get_user_city(request.user)
+            if city:
+                queryset = queryset.filter(city=city)
+        
+        return queryset, use_distinct
+    
     def save_model(self, request, obj, form, change):
         """Автоматически устанавливаем city для модераторов"""
         # Для модераторов при создании устанавливаем город
@@ -2439,7 +2451,7 @@ class RentalAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                         "user_id": request.user.id if request.user else None,
                         "username": request.user.username if request.user else None,
                         "search_term": search_term,
-                        "queryset_count_before": queryset.count() if queryset else None,
+                        "has_queryset": queryset is not None,
                         "model_name": queryset.model.__name__ if queryset else None
                     },
                     "timestamp": __import__('time').time() * 1000
@@ -2461,7 +2473,7 @@ class RentalAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                     "message": "After super().get_search_results",
                     "data": {
                         "user_is_moderator": user_is_moderator,
-                        "queryset_count_after_super": queryset.count() if queryset else None
+                        "has_queryset": queryset is not None
                     },
                     "timestamp": __import__('time').time() * 1000
                 }, ensure_ascii=False) + '\n')
@@ -2498,7 +2510,7 @@ class RentalAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
                             "location": "admin.py:RentalAdmin.get_search_results:after_filter",
                             "message": "After filtering by city",
                             "data": {
-                                "queryset_count_after_filter": queryset.count() if queryset else None
+                                "queryset_filtered": True
                             },
                             "timestamp": __import__('time').time() * 1000
                         }, ensure_ascii=False) + '\n')
