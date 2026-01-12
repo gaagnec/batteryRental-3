@@ -2715,22 +2715,6 @@ class RentalAdmin(CityFilteredAdminMixin, SimpleHistoryAdmin):
             if 'city' in form.base_fields:
                 form.base_fields['city'].disabled = True
                 form.base_fields['city'].help_text = "Город автоматически устанавливается из города клиента или модератора"
-        # #region agent log
-        try:
-            elapsed = (time_module.time() - start_time) * 1000
-            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
-                f.write(json.dumps({
-                    "sessionId": "debug-session",
-                    "runId": "run1",
-                    "hypothesisId": "H",
-                    "location": "admin.py:RentalAdmin.get_form:exit",
-                    "message": "get_form completed",
-                    "data": {"elapsed_ms": elapsed},
-                    "timestamp": time_module.time() * 1000
-                }, ensure_ascii=False) + '\n')
-        except: pass
-        # #endregion
-        return form
             if 'client' in form.base_fields:
                 # Фильтруем клиентов по городу модератора
                 city = get_user_city(request.user)
