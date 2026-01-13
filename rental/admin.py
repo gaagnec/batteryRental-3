@@ -2655,6 +2655,43 @@ class RentalBatteryAssignmentInline(admin.TabularInline):
     extra = 0
     readonly_fields = ("created_by", "updated_by")
     autocomplete_fields = ("battery",)
+    
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """Запрещаем добавление/редактирование батарей для модераторов"""
+        field = super().formfield_for_foreignkey(db_field, request, **kwargs)
+        
+        if db_field.name == "battery" and is_moderator(request.user):
+            # Запрещаем все действия со связанными объектами для модераторов
+            if hasattr(field.widget, 'can_add_related'):
+                field.widget.can_add_related = False
+            if hasattr(field.widget, 'can_change_related'):
+                field.widget.can_change_related = False
+            if hasattr(field.widget, 'can_delete_related'):
+                field.widget.can_delete_related = False
+            if hasattr(field.widget, 'can_view_related'):
+                field.widget.can_view_related = False
+        
+        return field
+    
+    def get_formset(self, request, obj=None, **kwargs):
+        """Дополнительно запрещаем добавление/редактирование батарей для модераторов через get_formset"""
+        formset = super().get_formset(request, obj, **kwargs)
+        
+        if is_moderator(request.user):
+            # Для модераторов запрещаем все действия со связанными объектами
+            if hasattr(formset.form, 'base_fields'):
+                battery_field = formset.form.base_fields.get('battery')
+                if battery_field and hasattr(battery_field, 'widget'):
+                    if hasattr(battery_field.widget, 'can_add_related'):
+                        battery_field.widget.can_add_related = False
+                    if hasattr(battery_field.widget, 'can_change_related'):
+                        battery_field.widget.can_change_related = False
+                    if hasattr(battery_field.widget, 'can_delete_related'):
+                        battery_field.widget.can_delete_related = False
+                    if hasattr(battery_field.widget, 'can_view_related'):
+                        battery_field.widget.can_view_related = False
+        
+        return formset
 
 
 class PaymentInline(admin.TabularInline):
