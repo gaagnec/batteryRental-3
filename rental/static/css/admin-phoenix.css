@@ -697,10 +697,14 @@
       display: none;
     }
     
-    /* Hide Created by and Updated by fields on client add page only */
-    body.model-client.add-form .form-row.field-created_by,
-    body.model-client.add-form .form-row.field-updated_by,
-    body.model-client.add-form .field-created_by,
-    body.model-client.add-form .field-updated_by {
+    /* Hide Created by and Updated by fields on client add page */
+    /* Target by div class directly - works for add forms */
+    div.form-row.field-created_by,
+    div.form-row.field-updated_by,
+    .field-created_by.form-row,
+    .field-updated_by.form-row {
       display: none !important;
+      visibility: hidden !important;
+      height: 0 !important;
+      overflow: hidden !important;
     }
