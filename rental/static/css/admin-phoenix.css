@@ -696,3 +696,11 @@
     .hidden {
       display: none;
     }
+    
+    /* Hide Created by and Updated by fields on client add page only */
+    body.model-client.add-form .form-row.field-created_by,
+    body.model-client.add-form .form-row.field-updated_by,
+    body.model-client.add-form .field-created_by,
+    body.model-client.add-form .field-updated_by {
+      display: none !important;
+    }
