@@ -187,10 +187,13 @@
         </a>
       </li>
       <li class="phoenix-sidebar-item">
-        <a href="{% url 'admin:logout' %}" class="phoenix-sidebar-link">
-          <i class="bi bi-box-arrow-right"></i>
-          <span>Выход</span>
-        </a>
+        <form method="post" action="{% url 'admin:logout' %}" style="margin: 0; padding: 0;">
+          {% csrf_token %}
+          <button type="submit" class="phoenix-sidebar-link" style="background: none; border: none; width: 100%; text-align: left; cursor: pointer;">
+            <i class="bi bi-box-arrow-right"></i>
+            <span>Выход</span>
+          </button>
+        </form>
       </li>
     </ul>
   </aside>
