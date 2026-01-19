@@ -3539,7 +3539,7 @@ class PaymentAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, Simple
         title = 'Договор'
         field_name = 'rental'
 
-    list_display = ("id", "rental_link", "date", "amount_display", "type_display", "method_display", "city", "created_by_name")
+    list_display = ("id", "rental_link", "date", "amount_display", "type_display", "method_display", "city_display", "created_by_name")
     list_filter = (RentalFilter, "type", "method", "city")
     search_fields = ("rental__id", "note", "rental__client__name", "created_by__username")
     readonly_fields = ("updated_by",)
@@ -4482,6 +4482,13 @@ class PaymentAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, Simple
         if not user:
             return ''
         return user.username
+    
+    @admin.display(ordering='city__name', description='Город')
+    def city_display(self, obj):
+        """Отображение города с возможностью сортировки по имени"""
+        if obj.city:
+            return str(obj.city)
+        return "-"
 
     def save_model(self, request, obj, form, change):
         if not request.user.is_superuser:
