@@ -708,3 +708,12 @@
       height: 0 !important;
       overflow: hidden !important;
     }
+    
+    /* Показываем created_by на странице Payment */
+    body.model-payment div.form-row.field-created_by,
+    body.model-payment .field-created_by.form-row {
+      display: block !important;
+      visibility: visible !important;
+      height: auto !important;
+      overflow: visible !important;
+    }
