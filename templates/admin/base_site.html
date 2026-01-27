@@ -55,7 +55,8 @@
     </ul>
     
     <div class="phoenix-navbar-right">
-      {% if user.is_staff %}
+      {% check_moderator user as user_is_moderator %}
+      {% if user.is_staff and not user_is_moderator %}
       <a href="{% url 'download-debug-log' %}" class="phoenix-navbar-icon" title="Скачать debug лог">
         <i class="bi bi-file-text"></i>
       </a>
