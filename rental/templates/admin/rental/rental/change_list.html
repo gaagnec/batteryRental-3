@@ -424,8 +424,41 @@
 {% endblock %}
 
 {% block object-tools-items %}
-  <!-- Phoenix-style Filters Container -->
-  <div class="phoenix-filters-container" style="width: 100%; list-style: none; margin: 0 0 1rem 0; padding: 0;">
+  {{ block.super }}
+{% endblock %}
+
+{% block result_list %}
+  <!-- Action Buttons -->
+  <div class="rental-actions-container">
+    <span class="rental-actions-label">
+      <i class="bi bi-lightning-charge"></i>
+      Действия:
+    </span>
+    <button type="button" class="rental-action-btn btn-close-rental" id="btnCloseRental" disabled data-bs-toggle="modal" data-bs-target="#closeRentalModal">
+      <i class="bi bi-x-circle"></i>
+      <span>Закрыть договор</span>
+    </button>
+    <button type="button" class="rental-action-btn btn-pause-rental" id="btnPauseRental" disabled data-bs-toggle="modal" data-bs-target="#pauseRentalModal">
+      <i class="bi bi-pause-circle"></i>
+      <span>Пауза</span>
+    </button>
+    <button type="button" class="rental-action-btn btn-new-tariff" id="btnNewTariff" disabled data-bs-toggle="modal" data-bs-target="#newTariffModal">
+      <i class="bi bi-cash-coin"></i>
+      <span>Новый тариф</span>
+    </button>
+    <button type="button" class="rental-action-btn btn-add-payment" id="btnAddPayment" disabled data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+      <i class="bi bi-plus-circle"></i>
+      <span>Добавить платеж</span>
+    </button>
+    <span class="selected-count" id="selectedCount">Выберите договор</span>
+  </div>
+  
+  <div class="table-responsive">
+    {{ block.super }}
+  </div>
+  
+  <!-- Phoenix-style Filters Container - moved after table -->
+  <div class="phoenix-filters-container" style="width: 100%; list-style: none; margin: 1rem 0 0 0; padding: 0;">
     <div class="phoenix-filters-row">
       <!-- Status Filter -->
       <div class="filter-group">
@@ -474,39 +507,6 @@
                autocomplete="off">
       </div>
     </div>
-  </div>
-
-  {{ block.super }}
-{% endblock %}
-
-{% block result_list %}
-  <!-- Action Buttons -->
-  <div class="rental-actions-container">
-    <span class="rental-actions-label">
-      <i class="bi bi-lightning-charge"></i>
-      Действия:
-    </span>
-    <button type="button" class="rental-action-btn btn-close-rental" id="btnCloseRental" disabled data-bs-toggle="modal" data-bs-target="#closeRentalModal">
-      <i class="bi bi-x-circle"></i>
-      <span>Закрыть договор</span>
-    </button>
-    <button type="button" class="rental-action-btn btn-pause-rental" id="btnPauseRental" disabled data-bs-toggle="modal" data-bs-target="#pauseRentalModal">
-      <i class="bi bi-pause-circle"></i>
-      <span>Пауза</span>
-    </button>
-    <button type="button" class="rental-action-btn btn-new-tariff" id="btnNewTariff" disabled data-bs-toggle="modal" data-bs-target="#newTariffModal">
-      <i class="bi bi-cash-coin"></i>
-      <span>Новый тариф</span>
-    </button>
-    <button type="button" class="rental-action-btn btn-add-payment" id="btnAddPayment" disabled data-bs-toggle="modal" data-bs-target="#addPaymentModal">
-      <i class="bi bi-plus-circle"></i>
-      <span>Добавить платеж</span>
-    </button>
-    <span class="selected-count" id="selectedCount">Выберите договор</span>
-  </div>
-  
-  <div class="table-responsive">
-    {{ block.super }}
   </div>
 
   <!-- Close Rental Modal -->
