@@ -3849,6 +3849,23 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                     rental__root=root
                 ).select_related('rental').order_by('-date')
                 extra_context['all_payments'] = all_payments
+                
+                # Получаем номера батарей для текущей версии (активные сейчас)
+                now = timezone.now()
+                current_batteries = []
+                for a in rental.assignments.select_related('battery').all():
+                    a_start = a.start_at
+                    a_end = a.end_at
+                    # Батарея активна если начало <= сейчас и (нет окончания или окончание > сейчас)
+                    if a_start <= now and (a_end is None or a_end > now):
+                        current_batteries.append(a.battery.short_code)
+                extra_context['current_battery_codes'] = ', '.join(current_batteries) if current_batteries else '—'
+                
+                # Вычисляем длительность текущей версии в днях
+                start = rental.start_at
+                end = rental.end_at or now
+                duration_days = (end - start).days
+                extra_context['version_duration_days'] = duration_days
         except Exception:
             pass
         

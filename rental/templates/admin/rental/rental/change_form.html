@@ -231,13 +231,114 @@
       color: #ffc107;
     }
     
+    /* Compact Info Grid */
+    .info-compact-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    
+    .info-compact-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    
+    .info-compact-label {
+      color: #9fa6bc;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+    
+    .info-compact-label i {
+      color: #667eea;
+      font-size: 0.875rem;
+    }
+    
+    .info-compact-value {
+      color: #e9ecef;
+      font-size: 0.9375rem;
+      font-weight: 500;
+    }
+    
+    /* Dates row */
+    .info-dates-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.75rem 1rem;
+      background-color: #0e1018;
+      border-radius: 0.375rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    
+    .info-date-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #e9ecef;
+      font-size: 0.875rem;
+    }
+    
+    .info-date-item i {
+      color: #667eea;
+    }
+    
+    .date-label {
+      color: #9fa6bc;
+    }
+    
+    .date-value {
+      font-weight: 500;
+    }
+    
+    .info-date-separator {
+      color: #667eea;
+      font-size: 1.25rem;
+    }
+    
+    .info-duration {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.375rem 0.75rem;
+      background-color: #667eea;
+      color: white;
+      border-radius: 0.25rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      margin-left: auto;
+    }
+    
+    /* Batteries row */
+    .info-batteries-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #2a2e41;
+      margin-bottom: 0.75rem;
+    }
+    
+    .info-batteries-value {
+      color: #28a745;
+      font-weight: 600;
+      font-size: 0.9375rem;
+    }
+    
     /* Navigation Links */
     .version-nav {
       display: flex;
       gap: 1rem;
-      margin-top: 1rem;
-      padding-top: 1rem;
-      border-top: 1px solid #2a2e41;
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
     }
     
     .version-nav-link {
@@ -246,7 +347,7 @@
       gap: 0.5rem;
       color: #667eea;
       text-decoration: none;
-      font-size: 0.875rem;
+      font-size: 0.8125rem;
       padding: 0.375rem 0.75rem;
       background-color: #0e1018;
       border: 1px solid #2a2e41;
@@ -260,11 +361,16 @@
       border-color: #667eea;
     }
     
-    /* Phoenix Tables */
+    /* Phoenix Tables - Dark Theme */
     .phoenix-table {
       width: 100%;
       border-collapse: collapse;
       margin: 0;
+      background-color: #1c1e2d;
+    }
+    
+    .phoenix-table thead {
+      background-color: #0e1018;
     }
     
     .phoenix-table th {
@@ -279,15 +385,24 @@
       border-bottom: 1px solid #2a2e41;
     }
     
+    .phoenix-table tbody {
+      background-color: #1c1e2d;
+    }
+    
+    .phoenix-table tr {
+      background-color: #1c1e2d;
+    }
+    
     .phoenix-table td {
       padding: 0.75rem 1rem;
       color: #e9ecef;
       border-bottom: 1px solid #2a2e41;
       font-size: 0.875rem;
+      background-color: #1c1e2d;
     }
     
     .phoenix-table tr:hover td {
-      background-color: rgba(102, 126, 234, 0.05);
+      background-color: #252840;
     }
     
     .phoenix-table .badge {
@@ -307,6 +422,26 @@
       color: #dc3545;
     }
     
+    @media (max-width: 768px) {
+      .info-compact-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .info-dates-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      
+      .info-date-separator {
+        display: none;
+      }
+      
+      .info-duration {
+        margin-left: 0;
+        margin-top: 0.5rem;
+      }
+    }
+    
     /* Hide Django form elements for detail view */
     .module, fieldset {
       display: none !important;
@@ -318,7 +453,41 @@
     }
     {% endif %}
     
-    /* Modal Styling - always needed for add form with Bootstrap */
+    /* Global Phoenix Dark Theme Styles */
+    body {
+      background-color: #0f1117 !important;
+    }
+    
+    #content {
+      background-color: #0f1117 !important;
+    }
+    
+    /* Global Headers */
+    h1, h2, h3, h4, h5, h6,
+    #content h1, #content h2, #content h3,
+    .content-title, #container h1 {
+      color: #e9ecef !important;
+    }
+    
+    #content-main h1, #content-main h2 {
+      color: #e9ecef !important;
+    }
+    
+    /* Breadcrumbs */
+    .breadcrumbs {
+      background-color: #1c1e2d !important;
+      color: #9fa6bc !important;
+    }
+    
+    .breadcrumbs a {
+      color: #667eea !important;
+    }
+    
+    .breadcrumbs a:hover {
+      color: #8fa3f0 !important;
+    }
+    
+    /* Modal Styling */
     .modal-content {
       background-color: #1c1e2d;
       border: 1px solid #2a2e41;
@@ -343,23 +512,91 @@
       border-top: 1px solid #2a2e41;
     }
     
-    .form-label {
-      color: #9fa6bc;
+    /* Form Styling for Add Form */
+    .form-label,
+    .module h2,
+    fieldset h2 {
+      color: #e9ecef !important;
       font-weight: 500;
       font-size: 0.875rem;
     }
     
-    .form-control {
-      background-color: #0e1018;
-      border: 1px solid #2a2e41;
-      color: #e9ecef;
+    .form-control,
+    .vTextField,
+    .vDateField,
+    .vTimeField,
+    select,
+    textarea,
+    input[type="text"],
+    input[type="number"],
+    input[type="email"],
+    input[type="date"],
+    input[type="datetime-local"] {
+      background-color: #0e1018 !important;
+      border: 1px solid #2a2e41 !important;
+      color: #e9ecef !important;
     }
     
-    .form-control:focus {
-      background-color: #1c1e2d;
-      border-color: #667eea;
-      color: #e9ecef;
-      box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    .form-control:focus,
+    .vTextField:focus,
+    select:focus,
+    textarea:focus,
+    input:focus {
+      background-color: #1c1e2d !important;
+      border-color: #667eea !important;
+      color: #e9ecef !important;
+      box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25) !important;
+    }
+    
+    /* Django Admin Module/Fieldset for Add Form */
+    .module {
+      background-color: #1c1e2d !important;
+      border: 1px solid #2a2e41 !important;
+      border-radius: 0.5rem !important;
+      margin-bottom: 1rem !important;
+    }
+    
+    .module caption,
+    .module h2 {
+      background-color: #0e1018 !important;
+      color: #e9ecef !important;
+      padding: 0.75rem 1rem !important;
+      margin: 0 !important;
+      border-bottom: 1px solid #2a2e41 !important;
+    }
+    
+    fieldset {
+      background-color: #1c1e2d !important;
+      border: 1px solid #2a2e41 !important;
+      border-radius: 0.5rem !important;
+      margin-bottom: 1rem !important;
+    }
+    
+    fieldset h2 {
+      background-color: #0e1018 !important;
+      color: #e9ecef !important;
+      padding: 0.75rem 1rem !important;
+      margin: -1rem -1rem 1rem -1rem !important;
+      border-bottom: 1px solid #2a2e41 !important;
+      border-radius: 0.5rem 0.5rem 0 0 !important;
+    }
+    
+    .form-row {
+      border-bottom-color: #2a2e41 !important;
+      padding: 0.75rem 1rem !important;
+    }
+    
+    .form-row label {
+      color: #9fa6bc !important;
+    }
+    
+    .form-row .readonly {
+      color: #e9ecef !important;
+    }
+    
+    .help {
+      color: #9fa6bc !important;
+      font-size: 0.8125rem !important;
     }
     
     /* Submit Row */
@@ -367,6 +604,98 @@
       background-color: #1c1e2d !important;
       border-top: 1px solid #2a2e41 !important;
       padding: 1rem 1.25rem !important;
+    }
+    
+    .submit-row input[type="submit"],
+    .submit-row .default {
+      background-color: #667eea !important;
+      border: none !important;
+      color: white !important;
+    }
+    
+    .submit-row input[type="submit"]:hover,
+    .submit-row .default:hover {
+      background-color: #5568d3 !important;
+    }
+    
+    .submit-row .deletelink {
+      background-color: #dc3545 !important;
+      color: white !important;
+    }
+    
+    /* Related widget wrapper */
+    .related-widget-wrapper {
+      display: flex;
+      align-items: center;
+    }
+    
+    .related-widget-wrapper select {
+      flex: 1;
+    }
+    
+    /* Inline groups for add form */
+    .inline-group {
+      background-color: #1c1e2d !important;
+      border: 1px solid #2a2e41 !important;
+      border-radius: 0.5rem !important;
+      margin-bottom: 1rem !important;
+    }
+    
+    .inline-group h2 {
+      background-color: #0e1018 !important;
+      color: #e9ecef !important;
+      padding: 0.75rem 1rem !important;
+      border-bottom: 1px solid #2a2e41 !important;
+    }
+    
+    .inline-group .tabular {
+      background-color: #1c1e2d !important;
+    }
+    
+    .inline-group table {
+      background-color: #1c1e2d !important;
+    }
+    
+    .inline-group th {
+      background-color: #0e1018 !important;
+      color: #9fa6bc !important;
+      border-color: #2a2e41 !important;
+    }
+    
+    .inline-group td {
+      background-color: #1c1e2d !important;
+      color: #e9ecef !important;
+      border-color: #2a2e41 !important;
+    }
+    
+    /* Django admin links */
+    a {
+      color: #667eea;
+    }
+    
+    a:hover {
+      color: #8fa3f0;
+    }
+    
+    /* Object tools */
+    .object-tools a {
+      background-color: #667eea !important;
+      color: white !important;
+    }
+    
+    .object-tools a:hover {
+      background-color: #5568d3 !important;
+    }
+    
+    /* Errors */
+    .errorlist {
+      color: #dc3545 !important;
+    }
+    
+    .errornote {
+      background-color: rgba(220, 53, 69, 0.1) !important;
+      border-color: #dc3545 !important;
+      color: #dc3545 !important;
     }
     
     /* Responsive */
@@ -419,69 +748,50 @@
       <div class="phoenix-card-header">
         <i class="bi bi-info-circle"></i>
         <span>Основная информация</span>
+        <span class="status-badge {% if original.status == 'active' %}active{% elif original.status == 'closed' %}closed{% else %}modified{% endif %}" style="margin-left: auto;">
+          {{ original.get_status_display }}
+        </span>
       </div>
-      <div class="phoenix-card-body">
-        <div class="info-grid">
-          <div class="info-item">
-            <div class="info-label">
-              <i class="bi bi-person"></i>
-              <span>Клиент</span>
-            </div>
-            <div class="info-value">{{ original.client }}</div>
+      <div class="phoenix-card-body" style="padding: 1rem 1.5rem;">
+        <!-- Compact 3-column layout -->
+        <div class="info-compact-grid">
+          <div class="info-compact-item">
+            <span class="info-compact-label"><i class="bi bi-person"></i> Клиент</span>
+            <span class="info-compact-value">{{ original.client }}</span>
           </div>
-          <div class="info-item">
-            <div class="info-label">
-              <i class="bi bi-calendar-event"></i>
-              <span>Дата начала</span>
-            </div>
-            <div class="info-value">{{ original.start_at|date:"d.m.Y H:i" }}</div>
+          <div class="info-compact-item">
+            <span class="info-compact-label"><i class="bi bi-geo-alt"></i> Город</span>
+            <span class="info-compact-value">{{ original.city|default:"—" }}</span>
           </div>
-          <div class="info-item">
-            <div class="info-label">
-              <i class="bi bi-geo-alt"></i>
-              <span>Город</span>
-            </div>
-            <div class="info-value">{{ original.city|default:"—" }}</div>
+          <div class="info-compact-item">
+            <span class="info-compact-label"><i class="bi bi-file-earmark-text"></i> Договор</span>
+            <span class="info-compact-value">{{ original.contract_code }} v{{ original.version }}</span>
           </div>
-          <div class="info-item">
-            <div class="info-label">
-              <i class="bi bi-calendar-x"></i>
-              <span>Дата окончания</span>
-            </div>
-            <div class="info-value">{{ original.end_at|date:"d.m.Y H:i"|default:"—" }}</div>
+        </div>
+        
+        <!-- Dates row -->
+        <div class="info-dates-row">
+          <div class="info-date-item">
+            <i class="bi bi-calendar-event"></i>
+            <span class="date-label">Начало:</span>
+            <span class="date-value">{{ original.start_at|date:"d.m.Y H:i" }}</span>
           </div>
-          <div class="info-item">
-            <div class="info-label">
-              <i class="bi bi-flag"></i>
-              <span>Статус</span>
-            </div>
-            <div class="info-value">
-              <span class="status-badge {% if original.status == 'active' %}active{% elif original.status == 'closed' %}closed{% else %}modified{% endif %}">
-                {{ original.get_status_display }}
-              </span>
-            </div>
+          <div class="info-date-separator">→</div>
+          <div class="info-date-item">
+            <i class="bi bi-calendar-x"></i>
+            <span class="date-label">Окончание:</span>
+            <span class="date-value">{{ original.end_at|date:"d.m.Y H:i"|default:"—" }}</span>
           </div>
-          <div class="info-item">
-            <div class="info-label">
-              <i class="bi bi-battery-charging"></i>
-              <span>Тип батареи</span>
-            </div>
-            <div class="info-value">{{ original.battery_type|default:"—" }}</div>
+          <div class="info-duration">
+            <i class="bi bi-clock-history"></i>
+            <span>{{ version_duration_days }} дн.</span>
           </div>
-          <div class="info-item">
-            <div class="info-label">
-              <i class="bi bi-file-earmark-text"></i>
-              <span>Код договора</span>
-            </div>
-            <div class="info-value">{{ original.contract_code }} v{{ original.version }}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">
-              <i class="bi bi-hash"></i>
-              <span>Количество батарей</span>
-            </div>
-            <div class="info-value">{{ original.battery_count|default:"0" }}</div>
-          </div>
+        </div>
+        
+        <!-- Batteries row -->
+        <div class="info-batteries-row">
+          <span class="info-compact-label"><i class="bi bi-battery-charging"></i> Батареи (текущая версия)</span>
+          <span class="info-batteries-value">{{ current_battery_codes }}</span>
         </div>
         
         <!-- Navigation between versions -->
