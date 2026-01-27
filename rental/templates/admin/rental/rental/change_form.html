@@ -1,0 +1,655 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/bootstrap-icons.css' %}">
+  <style>
+    /* Phoenix Dark Theme for Rental Detail Page */
+    body {
+      background-color: #0f1117 !important;
+    }
+    
+    #content {
+      background-color: #0f1117 !important;
+    }
+    
+    /* Action Buttons */
+    .rental-action-buttons {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    
+    .rental-action-btn {
+      padding: 0.625rem 1.25rem;
+      border: none;
+      border-radius: 0.375rem;
+      font-weight: 500;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .rental-action-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    
+    .rental-action-btn i {
+      font-size: 1rem;
+    }
+    
+    .btn-close-rental {
+      background-color: #dc3545;
+      color: white;
+    }
+    
+    .btn-close-rental:hover {
+      background-color: #c82333;
+    }
+    
+    .btn-pause-rental {
+      background-color: #ffc107;
+      color: #1a1c2e;
+    }
+    
+    .btn-pause-rental:hover {
+      background-color: #e0a800;
+    }
+    
+    .btn-new-tariff {
+      background-color: #667eea;
+      color: white;
+    }
+    
+    .btn-new-tariff:hover {
+      background-color: #5568d3;
+    }
+    
+    .btn-add-payment {
+      background-color: #28a745;
+      color: white;
+    }
+    
+    .btn-add-payment:hover {
+      background-color: #218838;
+    }
+    
+    /* Phoenix Cards */
+    .phoenix-card {
+      background-color: #1c1e2d;
+      border: 1px solid #2a2e41;
+      border-radius: 0.5rem;
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+    
+    .phoenix-card-header {
+      background-color: #0e1018;
+      color: #e9ecef;
+      padding: 0.875rem 1.25rem;
+      border-bottom: 1px solid #2a2e41;
+      font-weight: 600;
+      font-size: 0.9375rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .phoenix-card-header i {
+      font-size: 1.125rem;
+      color: #667eea;
+    }
+    
+    .phoenix-card-body {
+      padding: 1.5rem;
+    }
+    
+    /* Info Grid */
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+    }
+    
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+    }
+    
+    .info-label {
+      color: #9fa6bc;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+    
+    .info-label i {
+      font-size: 0.875rem;
+      color: #667eea;
+    }
+    
+    .info-value {
+      color: #e9ecef;
+      font-size: 1rem;
+      font-weight: 500;
+    }
+    
+    /* Financial Stats - 4 columns */
+    .financial-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1.25rem;
+    }
+    
+    .stat-card {
+      background-color: #0e1018;
+      border: 1px solid #2a2e41;
+      border-radius: 0.375rem;
+      padding: 1rem;
+      text-align: center;
+    }
+    
+    .stat-label {
+      color: #9fa6bc;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.375rem;
+    }
+    
+    .stat-label i {
+      font-size: 1rem;
+    }
+    
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #e9ecef;
+    }
+    
+    .stat-value.positive {
+      color: #28a745;
+    }
+    
+    .stat-value.negative {
+      color: #dc3545;
+    }
+    
+    /* Status Badge */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.375rem 0.75rem;
+      border-radius: 0.25rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+    }
+    
+    .status-badge.active {
+      background-color: rgba(40, 167, 69, 0.15);
+      color: #28a745;
+    }
+    
+    .status-badge.closed {
+      background-color: rgba(220, 53, 69, 0.15);
+      color: #dc3545;
+    }
+    
+    .status-badge.modified {
+      background-color: rgba(255, 193, 7, 0.15);
+      color: #ffc107;
+    }
+    
+    /* Form Styling */
+    .module, fieldset {
+      display: none !important;
+    }
+    
+    /* Inline Tables */
+    .inline-group {
+      background-color: #1c1e2d;
+      border: 1px solid #2a2e41;
+      border-radius: 0.5rem;
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+    
+    .inline-group h2 {
+      background-color: #0e1018 !important;
+      color: #e9ecef !important;
+      padding: 0.875rem 1.25rem !important;
+      border-bottom: 1px solid #2a2e41 !important;
+      font-weight: 600;
+      font-size: 0.9375rem;
+      margin: 0 !important;
+    }
+    
+    .inline-group .tabular {
+      background-color: #1c1e2d;
+    }
+    
+    .inline-group table {
+      background-color: #1c1e2d;
+      color: #e9ecef;
+    }
+    
+    .inline-group th {
+      background-color: #0e1018;
+      color: #9fa6bc;
+      border-color: #2a2e41;
+    }
+    
+    .inline-group td {
+      border-color: #2a2e41;
+      color: #e9ecef;
+    }
+    
+    /* Modal Styling */
+    .modal-content {
+      background-color: #1c1e2d;
+      border: 1px solid #2a2e41;
+      color: #e9ecef;
+    }
+    
+    .modal-header {
+      background-color: #0e1018;
+      border-bottom: 1px solid #2a2e41;
+    }
+    
+    .modal-title {
+      color: #e9ecef;
+    }
+    
+    .modal-body {
+      background-color: #1c1e2d;
+    }
+    
+    .modal-footer {
+      background-color: #0e1018;
+      border-top: 1px solid #2a2e41;
+    }
+    
+    .form-label {
+      color: #9fa6bc;
+      font-weight: 500;
+      font-size: 0.875rem;
+    }
+    
+    .form-control {
+      background-color: #0e1018;
+      border: 1px solid #2a2e41;
+      color: #e9ecef;
+    }
+    
+    .form-control:focus {
+      background-color: #1c1e2d;
+      border-color: #667eea;
+      color: #e9ecef;
+      box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    
+    /* Submit Row */
+    .submit-row {
+      background-color: #1c1e2d !important;
+      border-top: 1px solid #2a2e41 !important;
+      padding: 1rem 1.25rem !important;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .financial-stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      
+      .info-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .rental-action-buttons {
+        flex-direction: column;
+      }
+      
+      .rental-action-btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  {% if original %}
+    <!-- Action Buttons -->
+    <div class="rental-action-buttons">
+      <button type="button" class="rental-action-btn btn-close-rental" data-bs-toggle="modal" data-bs-target="#closeRentalModal">
+        <i class="bi bi-x-circle"></i>
+        <span>Закрыть договор</span>
+      </button>
+      <button type="button" class="rental-action-btn btn-pause-rental" data-bs-toggle="modal" data-bs-target="#pauseRentalModal">
+        <i class="bi bi-pause-circle"></i>
+        <span>Пауза</span>
+      </button>
+      <button type="button" class="rental-action-btn btn-new-tariff" data-bs-toggle="modal" data-bs-target="#newTariffModal">
+        <i class="bi bi-cash-coin"></i>
+        <span>Новый тариф</span>
+      </button>
+      <button type="button" class="rental-action-btn btn-add-payment" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+        <i class="bi bi-plus-circle"></i>
+        <span>Добавить платеж</span>
+      </button>
+    </div>
+
+    <!-- Main Info Card -->
+    <div class="phoenix-card">
+      <div class="phoenix-card-header">
+        <i class="bi bi-info-circle"></i>
+        <span>Основная информация</span>
+      </div>
+      <div class="phoenix-card-body">
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">
+              <i class="bi bi-person"></i>
+              <span>Клиент</span>
+            </div>
+            <div class="info-value">{{ original.client }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">
+              <i class="bi bi-calendar-event"></i>
+              <span>Дата начала</span>
+            </div>
+            <div class="info-value">{{ original.start_at|date:"d.m.Y H:i" }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">
+              <i class="bi bi-geo-alt"></i>
+              <span>Город</span>
+            </div>
+            <div class="info-value">{{ original.city|default:"—" }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">
+              <i class="bi bi-calendar-x"></i>
+              <span>Дата окончания</span>
+            </div>
+            <div class="info-value">{{ original.end_at|date:"d.m.Y H:i"|default:"—" }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">
+              <i class="bi bi-flag"></i>
+              <span>Статус</span>
+            </div>
+            <div class="info-value">
+              <span class="status-badge {% if original.status == 'active' %}active{% elif original.status == 'closed' %}closed{% else %}modified{% endif %}">
+                {{ original.get_status_display }}
+              </span>
+            </div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">
+              <i class="bi bi-battery-charging"></i>
+              <span>Тип батареи</span>
+            </div>
+            <div class="info-value">{{ original.battery_type|default:"—" }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">
+              <i class="bi bi-file-earmark-text"></i>
+              <span>Код договора</span>
+            </div>
+            <div class="info-value">{{ original.contract_code }} v{{ original.version }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">
+              <i class="bi bi-hash"></i>
+              <span>Количество батарей</span>
+            </div>
+            <div class="info-value">{{ original.battery_count|default:"0" }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Financial Stats Card -->
+    <div class="phoenix-card">
+      <div class="phoenix-card-header">
+        <i class="bi bi-graph-up"></i>
+        <span>Финансовая информация</span>
+      </div>
+      <div class="phoenix-card-body">
+        <div class="financial-stats">
+          <div class="stat-card">
+            <div class="stat-label">
+              <i class="bi bi-calculator"></i>
+              <span>Начислено</span>
+            </div>
+            <div class="stat-value" id="charges-value">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">
+              <i class="bi bi-cash-stack"></i>
+              <span>Оплачено</span>
+            </div>
+            <div class="stat-value" id="paid-value">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">
+              <i class="bi bi-safe"></i>
+              <span>Депозит</span>
+            </div>
+            <div class="stat-value" id="deposit-value">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">
+              <i class="bi bi-wallet2"></i>
+              <span>Баланс</span>
+            </div>
+            <div class="stat-value" id="balance-value">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tariffs Card -->
+    <div class="phoenix-card">
+      <div class="phoenix-card-header">
+        <i class="bi bi-coin"></i>
+        <span>Тарифы и условия</span>
+      </div>
+      <div class="phoenix-card-body">
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">
+              <i class="bi bi-currency-dollar"></i>
+              <span>Недельная ставка</span>
+            </div>
+            <div class="info-value">{{ original.weekly_rate }} PLN</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">
+              <i class="bi bi-piggy-bank"></i>
+              <span>Депозит</span>
+            </div>
+            <div class="info-value">{{ original.deposit_amount }} PLN</div>
+          </div>
+        </div>
+        {% if original.battery_numbers %}
+        <div class="info-item" style="margin-top: 1rem;">
+          <div class="info-label">
+            <i class="bi bi-list-ol"></i>
+            <span>Номера батарей</span>
+          </div>
+          <div class="info-value" style="white-space: pre-wrap; font-size: 0.875rem; color: #9fa6bc;">{{ original.battery_numbers }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if not user.groups.all.0.name == 'Moderators' %}
+    <!-- Versioning Card (Admin only) -->
+    <div class="phoenix-card">
+      <div class="phoenix-card-header">
+        <i class="bi bi-diagram-3"></i>
+        <span>Версионирование</span>
+      </div>
+      <div class="phoenix-card-body">
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">
+              <i class="bi bi-arrow-up-circle"></i>
+              <span>Родительская версия</span>
+            </div>
+            <div class="info-value">{{ original.parent|default:"—" }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">
+              <i class="bi bi-box"></i>
+              <span>Версия</span>
+            </div>
+            <div class="info-value">{{ original.version }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">
+              <i class="bi bi-bookmark"></i>
+              <span>Корневая версия</span>
+            </div>
+            <div class="info-value">{{ original.root|default:"—" }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">
+              <i class="bi bi-upc"></i>
+              <span>Код договора</span>
+            </div>
+            <div class="info-value">{{ original.contract_code }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Service Info Card (Collapsed) -->
+    <div class="phoenix-card">
+      <div class="phoenix-card-header" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#serviceInfo">
+        <i class="bi bi-gear"></i>
+        <span>Служебная информация</span>
+        <i class="bi bi-chevron-down ms-auto"></i>
+      </div>
+      <div id="serviceInfo" class="collapse">
+        <div class="phoenix-card-body">
+          <div class="info-grid">
+            <div class="info-item">
+              <div class="info-label">
+                <i class="bi bi-person-plus"></i>
+                <span>Создано</span>
+              </div>
+              <div class="info-value" style="font-size: 0.875rem;">
+                {{ original.created_by|default:"—" }} • {{ original.created_at|date:"d.m.Y H:i" }}
+              </div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">
+                <i class="bi bi-pencil-square"></i>
+                <span>Обновлено</span>
+              </div>
+              <div class="info-value" style="font-size: 0.875rem;">
+                {{ original.updated_by|default:"—" }} • {{ original.updated_at|date:"d.m.Y H:i" }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Original Django Form (hidden) -->
+  {{ block.super }}
+
+  <!-- Modals -->
+  {% if original %}
+    {% include "admin/rental/rental/modals.html" %}
+  {% endif %}
+</div>
+
+<script>
+  // Hide original form elements
+  document.addEventListener('DOMContentLoaded', function() {
+    // Fetch financial values from API
+    {% if original %}
+    fetchFinancialData({{ original.id }});
+    {% endif %}
+  });
+
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+
+  function fetchFinancialData(rentalId) {
+    fetch(`/admin/rental/rental/${rentalId}/financial-data/`, {
+      method: 'GET',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken'),
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        // Update DOM
+        document.getElementById('charges-value').textContent = data.charges + ' PLN';
+        document.getElementById('paid-value').textContent = data.paid + ' PLN';
+        document.getElementById('deposit-value').textContent = data.deposit + ' PLN';
+        
+        const balanceEl = document.getElementById('balance-value');
+        const balance = parseFloat(data.balance);
+        balanceEl.textContent = data.balance + ' PLN';
+        
+        // Set color based on balance
+        if (balance < 0) {
+          balanceEl.classList.add('negative');
+          balanceEl.classList.remove('positive');
+        } else if (balance > 0) {
+          balanceEl.classList.add('positive');
+          balanceEl.classList.remove('negative');
+        }
+      }
+    })
+    .catch(error => {
+      console.error('Error fetching financial data:', error);
+    });
+  }
+</script>
+{% endblock %}
+

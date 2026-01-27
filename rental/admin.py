@@ -2758,6 +2758,9 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
         from .models import Client
         # Используем только необходимые поля, чтобы не тянуть всё
         extra_context['clients'] = Client.objects.only('id', 'name').order_by('name')
+        # Добавляем список городов для фильтра (только для администраторов)
+        if request.user.is_superuser:
+            extra_context['cities'] = City.objects.filter(active=True).order_by('name')
         response = super().changelist_view(request, extra_context=extra_context)
         # #region agent log
         try:
@@ -3034,9 +3037,8 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
 
     assigned_batteries_short.short_description = "Батареи"
 
-
-    action_form = NewVersionActionForm
-    actions = ["make_new_version", "close_with_deposit"]
+    # Custom template for change_form
+    change_form_template = 'admin/rental/rental/change_form.html'
     
     def get_list_display(self, request):
         base = list(super().get_list_display(request)) if hasattr(super(), 'get_list_display') else list(self.list_display)
@@ -3417,7 +3419,32 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                 '<int:pk>/change-batteries/',
                 self.admin_site.admin_view(self.change_batteries_view),
                 name='rental_rental_change_batteries',
-            )
+            ),
+            path(
+                '<int:pk>/close/',
+                self.admin_site.admin_view(self.close_rental_view),
+                name='rental_rental_close',
+            ),
+            path(
+                '<int:pk>/pause/',
+                self.admin_site.admin_view(self.pause_rental_view),
+                name='rental_rental_pause',
+            ),
+            path(
+                '<int:pk>/new-tariff/',
+                self.admin_site.admin_view(self.new_tariff_view),
+                name='rental_rental_new_tariff',
+            ),
+            path(
+                '<int:pk>/add-payment/',
+                self.admin_site.admin_view(self.add_payment_view),
+                name='rental_rental_add_payment',
+            ),
+            path(
+                '<int:pk>/financial-data/',
+                self.admin_site.admin_view(self.financial_data_view),
+                name='rental_rental_financial_data',
+            ),
         ]
         return custom + urls
 
@@ -3469,6 +3496,323 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
             formset=formset,
         )
         return TemplateResponse(request, 'admin/rental/change_batteries.html', context)
+
+    def close_rental_view(self, request, pk):
+        """AJAX endpoint для закрытия договора"""
+        if request.method != 'POST':
+            return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+        
+        try:
+            rental = Rental.objects.get(pk=pk)
+            
+            # Проверка прав доступа
+            if not self.has_change_permission(request, rental):
+                return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+            
+            # Получаем дату закрытия
+            close_date_str = request.POST.get('close_date')
+            if close_date_str:
+                close_date = timezone.datetime.fromisoformat(close_date_str.replace('T', ' '))
+                if timezone.is_naive(close_date):
+                    close_date = timezone.make_aware(close_date, timezone.get_current_timezone())
+            else:
+                close_date = timezone.now()
+            
+            # Закрываем договор
+            root = rental.root or rental
+            for v in Rental.objects.filter(root=root, status=Rental.Status.ACTIVE):
+                if not v.end_at or v.end_at > close_date:
+                    v.end_at = close_date
+                v.status = Rental.Status.CLOSED
+                v.updated_by = request.user
+                v.save()
+                
+                # Закрываем все активные назначения батарей
+                for assignment in v.assignments.filter(end_at__isnull=True):
+                    assignment.end_at = close_date
+                    assignment.updated_by = request.user
+                    assignment.save()
+                for assignment in v.assignments.filter(end_at__gt=close_date):
+                    assignment.end_at = close_date
+                    assignment.updated_by = request.user
+                    assignment.save()
+            
+            return JsonResponse({'success': True, 'message': 'Договор закрыт'})
+            
+        except Rental.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Договор не найден'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+    def pause_rental_view(self, request, pk):
+        """AJAX endpoint для создания паузы договора"""
+        if request.method != 'POST':
+            return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+        
+        try:
+            rental = Rental.objects.get(pk=pk)
+            
+            # Проверка прав доступа
+            if not self.has_change_permission(request, rental):
+                return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+            
+            # Получаем параметры
+            pause_days = int(request.POST.get('pause_days', 0))
+            if pause_days <= 0:
+                return JsonResponse({'success': False, 'error': 'Укажите количество дней'}, status=400)
+            
+            pause_start_str = request.POST.get('pause_start_date')
+            if pause_start_str:
+                pause_start = timezone.datetime.fromisoformat(pause_start_str.replace('T', ' '))
+                if timezone.is_naive(pause_start):
+                    pause_start = timezone.make_aware(pause_start, timezone.get_current_timezone())
+            else:
+                pause_start = timezone.now()
+            
+            # Используем логику из make_new_version с бесплатными днями
+            root = rental.root or rental
+            
+            # Закрываем текущую версию
+            if not rental.end_at or rental.end_at > pause_start:
+                rental.end_at = pause_start
+            rental.status = Rental.Status.MODIFIED
+            rental.updated_by = request.user
+            rental.save()
+            
+            # Создаем версию с паузой (нулевая ставка)
+            pause_end = pause_start + timezone.timedelta(days=pause_days)
+            new_version_num = root.group_versions().count() + 1
+            
+            pause_version = Rental(
+                client=rental.client,
+                city=rental.city,
+                start_at=pause_start,
+                end_at=pause_end,
+                weekly_rate=Decimal(0),
+                deposit_amount=rental.deposit_amount,
+                status=Rental.Status.ACTIVE,
+                battery_type=rental.battery_type,
+                parent=rental,
+                root=root,
+                version=new_version_num,
+                contract_code=root.contract_code or rental.contract_code,
+                created_by=request.user,
+                updated_by=request.user,
+            )
+            pause_version.save()
+            
+            # Создаем следующую версию после паузы
+            new_version_num = root.group_versions().count() + 1
+            next_rental = Rental(
+                client=rental.client,
+                city=rental.city,
+                start_at=pause_end,
+                weekly_rate=rental.weekly_rate,
+                deposit_amount=rental.deposit_amount,
+                status=Rental.Status.ACTIVE,
+                battery_type=rental.battery_type,
+                parent=pause_version,
+                root=root,
+                version=new_version_num,
+                contract_code=root.contract_code or rental.contract_code,
+                created_by=request.user,
+                updated_by=request.user,
+            )
+            next_rental.save()
+            
+            # Переносим батареи
+            for a in rental.assignments.all():
+                a_end = a.end_at
+                if a_end is None or a_end > pause_start:
+                    # Закрываем в старой версии
+                    a.end_at = pause_start
+                    a.updated_by = request.user
+                    a.save()
+                    
+                    # Создаем в новой версии (после паузы)
+                    RentalBatteryAssignment.objects.create(
+                        rental=next_rental,
+                        battery=a.battery,
+                        start_at=pause_start,
+                        end_at=None,
+                        created_by=request.user,
+                        updated_by=request.user,
+                    )
+            
+            return JsonResponse({'success': True, 'message': f'Пауза на {pause_days} дней создана'})
+            
+        except Rental.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Договор не найден'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+    def new_tariff_view(self, request, pk):
+        """AJAX endpoint для создания новой версии с новым тарифом"""
+        if request.method != 'POST':
+            return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+        
+        try:
+            rental = Rental.objects.get(pk=pk)
+            
+            # Проверка прав доступа
+            if not self.has_change_permission(request, rental):
+                return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+            
+            # Получаем параметры
+            new_weekly_rate = Decimal(request.POST.get('new_weekly_rate', 0))
+            if new_weekly_rate < 0:
+                return JsonResponse({'success': False, 'error': 'Укажите корректную ставку'}, status=400)
+            
+            tariff_start_str = request.POST.get('tariff_start_date')
+            if tariff_start_str:
+                tariff_start = timezone.datetime.fromisoformat(tariff_start_str.replace('T', ' '))
+                if timezone.is_naive(tariff_start):
+                    tariff_start = timezone.make_aware(tariff_start, timezone.get_current_timezone())
+            else:
+                tariff_start = timezone.now()
+            
+            # Создаем новую версию
+            root = rental.root or rental
+            
+            # Закрываем текущую версию
+            if not rental.end_at or rental.end_at > tariff_start:
+                rental.end_at = tariff_start
+            rental.status = Rental.Status.MODIFIED
+            rental.updated_by = request.user
+            rental.save()
+            
+            # Создаем новую версию с новым тарифом
+            new_version_num = root.group_versions().count() + 1
+            new_rental = Rental(
+                client=rental.client,
+                city=rental.city,
+                start_at=tariff_start,
+                weekly_rate=new_weekly_rate,
+                deposit_amount=rental.deposit_amount,
+                status=Rental.Status.ACTIVE,
+                battery_type=rental.battery_type,
+                parent=rental,
+                root=root,
+                version=new_version_num,
+                contract_code=root.contract_code or rental.contract_code,
+                created_by=request.user,
+                updated_by=request.user,
+            )
+            new_rental.save()
+            
+            # Переносим батареи
+            for a in rental.assignments.all():
+                a_end = a.end_at
+                if a_end is None or a_end > tariff_start:
+                    # Закрываем в старой версии
+                    a.end_at = tariff_start
+                    a.updated_by = request.user
+                    a.save()
+                    
+                    # Создаем в новой версии
+                    RentalBatteryAssignment.objects.create(
+                        rental=new_rental,
+                        battery=a.battery,
+                        start_at=tariff_start,
+                        end_at=None,
+                        created_by=request.user,
+                        updated_by=request.user,
+                    )
+            
+            # Возвращаем URL новой версии
+            redirect_url = reverse('admin:rental_rental_change', args=[new_rental.pk])
+            return JsonResponse({
+                'success': True,
+                'message': f'Создана новая версия с тарифом {new_weekly_rate} PLN/неделя',
+                'redirect_url': redirect_url
+            })
+            
+        except Rental.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Договор не найден'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+    def add_payment_view(self, request, pk):
+        """AJAX endpoint для добавления платежа к договору"""
+        if request.method != 'POST':
+            return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+        
+        try:
+            rental = Rental.objects.get(pk=pk)
+            
+            # Проверка прав доступа
+            if not self.has_change_permission(request, rental):
+                return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+            
+            # Получаем параметры
+            amount = Decimal(request.POST.get('payment_amount', 0))
+            payment_date_str = request.POST.get('payment_date')
+            payment_type = request.POST.get('payment_type', 'rent')
+            payment_method = request.POST.get('payment_method', 'cash')
+            payment_note = request.POST.get('payment_note', '')
+            
+            if amount == 0:
+                return JsonResponse({'success': False, 'error': 'Укажите сумму платежа'}, status=400)
+            
+            # Парсим дату
+            payment_date = timezone.datetime.strptime(payment_date_str, '%Y-%m-%d').date()
+            
+            # Создаем платеж
+            root = rental.root or rental
+            payment = Payment.objects.create(
+                rental=root,
+                amount=amount,
+                date=payment_date,
+                type=payment_type,
+                method=payment_method,
+                note=payment_note,
+                city=rental.city,
+                created_by=request.user,
+                updated_by=request.user,
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Платеж на сумму {amount} PLN добавлен',
+                'payment_id': payment.id
+            })
+            
+        except Rental.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Договор не найден'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+    def financial_data_view(self, request, pk):
+        """AJAX endpoint для получения финансовых данных"""
+        try:
+            rental = Rental.objects.get(pk=pk)
+            
+            # Проверка прав доступа
+            if not self.has_view_permission(request, rental):
+                return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+            
+            # Получаем root для group методов
+            root = rental.root or rental
+            now = timezone.now()
+            
+            # Вычисляем данные
+            charges = float(root.group_charges_until(until=now))
+            paid = float(root.group_paid_total())
+            deposit = float(root.group_deposit_total())
+            balance = paid - charges
+            
+            return JsonResponse({
+                'success': True,
+                'charges': f"{charges:.2f}",
+                'paid': f"{paid:.2f}",
+                'deposit': f"{deposit:.2f}",
+                'balance': f"{balance:.2f}",
+            })
+            
+        except Rental.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Договор не найден'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
     def close_with_deposit(self, request, queryset):
         closed = 0

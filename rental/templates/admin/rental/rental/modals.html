@@ -1,0 +1,352 @@
+{% load static %}
+
+<!-- Close Rental Modal -->
+<div class="modal fade" id="closeRentalModal" tabindex="-1" aria-labelledby="closeRentalModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="closeRentalModalLabel">
+          <i class="bi bi-x-circle me-2"></i>
+          Закрыть договор
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="closeRentalForm">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label for="close_date" class="form-label">Дата и время закрытия</label>
+            <input type="datetime-local" class="form-control" id="close_date" name="close_date" required>
+            <div class="form-text" style="color: #9fa6bc;">По умолчанию установлены текущие дата и время</div>
+          </div>
+          <div class="alert alert-info" style="background-color: rgba(102, 126, 234, 0.1); border-color: #667eea; color: #e9ecef;">
+            <i class="bi bi-info-circle me-2"></i>
+            <small>При закрытии договора будет установлено время завершения аренды всех батарей.</small>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+        <button type="button" class="btn btn-danger" onclick="submitCloseRental()">
+          <i class="bi bi-check-circle me-1"></i>
+          Закрыть договор
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Pause Rental Modal -->
+<div class="modal fade" id="pauseRentalModal" tabindex="-1" aria-labelledby="pauseRentalModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="pauseRentalModalLabel">
+          <i class="bi bi-pause-circle me-2"></i>
+          Пауза договора
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="pauseRentalForm">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label for="pause_days" class="form-label">Количество дней паузы</label>
+            <input type="number" class="form-control" id="pause_days" name="pause_days" min="1" max="365" required>
+            <div class="form-text" style="color: #9fa6bc;">Укажите количество бесплатных дней</div>
+          </div>
+          <div class="mb-3">
+            <label for="pause_start_date" class="form-label">Дата начала паузы (опционально)</label>
+            <input type="datetime-local" class="form-control" id="pause_start_date" name="pause_start_date">
+            <div class="form-text" style="color: #9fa6bc;">Оставьте пустым для начала с текущего момента</div>
+          </div>
+          <div class="alert alert-info" style="background-color: rgba(102, 126, 234, 0.1); border-color: #667eea; color: #e9ecef;">
+            <i class="bi bi-info-circle me-2"></i>
+            <small>Будет создана новая версия договора с нулевой ставкой на указанное количество дней. После завершения паузы автоматически создастся новая версия с предыдущей ставкой.</small>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+        <button type="button" class="btn btn-warning" onclick="submitPauseRental()" style="color: #1a1c2e;">
+          <i class="bi bi-check-circle me-1"></i>
+          Создать паузу
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- New Tariff Modal -->
+<div class="modal fade" id="newTariffModal" tabindex="-1" aria-labelledby="newTariffModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="newTariffModalLabel">
+          <i class="bi bi-cash-coin me-2"></i>
+          Новый тариф
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="newTariffForm">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label for="new_weekly_rate" class="form-label">Цена батареи в неделю (PLN)</label>
+            <input type="number" class="form-control" id="new_weekly_rate" name="new_weekly_rate" step="0.01" min="0" required>
+            <div class="form-text" style="color: #9fa6bc;">Укажите новую недельную ставку</div>
+          </div>
+          <div class="mb-3">
+            <label for="tariff_start_date" class="form-label">Дата начала нового тарифа</label>
+            <input type="datetime-local" class="form-control" id="tariff_start_date" name="tariff_start_date" required>
+            <div class="form-text" style="color: #9fa6bc;">По умолчанию установлена текущая дата</div>
+          </div>
+          <div class="alert alert-info" style="background-color: rgba(102, 126, 234, 0.1); border-color: #667eea; color: #e9ecef;">
+            <i class="bi bi-info-circle me-2"></i>
+            <small>Будет создана новая версия договора с новым тарифом. Активные батареи будут перенесены в новую версию.</small>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+        <button type="button" class="btn" style="background-color: #667eea; color: white;" onclick="submitNewTariff()">
+          <i class="bi bi-check-circle me-1"></i>
+          Создать новый тариф
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Payment Modal -->
+<div class="modal fade" id="addPaymentModal" tabindex="-1" aria-labelledby="addPaymentModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addPaymentModalLabel">
+          <i class="bi bi-plus-circle me-2"></i>
+          Добавить платеж
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="addPaymentForm">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label for="payment_amount" class="form-label">Сумма платежа (PLN)</label>
+            <input type="number" class="form-control" id="payment_amount" name="payment_amount" step="0.01" required>
+            <div class="form-text" style="color: #9fa6bc;">Укажите сумму платежа</div>
+          </div>
+          <div class="mb-3">
+            <label for="payment_date" class="form-label">Дата платежа</label>
+            <input type="date" class="form-control" id="payment_date" name="payment_date" required>
+            <div class="form-text" style="color: #9fa6bc;">Дата получения платежа</div>
+          </div>
+          <div class="mb-3">
+            <label for="payment_type" class="form-label">Тип платежа</label>
+            <select class="form-control" id="payment_type" name="payment_type" required>
+              <option value="rent">Аренда</option>
+              <option value="deposit">Депозит</option>
+              <option value="sold">Продажа</option>
+              <option value="adjustment">Корректировка</option>
+              <option value="return_deposit">Возврат депозита</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="payment_method" class="form-label">Метод оплаты</label>
+            <select class="form-control" id="payment_method" name="payment_method" required>
+              <option value="cash">Наличные</option>
+              <option value="blik">BLIK</option>
+              <option value="revolut">Revolut</option>
+              <option value="other">Другое</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="payment_note" class="form-label">Примечание (опционально)</label>
+            <textarea class="form-control" id="payment_note" name="payment_note" rows="2"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+        <button type="button" class="btn btn-success" onclick="submitAddPayment()">
+          <i class="bi bi-check-circle me-1"></i>
+          Добавить платеж
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Notification Toast -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
+  <div id="notificationToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast-header" style="background-color: #0e1018; border-bottom: 1px solid #2a2e41;">
+      <i class="bi bi-check-circle text-success me-2" id="toastIcon"></i>
+      <strong class="me-auto" id="toastTitle" style="color: #e9ecef;">Успешно</strong>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body" id="toastBody" style="background-color: #1c1e2d; color: #e9ecef;">
+      Операция выполнена успешно
+    </div>
+  </div>
+</div>
+
+<script>
+  // Set current date/time for datetime inputs
+  document.addEventListener('DOMContentLoaded', function() {
+    const now = new Date();
+    const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    
+    document.getElementById('close_date').value = localDateTime;
+    document.getElementById('tariff_start_date').value = localDateTime;
+    document.getElementById('payment_date').value = localDate;
+  });
+
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+
+  function showNotification(title, message, isSuccess = true) {
+    const toast = new bootstrap.Toast(document.getElementById('notificationToast'));
+    const icon = document.getElementById('toastIcon');
+    icon.className = isSuccess ? 'bi bi-check-circle text-success me-2' : 'bi bi-x-circle text-danger me-2';
+    document.getElementById('toastTitle').textContent = title;
+    document.getElementById('toastBody').textContent = message;
+    toast.show();
+  }
+
+  function submitCloseRental() {
+    const form = document.getElementById('closeRentalForm');
+    const formData = new FormData(form);
+    const rentalId = {{ original.id }};
+    
+    fetch(`/admin/rental/rental/${rentalId}/close/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken'),
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        showNotification('Успешно', 'Договор закрыт');
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        showNotification('Ошибка', data.error || 'Не удалось закрыть договор', false);
+      }
+    })
+    .catch(error => {
+      showNotification('Ошибка', 'Произошла ошибка при выполнении операции', false);
+      console.error('Error:', error);
+    });
+    
+    bootstrap.Modal.getInstance(document.getElementById('closeRentalModal')).hide();
+  }
+
+  function submitPauseRental() {
+    const form = document.getElementById('pauseRentalForm');
+    const formData = new FormData(form);
+    const rentalId = {{ original.id }};
+    
+    fetch(`/admin/rental/rental/${rentalId}/pause/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken'),
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        showNotification('Успешно', 'Пауза создана');
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        showNotification('Ошибка', data.error || 'Не удалось создать паузу', false);
+      }
+    })
+    .catch(error => {
+      showNotification('Ошибка', 'Произошла ошибка при выполнении операции', false);
+      console.error('Error:', error);
+    });
+    
+    bootstrap.Modal.getInstance(document.getElementById('pauseRentalModal')).hide();
+  }
+
+  function submitNewTariff() {
+    const form = document.getElementById('newTariffForm');
+    const formData = new FormData(form);
+    const rentalId = {{ original.id }};
+    
+    fetch(`/admin/rental/rental/${rentalId}/new-tariff/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken'),
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        showNotification('Успешно', 'Новый тариф создан');
+        setTimeout(() => window.location.href = data.redirect_url || window.location.href, 1500);
+      } else {
+        showNotification('Ошибка', data.error || 'Не удалось создать новый тариф', false);
+      }
+    })
+    .catch(error => {
+      showNotification('Ошибка', 'Произошла ошибка при выполнении операции', false);
+      console.error('Error:', error);
+    });
+    
+    bootstrap.Modal.getInstance(document.getElementById('newTariffModal')).hide();
+  }
+
+  function submitAddPayment() {
+    const form = document.getElementById('addPaymentForm');
+    const formData = new FormData(form);
+    const rentalId = {{ original.id }};
+    formData.append('rental_id', rentalId);
+    
+    fetch(`/admin/rental/rental/${rentalId}/add-payment/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken'),
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        showNotification('Успешно', 'Платеж добавлен');
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        showNotification('Ошибка', data.error || 'Не удалось добавить платеж', false);
+      }
+    })
+    .catch(error => {
+      showNotification('Ошибка', 'Произошла ошибка при выполнении операции', false);
+      console.error('Error:', error);
+    });
+    
+    bootstrap.Modal.getInstance(document.getElementById('addPaymentModal')).hide();
+  }
+</script>
+
