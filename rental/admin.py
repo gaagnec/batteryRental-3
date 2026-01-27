@@ -3708,48 +3708,8 @@ class PaymentAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, Simple
             if 'city' in form.base_fields:
                 form.base_fields['city'].disabled = True
                 form.base_fields['city'].help_text = "Город автоматически устанавливается из города договора или модератора"
-            if 'rental' in form.base_fields:
-                # Фильтруем договоры по городу модератора
-                city = get_user_city(request.user)
-                # #region agent log
-                try:
-                    with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
-                        f.write(json.dumps({
-                            "sessionId": "debug-session",
-                            "runId": "run1",
-                            "hypothesisId": "B,C",
-                            "location": "admin.py:PaymentAdmin.get_form:before_queryset",
-                            "message": "Before setting rental queryset",
-                            "data": {
-                                "city_id": city.id if city else None,
-                                "city_name": city.name if city else None,
-                                "has_queryset": hasattr(form.base_fields['rental'], 'queryset')
-                            },
-                            "timestamp": __import__('time').time() * 1000
-                        }, ensure_ascii=False) + '\n')
-                except: pass
-                # #endregion
-                if city:
-                    filtered_qs = Rental.objects.filter(city=city).select_related('client', 'root').only('id', 'contract_code', 'client_id', 'root_id', 'client__name')
-                    form.base_fields['rental'].queryset = filtered_qs
-                    # #region agent log
-                    try:
-                        elapsed = (time_module.time() - start_time) * 1000
-                        with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
-                            f.write(json.dumps({
-                                "sessionId": "debug-session",
-                                "runId": "run1",
-                                "hypothesisId": "C,E,H",
-                                "location": "admin.py:PaymentAdmin.get_form:after_queryset",
-                                "message": "After setting rental queryset",
-                                "data": {
-                                    "queryset_set": True,
-                                    "elapsed_ms": elapsed
-                                },
-                                "timestamp": time_module.time() * 1000
-                            }, ensure_ascii=False) + '\n')
-                    except: pass
-                    # #endregion
+            # НЕ переопределяем queryset для rental здесь, так как это уже делается правильно
+            # в formfield_for_foreignkey с учетом параметра show_all_rentals и фильтрации активных договоров
         # #region agent log
         try:
             elapsed = (time_module.time() - start_time) * 1000
@@ -4043,47 +4003,8 @@ class PaymentAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, Simple
         response = super().add_view(request, form_url, extra_context)
         
         # Если это TemplateResponse, можем получить форму из контекста
-        if hasattr(response, 'context_data'):
-            form = response.context_data.get('adminform') or response.context_data.get('form')
-            if form and hasattr(form, 'fields') and 'rental' in form.fields:
-                if is_moderator(request.user):
-                    city = get_user_city(request.user)
-                    # #region agent log
-                    try:
-                        with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
-                            f.write(json.dumps({
-                                "sessionId": "debug-session",
-                                "runId": "run1",
-                                "hypothesisId": "B,C",
-                                "location": "admin.py:PaymentAdmin.add_view:filtering_form",
-                                "message": "Filtering rental field in form",
-                                "data": {
-                                    "city_id": city.id if city else None,
-                                    "city_name": city.name if city else None,
-                                    "has_queryset": hasattr(form.fields['rental'], 'queryset')
-                                },
-                                "timestamp": __import__('time').time() * 1000
-                            }, ensure_ascii=False) + '\n')
-                    except: pass
-                    # #endregion
-                    if city:
-                        form.fields['rental'].queryset = Rental.objects.filter(city=city).select_related('client', 'root')
-                        # #region agent log
-                        try:
-                            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
-                                f.write(json.dumps({
-                                    "sessionId": "debug-session",
-                                    "runId": "run1",
-                                    "hypothesisId": "C,E",
-                                    "location": "admin.py:PaymentAdmin.add_view:after_filter",
-                                    "message": "After filtering rental queryset in form",
-                                    "data": {
-                                        "queryset_set": True
-                                    },
-                                    "timestamp": __import__('time').time() * 1000
-                                }, ensure_ascii=False) + '\n')
-                        except: pass
-                        # #endregion
+        # НЕ переопределяем queryset здесь, так как это уже сделано в formfield_for_foreignkey
+        # с учетом параметра show_all_rentals и фильтрации активных договоров
         # #region agent log
         import time as time_module
         try:
