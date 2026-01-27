@@ -4357,46 +4357,120 @@ class PaymentAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, Simple
             if is_moderator(request.user):
                 city = get_user_city(request.user)
                 # #region agent log
+                import json
                 try:
                     with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                         f.write(json.dumps({
                             "sessionId": "debug-session",
                             "runId": "run1",
-                            "hypothesisId": "D,FIX",
-                            "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:FIX:entry",
-                            "message": "formfield_for_foreignkey FIX called for moderator",
+                            "hypothesisId": "A,B,C",
+                            "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:moderator_entry",
+                            "message": "formfield_for_foreignkey called for moderator",
                             "data": {
                                 "city_id": city.id if city else None,
                                 "city_name": city.name if city else None,
                                 "user_id": request.user.id if request.user else None,
-                                "username": request.user.username if request.user else None
+                                "username": request.user.username if request.user else None,
+                                "show_all_param": request.GET.get('show_all_rentals'),
+                                "show_all_post": request.POST.get('show_all_rentals')
                             },
                             "timestamp": __import__('time').time() * 1000
                         }, ensure_ascii=False) + '\n')
                 except: pass
                 # #endregion
                 if city:
-                    # Для модераторов всегда показываем только договора их города
-                    kwargs["queryset"] = Rental.objects.filter(city=city).select_related('client', 'root').order_by('-id')
+                    # Проверяем параметр show_all_rentals для модераторов
+                    show_all = request.GET.get('show_all_rentals') == '1' or request.POST.get('show_all_rentals') == '1'
                     # #region agent log
                     try:
                         with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                             f.write(json.dumps({
                                 "sessionId": "debug-session",
                                 "runId": "run1",
-                                "hypothesisId": "D,FIX",
-                                "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:FIX:after_filter",
-                                "message": "After filtering for moderator",
+                                "hypothesisId": "B",
+                                "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:before_queryset",
+                                "message": "Before creating queryset for moderator",
                                 "data": {
-                                    "queryset_count": kwargs["queryset"].count() if "queryset" in kwargs else None
+                                    "show_all": show_all,
+                                    "city_id": city.id,
+                                    "city_name": city.name
                                 },
                                 "timestamp": __import__('time').time() * 1000
                             }, ensure_ascii=False) + '\n')
                     except: pass
                     # #endregion
+                    if show_all:
+                        # Показываем все договора города модератора
+                        all_rentals_qs = Rental.objects.filter(city=city).select_related('client', 'root').order_by('-id')
+                        kwargs["queryset"] = all_rentals_qs
+                        # #region agent log
+                        try:
+                            count = all_rentals_qs.count()
+                            statuses = list(all_rentals_qs.values_list('status', flat=True).distinct())
+                            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                                f.write(json.dumps({
+                                    "sessionId": "debug-session",
+                                    "runId": "run1",
+                                    "hypothesisId": "B",
+                                    "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:all_rentals",
+                                    "message": "All rentals queryset for moderator",
+                                    "data": {
+                                        "queryset_count": count,
+                                        "statuses": statuses
+                                    },
+                                    "timestamp": __import__('time').time() * 1000
+                                }, ensure_ascii=False) + '\n')
+                        except: pass
+                        # #endregion
+                    else:
+                        # По умолчанию показываем только активные договора последней версии города модератора
+                        from django.db.models import Count, Q
+                        active_rentals_qs = Rental.objects.filter(city=city).select_related('client', 'root').annotate(
+                            children_count=Count('children')
+                        ).filter(
+                            Q(status=Rental.Status.ACTIVE) & Q(children_count=0)
+                        ).order_by('-id')
+                        kwargs["queryset"] = active_rentals_qs
+                        # #region agent log
+                        try:
+                            count = active_rentals_qs.count()
+                            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                                f.write(json.dumps({
+                                    "sessionId": "debug-session",
+                                    "runId": "run1",
+                                    "hypothesisId": "A",
+                                    "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:active_rentals",
+                                    "message": "Active rentals queryset for moderator",
+                                    "data": {
+                                        "queryset_count": count,
+                                        "city_id": city.id,
+                                        "city_name": city.name,
+                                        "filter_applied": "status=ACTIVE AND children_count=0"
+                                    },
+                                    "timestamp": __import__('time').time() * 1000
+                                }, ensure_ascii=False) + '\n')
+                        except: pass
+                        # #endregion
                 else:
                     # Если у модератора нет города, показываем пустой queryset
                     kwargs["queryset"] = Rental.objects.none()
+                    # #region agent log
+                    try:
+                        with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                            f.write(json.dumps({
+                                "sessionId": "debug-session",
+                                "runId": "run1",
+                                "hypothesisId": "C",
+                                "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:no_city",
+                                "message": "Moderator has no city, returning empty queryset",
+                                "data": {
+                                    "user_id": request.user.id,
+                                    "username": request.user.username
+                                },
+                                "timestamp": __import__('time').time() * 1000
+                            }, ensure_ascii=False) + '\n')
+                    except: pass
+                    # #endregion
             else:
                 # Для не-модераторов используем существующую логику
                 # Проверяем параметр show_all_rentals в GET или POST
