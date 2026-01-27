@@ -3814,6 +3814,46 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        """Добавляем дополнительный контекст для шаблона change_form"""
+        extra_context = extra_context or {}
+        
+        try:
+            rental = self.get_object(request, object_id)
+            if rental:
+                # Получаем root для группы версий
+                root = rental.root or rental
+                
+                # Получаем все версии договора
+                all_versions = list(Rental.objects.filter(root=root).order_by('version'))
+                
+                # Находим предыдущую и следующую версию
+                current_idx = None
+                for i, v in enumerate(all_versions):
+                    if v.pk == rental.pk:
+                        current_idx = i
+                        break
+                
+                if current_idx is not None:
+                    extra_context['prev_version'] = all_versions[current_idx - 1] if current_idx > 0 else None
+                    extra_context['next_version'] = all_versions[current_idx + 1] if current_idx < len(all_versions) - 1 else None
+                
+                # Получаем все назначения батарей по всем версиям договора
+                all_assignments = RentalBatteryAssignment.objects.filter(
+                    rental__root=root
+                ).select_related('battery', 'rental').order_by('-start_at')
+                extra_context['all_assignments'] = all_assignments
+                
+                # Получаем все платежи по всем версиям договора
+                all_payments = Payment.objects.filter(
+                    rental__root=root
+                ).select_related('rental').order_by('-date')
+                extra_context['all_payments'] = all_payments
+        except Exception:
+            pass
+        
+        return super().change_view(request, object_id, form_url, extra_context)
+
     def close_with_deposit(self, request, queryset):
         closed = 0
         # Опционально: принять оплату (аренда) сразу из формы действия
