@@ -55,6 +55,11 @@
     </ul>
     
     <div class="phoenix-navbar-right">
+      {% if user.is_staff %}
+      <a href="{% url 'download-debug-log' %}" class="phoenix-navbar-icon" title="Скачать debug лог">
+        <i class="bi bi-file-text"></i>
+      </a>
+      {% endif %}
       <div class="phoenix-user-menu">
         <div class="phoenix-user-avatar">
           {{ user.username|slice:":1"|upper }}
