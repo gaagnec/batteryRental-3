@@ -1,0 +1,1163 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/bootstrap-icons.css' %}">
+  <style>
+    {% if original %}
+    /* Phoenix Dark Theme for Rental Detail Page - only for existing objects */
+    body {
+      background-color: #0f1117 !important;
+    }
+    
+    #content {
+      background-color: #0f1117 !important;
+    }
+    
+    /* Action Buttons */
+    .rental-action-buttons {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    
+    .rental-action-btn {
+      padding: 0.625rem 1.25rem;
+      border: none;
+      border-radius: 0.375rem;
+      font-weight: 500;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .rental-action-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    
+    .rental-action-btn i {
+      font-size: 1rem;
+    }
+    
+    .btn-close-rental {
+      background-color: #dc3545;
+      color: white;
+    }
+    
+    .btn-close-rental:hover {
+      background-color: #c82333;
+    }
+    
+    .btn-pause-rental {
+      background-color: #ffc107;
+      color: #1a1c2e;
+    }
+    
+    .btn-pause-rental:hover {
+      background-color: #e0a800;
+    }
+    
+    .btn-new-tariff {
+      background-color: #667eea;
+      color: white;
+    }
+    
+    .btn-new-tariff:hover {
+      background-color: #5568d3;
+    }
+    
+    .btn-add-payment {
+      background-color: #28a745;
+      color: white;
+    }
+    
+    .btn-add-payment:hover {
+      background-color: #218838;
+    }
+    
+    /* Phoenix Cards */
+    .phoenix-card {
+      background-color: #1c1e2d;
+      border: 1px solid #2a2e41;
+      border-radius: 0.5rem;
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+    
+    .phoenix-card-header {
+      background-color: #0e1018;
+      color: #e9ecef;
+      padding: 0.875rem 1.25rem;
+      border-bottom: 1px solid #2a2e41;
+      font-weight: 600;
+      font-size: 0.9375rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .phoenix-card-header i {
+      font-size: 1.125rem;
+      color: #667eea;
+    }
+    
+    .phoenix-card-body {
+      padding: 1.5rem;
+    }
+    
+    /* Info Grid */
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+    }
+    
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+    }
+    
+    .info-label {
+      color: #9fa6bc;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+    
+    .info-label i {
+      font-size: 0.875rem;
+      color: #667eea;
+    }
+    
+    .info-value {
+      color: #e9ecef;
+      font-size: 1rem;
+      font-weight: 500;
+    }
+    
+    .info-value a {
+      color: #667eea;
+      text-decoration: none;
+    }
+    
+    .info-value a:hover {
+      color: #8fa3f0;
+      text-decoration: underline;
+    }
+    
+    /* Financial Stats - 4 columns */
+    .financial-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1.25rem;
+    }
+    
+    .stat-card {
+      background-color: #0e1018;
+      border: 1px solid #2a2e41;
+      border-radius: 0.375rem;
+      padding: 1rem;
+      text-align: center;
+    }
+    
+    .stat-label {
+      color: #9fa6bc;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.375rem;
+    }
+    
+    .stat-label i {
+      font-size: 1rem;
+    }
+    
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #e9ecef;
+    }
+    
+    .stat-value.positive {
+      color: #28a745;
+    }
+    
+    .stat-value.negative {
+      color: #dc3545;
+    }
+    
+    /* Status Badge */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.375rem 0.75rem;
+      border-radius: 0.25rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+    }
+    
+    .status-badge.active {
+      background-color: rgba(40, 167, 69, 0.15);
+      color: #28a745;
+    }
+    
+    .status-badge.closed {
+      background-color: rgba(220, 53, 69, 0.15);
+      color: #dc3545;
+    }
+    
+    .status-badge.modified {
+      background-color: rgba(255, 193, 7, 0.15);
+      color: #ffc107;
+    }
+    
+    /* Compact Info Grid */
+    .info-compact-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    
+    .info-compact-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    
+    .info-compact-label {
+      color: #9fa6bc;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+    
+    .info-compact-label i {
+      color: #667eea;
+      font-size: 0.875rem;
+    }
+    
+    .info-compact-value {
+      color: #e9ecef;
+      font-size: 0.9375rem;
+      font-weight: 500;
+    }
+    
+    /* Dates row */
+    .info-dates-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.75rem 1rem;
+      background-color: #0e1018;
+      border-radius: 0.375rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    
+    .info-date-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #e9ecef;
+      font-size: 0.875rem;
+    }
+    
+    .info-date-item i {
+      color: #667eea;
+    }
+    
+    .date-label {
+      color: #9fa6bc;
+    }
+    
+    .date-value {
+      font-weight: 500;
+    }
+    
+    .info-date-separator {
+      color: #667eea;
+      font-size: 1.25rem;
+    }
+    
+    .info-duration {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.375rem 0.75rem;
+      background-color: #667eea;
+      color: white;
+      border-radius: 0.25rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      margin-left: auto;
+    }
+    
+    /* Batteries row */
+    .info-batteries-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #2a2e41;
+      margin-bottom: 0.75rem;
+    }
+    
+    .info-batteries-value {
+      color: #28a745;
+      font-weight: 600;
+      font-size: 0.9375rem;
+    }
+    
+    /* Navigation Links */
+    .version-nav {
+      display: flex;
+      gap: 1rem;
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+    }
+    
+    .version-nav-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #667eea;
+      text-decoration: none;
+      font-size: 0.8125rem;
+      padding: 0.375rem 0.75rem;
+      background-color: #0e1018;
+      border: 1px solid #2a2e41;
+      border-radius: 0.25rem;
+      transition: all 0.2s;
+    }
+    
+    .version-nav-link:hover {
+      background-color: #252840;
+      color: #8fa3f0;
+      border-color: #667eea;
+    }
+    
+    /* Phoenix Tables - Dark Theme */
+    .phoenix-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0;
+      background-color: #1c1e2d;
+    }
+    
+    .phoenix-table thead {
+      background-color: #0e1018;
+    }
+    
+    .phoenix-table th {
+      background-color: #0e1018;
+      color: #9fa6bc;
+      padding: 0.75rem 1rem;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.8125rem;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+      border-bottom: 1px solid #2a2e41;
+    }
+    
+    .phoenix-table tbody {
+      background-color: #1c1e2d;
+    }
+    
+    .phoenix-table tr {
+      background-color: #1c1e2d;
+    }
+    
+    .phoenix-table td {
+      padding: 0.75rem 1rem;
+      color: #e9ecef;
+      border-bottom: 1px solid #2a2e41;
+      font-size: 0.875rem;
+      background-color: #1c1e2d;
+    }
+    
+    .phoenix-table tr:hover td {
+      background-color: #252840;
+    }
+    
+    .phoenix-table .badge {
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    
+    .phoenix-table .badge-active {
+      background-color: rgba(40, 167, 69, 0.15);
+      color: #28a745;
+    }
+    
+    .phoenix-table .badge-closed {
+      background-color: rgba(220, 53, 69, 0.15);
+      color: #dc3545;
+    }
+    
+    @media (max-width: 768px) {
+      .info-compact-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .info-dates-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      
+      .info-date-separator {
+        display: none;
+      }
+      
+      .info-duration {
+        margin-left: 0;
+        margin-top: 0.5rem;
+      }
+    }
+    
+    /* Hide Django form elements for detail view */
+    .module, fieldset {
+      display: none !important;
+    }
+    
+    /* Inline Tables */
+    .inline-group {
+      display: none !important;
+    }
+    {% endif %}
+    
+    /* Global Phoenix Dark Theme Styles */
+    body {
+      background-color: #0f1117 !important;
+    }
+    
+    #content {
+      background-color: #0f1117 !important;
+    }
+    
+    /* Global Headers - Phoenix Theme */
+    h1, h2, h3, h4, h5, h6,
+    #content h1, #content h2, #content h3,
+    .content-title, #container h1 {
+      color: #e9ecef !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+      font-weight: 600 !important;
+      line-height: 1.2 !important;
+      margin-bottom: 0.5rem !important;
+    }
+    
+    h1, #content h1, #container h1 {
+      font-size: 2rem !important;
+      font-weight: 700 !important;
+    }
+    
+    h2, #content h2 {
+      font-size: 1.5rem !important;
+      font-weight: 600 !important;
+    }
+    
+    h3 {
+      font-size: 1.25rem !important;
+      font-weight: 600 !important;
+    }
+    
+    h4 {
+      font-size: 1.125rem !important;
+      font-weight: 600 !important;
+    }
+    
+    h5 {
+      font-size: 1rem !important;
+      font-weight: 600 !important;
+    }
+    
+    h6 {
+      font-size: 0.875rem !important;
+      font-weight: 600 !important;
+    }
+    
+    #content-main h1, #content-main h2 {
+      color: #e9ecef !important;
+    }
+    
+    /* Breadcrumbs */
+    .breadcrumbs {
+      background-color: #1c1e2d !important;
+      color: #9fa6bc !important;
+    }
+    
+    .breadcrumbs a {
+      color: #667eea !important;
+    }
+    
+    .breadcrumbs a:hover {
+      color: #8fa3f0 !important;
+    }
+    
+    /* Modal Styling */
+    .modal-content {
+      background-color: #1c1e2d;
+      border: 1px solid #2a2e41;
+      color: #e9ecef;
+    }
+    
+    .modal-header {
+      background-color: #0e1018;
+      border-bottom: 1px solid #2a2e41;
+    }
+    
+    .modal-title {
+      color: #e9ecef;
+    }
+    
+    .modal-body {
+      background-color: #1c1e2d;
+    }
+    
+    .modal-footer {
+      background-color: #0e1018;
+      border-top: 1px solid #2a2e41;
+    }
+    
+    /* Form Styling for Add Form */
+    .form-label,
+    .module h2,
+    fieldset h2 {
+      color: #e9ecef !important;
+      font-weight: 500;
+      font-size: 0.875rem;
+    }
+    
+    .form-control,
+    .vTextField,
+    .vDateField,
+    .vTimeField,
+    select,
+    textarea,
+    input[type="text"],
+    input[type="number"],
+    input[type="email"],
+    input[type="date"],
+    input[type="datetime-local"] {
+      background-color: #0e1018 !important;
+      border: 1px solid #2a2e41 !important;
+      color: #e9ecef !important;
+    }
+    
+    .form-control:focus,
+    .vTextField:focus,
+    select:focus,
+    textarea:focus,
+    input:focus {
+      background-color: #1c1e2d !important;
+      border-color: #667eea !important;
+      color: #e9ecef !important;
+      box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25) !important;
+    }
+    
+    /* Django Admin Module/Fieldset for Add Form */
+    .module {
+      background-color: #1c1e2d !important;
+      border: 1px solid #2a2e41 !important;
+      border-radius: 0.5rem !important;
+      margin-bottom: 1rem !important;
+    }
+    
+    .module caption,
+    .module h2 {
+      background-color: #0e1018 !important;
+      color: #e9ecef !important;
+      padding: 0.75rem 1rem !important;
+      margin: 0 !important;
+      border-bottom: 1px solid #2a2e41 !important;
+    }
+    
+    fieldset {
+      background-color: #1c1e2d !important;
+      border: 1px solid #2a2e41 !important;
+      border-radius: 0.5rem !important;
+      margin-bottom: 1rem !important;
+    }
+    
+    fieldset h2 {
+      background-color: #0e1018 !important;
+      color: #e9ecef !important;
+      padding: 0.75rem 1rem !important;
+      margin: -1rem -1rem 1rem -1rem !important;
+      border-bottom: 1px solid #2a2e41 !important;
+      border-radius: 0.5rem 0.5rem 0 0 !important;
+    }
+    
+    .form-row {
+      border-bottom-color: #2a2e41 !important;
+      padding: 0.75rem 1rem !important;
+    }
+    
+    .form-row label {
+      color: #9fa6bc !important;
+    }
+    
+    .form-row .readonly {
+      color: #e9ecef !important;
+    }
+    
+    .help {
+      color: #9fa6bc !important;
+      font-size: 0.8125rem !important;
+    }
+    
+    /* Submit Row */
+    .submit-row {
+      background-color: #1c1e2d !important;
+      border-top: 1px solid #2a2e41 !important;
+      padding: 1rem 1.25rem !important;
+    }
+    
+    .submit-row input[type="submit"],
+    .submit-row .default {
+      background-color: #667eea !important;
+      border: none !important;
+      color: white !important;
+    }
+    
+    .submit-row input[type="submit"]:hover,
+    .submit-row .default:hover {
+      background-color: #5568d3 !important;
+    }
+    
+    .submit-row .deletelink {
+      background-color: #dc3545 !important;
+      color: white !important;
+    }
+    
+    /* Related widget wrapper */
+    .related-widget-wrapper {
+      display: flex;
+      align-items: center;
+    }
+    
+    .related-widget-wrapper select {
+      flex: 1;
+    }
+    
+    /* Inline groups for add form */
+    .inline-group {
+      background-color: #1c1e2d !important;
+      border: 1px solid #2a2e41 !important;
+      border-radius: 0.5rem !important;
+      margin-bottom: 1rem !important;
+    }
+    
+    .inline-group h2 {
+      background-color: #0e1018 !important;
+      color: #e9ecef !important;
+      padding: 0.75rem 1rem !important;
+      border-bottom: 1px solid #2a2e41 !important;
+    }
+    
+    .inline-group .tabular {
+      background-color: #1c1e2d !important;
+    }
+    
+    .inline-group table {
+      background-color: #1c1e2d !important;
+    }
+    
+    .inline-group th {
+      background-color: #0e1018 !important;
+      color: #9fa6bc !important;
+      border-color: #2a2e41 !important;
+    }
+    
+    .inline-group td {
+      background-color: #1c1e2d !important;
+      color: #e9ecef !important;
+      border-color: #2a2e41 !important;
+    }
+    
+    /* Django admin links */
+    a {
+      color: #667eea;
+    }
+    
+    a:hover {
+      color: #8fa3f0;
+    }
+    
+    /* Object tools */
+    .object-tools a {
+      background-color: #667eea !important;
+      color: white !important;
+    }
+    
+    .object-tools a:hover {
+      background-color: #5568d3 !important;
+    }
+    
+    /* Errors */
+    .errorlist {
+      color: #dc3545 !important;
+    }
+    
+    .errornote {
+      background-color: rgba(220, 53, 69, 0.1) !important;
+      border-color: #dc3545 !important;
+      color: #dc3545 !important;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .financial-stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      
+      .info-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .rental-action-buttons {
+        flex-direction: column;
+      }
+      
+      .rental-action-btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  {% if original %}
+    <!-- Action Buttons -->
+    <div class="rental-action-buttons">
+      <button type="button" class="rental-action-btn btn-close-rental" data-bs-toggle="modal" data-bs-target="#closeRentalModal">
+        <i class="bi bi-x-circle"></i>
+        <span>Закрыть договор</span>
+      </button>
+      <button type="button" class="rental-action-btn btn-pause-rental" data-bs-toggle="modal" data-bs-target="#pauseRentalModal">
+        <i class="bi bi-pause-circle"></i>
+        <span>Пауза</span>
+      </button>
+      <button type="button" class="rental-action-btn btn-new-tariff" data-bs-toggle="modal" data-bs-target="#newTariffModal">
+        <i class="bi bi-cash-coin"></i>
+        <span>Новый тариф</span>
+      </button>
+      <button type="button" class="rental-action-btn btn-add-payment" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+        <i class="bi bi-plus-circle"></i>
+        <span>Добавить платеж</span>
+      </button>
+    </div>
+
+    <!-- Main Info Card -->
+    <div class="phoenix-card">
+      <div class="phoenix-card-header">
+        <i class="bi bi-info-circle"></i>
+        <span>Основная информация</span>
+        <span class="status-badge {% if original.status == 'active' %}active{% elif original.status == 'closed' %}closed{% else %}modified{% endif %}" style="margin-left: auto;">
+          {{ original.get_status_display }}
+        </span>
+      </div>
+      <div class="phoenix-card-body" style="padding: 1rem 1.5rem;">
+        <!-- Compact 3-column layout -->
+        <div class="info-compact-grid">
+          <div class="info-compact-item">
+            <span class="info-compact-label"><i class="bi bi-person"></i> Клиент</span>
+            <span class="info-compact-value">{{ original.client }}</span>
+          </div>
+          <div class="info-compact-item">
+            <span class="info-compact-label"><i class="bi bi-geo-alt"></i> Город</span>
+            <span class="info-compact-value">{{ original.city|default:"—" }}</span>
+          </div>
+          <div class="info-compact-item">
+            <span class="info-compact-label"><i class="bi bi-file-earmark-text"></i> Договор</span>
+            <span class="info-compact-value">{{ original.contract_code }} v{{ original.version }}</span>
+          </div>
+        </div>
+        
+        <!-- Dates row -->
+        <div class="info-dates-row">
+          <div class="info-date-item">
+            <i class="bi bi-calendar-event"></i>
+            <span class="date-label">Начало:</span>
+            <span class="date-value">{{ original.start_at|date:"d.m.Y H:i" }}</span>
+          </div>
+          <div class="info-date-separator">→</div>
+          <div class="info-date-item">
+            <i class="bi bi-calendar-x"></i>
+            <span class="date-label">Окончание:</span>
+            <span class="date-value">{{ original.end_at|date:"d.m.Y H:i"|default:"—" }}</span>
+          </div>
+          <div class="info-duration">
+            <i class="bi bi-clock-history"></i>
+            <span>{{ version_duration_days }} дн.</span>
+          </div>
+        </div>
+        
+        <!-- Batteries row -->
+        <div class="info-batteries-row">
+          <span class="info-compact-label"><i class="bi bi-battery-charging"></i> Батареи (текущая версия)</span>
+          <span class="info-batteries-value">{{ current_battery_codes }}</span>
+        </div>
+        
+        <!-- Navigation between versions -->
+        {% if prev_version or next_version %}
+        <div class="version-nav">
+          {% if prev_version %}
+          <a href="{% url 'admin:rental_rental_change' prev_version.pk %}" class="version-nav-link">
+            <i class="bi bi-arrow-left"></i>
+            <span>v{{ prev_version.version }} ({{ prev_version.start_at|date:"d.m.Y" }})</span>
+          </a>
+          {% endif %}
+          {% if next_version %}
+          <a href="{% url 'admin:rental_rental_change' next_version.pk %}" class="version-nav-link">
+            <span>v{{ next_version.version }} ({{ next_version.start_at|date:"d.m.Y" }})</span>
+            <i class="bi bi-arrow-right"></i>
+          </a>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Financial Stats Card -->
+    <div class="phoenix-card">
+      <div class="phoenix-card-header">
+        <i class="bi bi-graph-up"></i>
+        <span>Финансовая информация</span>
+      </div>
+      <div class="phoenix-card-body">
+        <div class="financial-stats">
+          <div class="stat-card">
+            <div class="stat-label">
+              <i class="bi bi-calculator"></i>
+              <span>Начислено</span>
+            </div>
+            <div class="stat-value" id="charges-value">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">
+              <i class="bi bi-cash-stack"></i>
+              <span>Оплачено</span>
+            </div>
+            <div class="stat-value" id="paid-value">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">
+              <i class="bi bi-safe"></i>
+              <span>Депозит</span>
+            </div>
+            <div class="stat-value" id="deposit-value">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">
+              <i class="bi bi-wallet2"></i>
+              <span>Баланс</span>
+            </div>
+            <div class="stat-value" id="balance-value">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tariffs Card -->
+    <div class="phoenix-card">
+      <div class="phoenix-card-header">
+        <i class="bi bi-coin"></i>
+        <span>Тарифы и условия</span>
+      </div>
+      <div class="phoenix-card-body">
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">
+              <i class="bi bi-currency-dollar"></i>
+              <span>Недельная ставка</span>
+            </div>
+            <div class="info-value">{{ original.weekly_rate }} PLN</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">
+              <i class="bi bi-piggy-bank"></i>
+              <span>Депозит</span>
+            </div>
+            <div class="info-value">{{ original.deposit_amount }} PLN</div>
+          </div>
+        </div>
+        {% if original.battery_numbers %}
+        <div class="info-item" style="margin-top: 1rem;">
+          <div class="info-label">
+            <i class="bi bi-list-ol"></i>
+            <span>Номера батарей</span>
+          </div>
+          <div class="info-value" style="white-space: pre-wrap; font-size: 0.875rem; color: #9fa6bc;">{{ original.battery_numbers }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if not user.groups.all.0.name == 'Moderators' %}
+    <!-- Versioning Card (Admin only) -->
+    <div class="phoenix-card">
+      <div class="phoenix-card-header">
+        <i class="bi bi-diagram-3"></i>
+        <span>Версионирование</span>
+      </div>
+      <div class="phoenix-card-body">
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">
+              <i class="bi bi-arrow-up-circle"></i>
+              <span>Родительская версия</span>
+            </div>
+            <div class="info-value">{{ original.parent|default:"—" }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">
+              <i class="bi bi-box"></i>
+              <span>Версия</span>
+            </div>
+            <div class="info-value">{{ original.version }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">
+              <i class="bi bi-bookmark"></i>
+              <span>Корневая версия</span>
+            </div>
+            <div class="info-value">{{ original.root|default:"—" }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">
+              <i class="bi bi-upc"></i>
+              <span>Код договора</span>
+            </div>
+            <div class="info-value">{{ original.contract_code }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Service Info Card (Collapsed) -->
+    <div class="phoenix-card">
+      <div class="phoenix-card-header" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#serviceInfo">
+        <i class="bi bi-gear"></i>
+        <span>Служебная информация</span>
+        <i class="bi bi-chevron-down ms-auto"></i>
+      </div>
+      <div id="serviceInfo" class="collapse">
+        <div class="phoenix-card-body">
+          <div class="info-grid">
+            <div class="info-item">
+              <div class="info-label">
+                <i class="bi bi-person-plus"></i>
+                <span>Создано</span>
+              </div>
+              <div class="info-value" style="font-size: 0.875rem;">
+                {{ original.created_by|default:"—" }} • {{ original.created_at|date:"d.m.Y H:i" }}
+              </div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">
+                <i class="bi bi-pencil-square"></i>
+                <span>Обновлено</span>
+              </div>
+              <div class="info-value" style="font-size: 0.875rem;">
+                {{ original.updated_by|default:"—" }} • {{ original.updated_at|date:"d.m.Y H:i" }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Batteries Card - all versions -->
+    <div class="phoenix-card">
+      <div class="phoenix-card-header">
+        <i class="bi bi-battery-charging"></i>
+        <span>Арендованные батареи (все версии договора)</span>
+      </div>
+      <div class="phoenix-card-body" style="padding: 0;">
+        {% if all_assignments %}
+        <table class="phoenix-table">
+          <thead>
+            <tr>
+              <th>Батарея</th>
+              <th>Версия</th>
+              <th>Начало</th>
+              <th>Окончание</th>
+              <th>Статус</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for assignment in all_assignments %}
+            <tr>
+              <td>
+                <a href="{% url 'admin:rental_battery_change' assignment.battery.pk %}" style="color: #667eea;">
+                  {{ assignment.battery.short_code }}
+                </a>
+              </td>
+              <td>v{{ assignment.rental.version }}</td>
+              <td>{{ assignment.start_at|date:"d.m.Y H:i" }}</td>
+              <td>{{ assignment.end_at|date:"d.m.Y H:i"|default:"—" }}</td>
+              <td>
+                {% if assignment.end_at %}
+                <span class="badge badge-closed">Завершена</span>
+                {% else %}
+                <span class="badge badge-active">Активна</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div style="padding: 1.5rem; color: #9fa6bc; text-align: center;">
+          <i class="bi bi-battery" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
+          Нет назначенных батарей
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Payments Card - all versions -->
+    <div class="phoenix-card">
+      <div class="phoenix-card-header">
+        <i class="bi bi-cash-stack"></i>
+        <span>Платежи (все версии договора)</span>
+      </div>
+      <div class="phoenix-card-body" style="padding: 0;">
+        {% if all_payments %}
+        <table class="phoenix-table">
+          <thead>
+            <tr>
+              <th>Дата</th>
+              <th>Версия</th>
+              <th>Сумма</th>
+              <th>Тип</th>
+              <th>Метод</th>
+              <th>Кто принял</th>
+              <th>Примечание</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for payment in all_payments %}
+            <tr>
+              <td>{{ payment.date|date:"d.m.Y" }}</td>
+              <td>v{{ payment.rental.version }}</td>
+              <td style="font-weight: 600;">{{ payment.amount }} PLN</td>
+              <td>{{ payment.get_type_display }}</td>
+              <td>{{ payment.get_method_display }}</td>
+              <td>{{ payment.created_by|default:"—" }}</td>
+              <td style="color: #9fa6bc; font-size: 0.8125rem;">{{ payment.note|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div style="padding: 1.5rem; color: #9fa6bc; text-align: center;">
+          <i class="bi bi-cash" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
+          Нет платежей
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Original Django Form (hidden) -->
+  {{ block.super }}
+
+  <!-- Modals -->
+  {% if original %}
+    {% include "admin/rental/rental/modals.html" %}
+  {% endif %}
+</div>
+
+<script>
+  // Hide original form elements
+  document.addEventListener('DOMContentLoaded', function() {
+    // Fetch financial values from API
+    {% if original %}
+    fetchFinancialData({{ original.id }});
+    {% endif %}
+  });
+
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+
+  function fetchFinancialData(rentalId) {
+    fetch(`/admin/rental/rental/${rentalId}/financial-data/`, {
+      method: 'GET',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken'),
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        // Update DOM
+        document.getElementById('charges-value').textContent = data.charges + ' PLN';
+        document.getElementById('paid-value').textContent = data.paid + ' PLN';
+        document.getElementById('deposit-value').textContent = data.deposit + ' PLN';
+        
+        const balanceEl = document.getElementById('balance-value');
+        const balance = parseFloat(data.balance);
+        balanceEl.textContent = data.balance + ' PLN';
+        
+        // Set color based on balance
+        if (balance < 0) {
+          balanceEl.classList.add('negative');
+          balanceEl.classList.remove('positive');
+        } else if (balance > 0) {
+          balanceEl.classList.add('positive');
+          balanceEl.classList.remove('negative');
+        }
+      }
+    })
+    .catch(error => {
+      console.error('Error fetching financial data:', error);
+    });
+  }
+</script>
+{% endblock %}
+

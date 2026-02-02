@@ -279,6 +279,24 @@
       margin-left: auto;
     }
     
+    .phoenix-navbar-icon {
+      color: #8ad0ff;
+      font-size: 1.25rem;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 0.375rem;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+    
+    .phoenix-navbar-icon:hover {
+      background-color: var(--phoenix-sidebar-hover);
+      color: #a8dfff;
+    }
+    
     .phoenix-user-menu {
       display: flex;
       align-items: center;
@@ -716,4 +734,79 @@
       visibility: visible !important;
       height: auto !important;
       overflow: visible !important;
+    }
+    
+    /* 14. GLOBAL PAGINATOR STYLES - Phoenix Theme */
+    .paginator {
+      background-color: #1c1e2d !important;
+      border: 1px solid #2a2e41 !important;
+      border-radius: 0.5rem !important;
+      padding: 0.75rem 1rem !important;
+      margin: 1rem 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 0.5rem !important;
+      flex-wrap: wrap !important;
+    }
+    
+    .paginator a,
+    .paginator .this-page,
+    .paginator span {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      min-width: 2.5rem !important;
+      height: 2.5rem !important;
+      padding: 0 0.75rem !important;
+      background-color: #0e1018 !important;
+      border: 1px solid #2a2e41 !important;
+      border-radius: 0.375rem !important;
+      color: #9fa6bc !important;
+      text-decoration: none !important;
+      font-size: 0.875rem !important;
+      font-weight: 500 !important;
+      transition: all 0.2s !important;
+      line-height: 1 !important;
+    }
+    
+    .paginator a:hover {
+      background-color: #252840 !important;
+      border-color: #667eea !important;
+      color: #e9ecef !important;
+      transform: translateY(-1px) !important;
+    }
+    
+    .paginator .this-page {
+      background-color: #667eea !important;
+      border-color: #667eea !important;
+      color: white !important;
+      font-weight: 600 !important;
+    }
+    
+    .paginator a:active {
+      transform: translateY(0) !important;
+    }
+    
+    .paginator .end,
+    .paginator .showall {
+      color: #667eea !important;
+      font-weight: 500 !important;
+    }
+    
+    .paginator .end:hover,
+    .paginator .showall:hover {
+      color: #8fa3f0 !important;
+    }
+    
+    .paginator .disabled {
+      opacity: 0.4 !important;
+      cursor: not-allowed !important;
+      pointer-events: none !important;
+    }
+    
+    .paginator .disabled:hover {
+      background-color: #0e1018 !important;
+      border-color: #2a2e41 !important;
+      transform: none !important;
     }

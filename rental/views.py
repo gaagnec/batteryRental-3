@@ -772,7 +772,13 @@ def city_analytics(request):
 
 @staff_member_required
 def download_debug_log(request):
-    """Временный endpoint для скачивания debug лога"""
+    """Временный endpoint для скачивания debug лога. Доступен только для администраторов (не модераторов)"""
+    from .admin_utils import is_moderator
+    
+    # Проверяем, что пользователь не модератор
+    if is_moderator(request.user):
+        return HttpResponse("Доступ запрещен. Эта функция доступна только для администраторов.", status=403)
+    
     # Используем функцию для получения пути к лог-файлу
     log_path = get_debug_log_path()
     

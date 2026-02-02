@@ -2758,6 +2758,9 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
         from .models import Client
         # Используем только необходимые поля, чтобы не тянуть всё
         extra_context['clients'] = Client.objects.only('id', 'name').order_by('name')
+        # Добавляем список городов для фильтра (только для администраторов)
+        if request.user.is_superuser:
+            extra_context['cities'] = City.objects.filter(active=True).order_by('name')
         response = super().changelist_view(request, extra_context=extra_context)
         # #region agent log
         try:
@@ -3034,9 +3037,8 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
 
     assigned_batteries_short.short_description = "Батареи"
 
-
-    action_form = NewVersionActionForm
-    actions = ["make_new_version", "close_with_deposit"]
+    # Custom template for change_form
+    change_form_template = 'admin/rental/rental/change_form.html'
     
     def get_list_display(self, request):
         base = list(super().get_list_display(request)) if hasattr(super(), 'get_list_display') else list(self.list_display)
@@ -3417,7 +3419,32 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                 '<int:pk>/change-batteries/',
                 self.admin_site.admin_view(self.change_batteries_view),
                 name='rental_rental_change_batteries',
-            )
+            ),
+            path(
+                '<int:pk>/close/',
+                self.admin_site.admin_view(self.close_rental_view),
+                name='rental_rental_close',
+            ),
+            path(
+                '<int:pk>/pause/',
+                self.admin_site.admin_view(self.pause_rental_view),
+                name='rental_rental_pause',
+            ),
+            path(
+                '<int:pk>/new-tariff/',
+                self.admin_site.admin_view(self.new_tariff_view),
+                name='rental_rental_new_tariff',
+            ),
+            path(
+                '<int:pk>/add-payment/',
+                self.admin_site.admin_view(self.add_payment_view),
+                name='rental_rental_add_payment',
+            ),
+            path(
+                '<int:pk>/financial-data/',
+                self.admin_site.admin_view(self.financial_data_view),
+                name='rental_rental_financial_data',
+            ),
         ]
         return custom + urls
 
@@ -3469,6 +3496,380 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
             formset=formset,
         )
         return TemplateResponse(request, 'admin/rental/change_batteries.html', context)
+
+    def close_rental_view(self, request, pk):
+        """AJAX endpoint для закрытия договора"""
+        if request.method != 'POST':
+            return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+        
+        try:
+            rental = Rental.objects.get(pk=pk)
+            
+            # Проверка прав доступа
+            if not self.has_change_permission(request, rental):
+                return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+            
+            # Получаем дату закрытия
+            close_date_str = request.POST.get('close_date')
+            if close_date_str:
+                close_date = timezone.datetime.fromisoformat(close_date_str.replace('T', ' '))
+                if timezone.is_naive(close_date):
+                    close_date = timezone.make_aware(close_date, timezone.get_current_timezone())
+            else:
+                close_date = timezone.now()
+            
+            # Закрываем договор
+            root = rental.root or rental
+            for v in Rental.objects.filter(root=root, status=Rental.Status.ACTIVE):
+                if not v.end_at or v.end_at > close_date:
+                    v.end_at = close_date
+                v.status = Rental.Status.CLOSED
+                v.updated_by = request.user
+                v.save()
+                
+                # Закрываем все активные назначения батарей
+                for assignment in v.assignments.filter(end_at__isnull=True):
+                    assignment.end_at = close_date
+                    assignment.updated_by = request.user
+                    assignment.save()
+                for assignment in v.assignments.filter(end_at__gt=close_date):
+                    assignment.end_at = close_date
+                    assignment.updated_by = request.user
+                    assignment.save()
+            
+            return JsonResponse({'success': True, 'message': 'Договор закрыт'})
+            
+        except Rental.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Договор не найден'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+    def pause_rental_view(self, request, pk):
+        """AJAX endpoint для создания паузы договора"""
+        if request.method != 'POST':
+            return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+        
+        try:
+            rental = Rental.objects.get(pk=pk)
+            
+            # Проверка прав доступа
+            if not self.has_change_permission(request, rental):
+                return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+            
+            # Получаем параметры
+            pause_days = int(request.POST.get('pause_days', 0))
+            if pause_days <= 0:
+                return JsonResponse({'success': False, 'error': 'Укажите количество дней'}, status=400)
+            
+            pause_start_str = request.POST.get('pause_start_date')
+            if pause_start_str:
+                pause_start = timezone.datetime.fromisoformat(pause_start_str.replace('T', ' '))
+                if timezone.is_naive(pause_start):
+                    pause_start = timezone.make_aware(pause_start, timezone.get_current_timezone())
+            else:
+                pause_start = timezone.now()
+            
+            # Используем логику из make_new_version с бесплатными днями
+            root = rental.root or rental
+            
+            # Закрываем текущую версию
+            if not rental.end_at or rental.end_at > pause_start:
+                rental.end_at = pause_start
+            rental.status = Rental.Status.MODIFIED
+            rental.updated_by = request.user
+            rental.save()
+            
+            # Создаем версию с паузой (нулевая ставка)
+            pause_end = pause_start + timezone.timedelta(days=pause_days)
+            new_version_num = root.group_versions().count() + 1
+            
+            pause_version = Rental(
+                client=rental.client,
+                city=rental.city,
+                start_at=pause_start,
+                end_at=pause_end,
+                weekly_rate=Decimal(0),
+                deposit_amount=rental.deposit_amount,
+                status=Rental.Status.ACTIVE,
+                battery_type=rental.battery_type,
+                parent=rental,
+                root=root,
+                version=new_version_num,
+                contract_code=root.contract_code or rental.contract_code,
+                created_by=request.user,
+                updated_by=request.user,
+            )
+            pause_version.save()
+            
+            # Создаем следующую версию после паузы
+            new_version_num = root.group_versions().count() + 1
+            next_rental = Rental(
+                client=rental.client,
+                city=rental.city,
+                start_at=pause_end,
+                weekly_rate=rental.weekly_rate,
+                deposit_amount=rental.deposit_amount,
+                status=Rental.Status.ACTIVE,
+                battery_type=rental.battery_type,
+                parent=pause_version,
+                root=root,
+                version=new_version_num,
+                contract_code=root.contract_code or rental.contract_code,
+                created_by=request.user,
+                updated_by=request.user,
+            )
+            next_rental.save()
+            
+            # Переносим батареи
+            for a in rental.assignments.all():
+                a_end = a.end_at
+                if a_end is None or a_end > pause_start:
+                    # Закрываем в старой версии
+                    a.end_at = pause_start
+                    a.updated_by = request.user
+                    a.save()
+                    
+                    # Создаем в новой версии (после паузы)
+                    RentalBatteryAssignment.objects.create(
+                        rental=next_rental,
+                        battery=a.battery,
+                        start_at=pause_start,
+                        end_at=None,
+                        created_by=request.user,
+                        updated_by=request.user,
+                    )
+            
+            return JsonResponse({'success': True, 'message': f'Пауза на {pause_days} дней создана'})
+            
+        except Rental.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Договор не найден'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+    def new_tariff_view(self, request, pk):
+        """AJAX endpoint для создания новой версии с новым тарифом"""
+        if request.method != 'POST':
+            return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+        
+        try:
+            rental = Rental.objects.get(pk=pk)
+            
+            # Проверка прав доступа
+            if not self.has_change_permission(request, rental):
+                return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+            
+            # Получаем параметры
+            new_weekly_rate = Decimal(request.POST.get('new_weekly_rate', 0))
+            if new_weekly_rate < 0:
+                return JsonResponse({'success': False, 'error': 'Укажите корректную ставку'}, status=400)
+            
+            tariff_start_str = request.POST.get('tariff_start_date')
+            if tariff_start_str:
+                tariff_start = timezone.datetime.fromisoformat(tariff_start_str.replace('T', ' '))
+                if timezone.is_naive(tariff_start):
+                    tariff_start = timezone.make_aware(tariff_start, timezone.get_current_timezone())
+            else:
+                tariff_start = timezone.now()
+            
+            # Создаем новую версию
+            root = rental.root or rental
+            
+            # Закрываем текущую версию
+            if not rental.end_at or rental.end_at > tariff_start:
+                rental.end_at = tariff_start
+            rental.status = Rental.Status.MODIFIED
+            rental.updated_by = request.user
+            rental.save()
+            
+            # Создаем новую версию с новым тарифом
+            new_version_num = root.group_versions().count() + 1
+            new_rental = Rental(
+                client=rental.client,
+                city=rental.city,
+                start_at=tariff_start,
+                weekly_rate=new_weekly_rate,
+                deposit_amount=rental.deposit_amount,
+                status=Rental.Status.ACTIVE,
+                battery_type=rental.battery_type,
+                parent=rental,
+                root=root,
+                version=new_version_num,
+                contract_code=root.contract_code or rental.contract_code,
+                created_by=request.user,
+                updated_by=request.user,
+            )
+            new_rental.save()
+            
+            # Переносим батареи
+            for a in rental.assignments.all():
+                a_end = a.end_at
+                if a_end is None or a_end > tariff_start:
+                    # Закрываем в старой версии
+                    a.end_at = tariff_start
+                    a.updated_by = request.user
+                    a.save()
+                    
+                    # Создаем в новой версии
+                    RentalBatteryAssignment.objects.create(
+                        rental=new_rental,
+                        battery=a.battery,
+                        start_at=tariff_start,
+                        end_at=None,
+                        created_by=request.user,
+                        updated_by=request.user,
+                    )
+            
+            # Возвращаем URL новой версии
+            redirect_url = reverse('admin:rental_rental_change', args=[new_rental.pk])
+            return JsonResponse({
+                'success': True,
+                'message': f'Создана новая версия с тарифом {new_weekly_rate} PLN/неделя',
+                'redirect_url': redirect_url
+            })
+            
+        except Rental.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Договор не найден'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+    def add_payment_view(self, request, pk):
+        """AJAX endpoint для добавления платежа к договору"""
+        if request.method != 'POST':
+            return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+        
+        try:
+            rental = Rental.objects.get(pk=pk)
+            
+            # Проверка прав доступа
+            if not self.has_change_permission(request, rental):
+                return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+            
+            # Получаем параметры
+            amount = Decimal(request.POST.get('payment_amount', 0))
+            payment_date_str = request.POST.get('payment_date')
+            payment_type = request.POST.get('payment_type', 'rent')
+            payment_method = request.POST.get('payment_method', 'cash')
+            payment_note = request.POST.get('payment_note', '')
+            
+            if amount == 0:
+                return JsonResponse({'success': False, 'error': 'Укажите сумму платежа'}, status=400)
+            
+            # Парсим дату
+            payment_date = timezone.datetime.strptime(payment_date_str, '%Y-%m-%d').date()
+            
+            # Создаем платеж
+            root = rental.root or rental
+            payment = Payment.objects.create(
+                rental=root,
+                amount=amount,
+                date=payment_date,
+                type=payment_type,
+                method=payment_method,
+                note=payment_note,
+                city=rental.city,
+                created_by=request.user,
+                updated_by=request.user,
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Платеж на сумму {amount} PLN добавлен',
+                'payment_id': payment.id
+            })
+            
+        except Rental.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Договор не найден'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+    def financial_data_view(self, request, pk):
+        """AJAX endpoint для получения финансовых данных"""
+        try:
+            rental = Rental.objects.get(pk=pk)
+            
+            # Проверка прав доступа
+            if not self.has_view_permission(request, rental):
+                return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+            
+            # Получаем root для group методов
+            root = rental.root or rental
+            now = timezone.now()
+            
+            # Вычисляем данные
+            charges = float(root.group_charges_until(until=now))
+            paid = float(root.group_paid_total())
+            deposit = float(root.group_deposit_total())
+            balance = paid - charges
+            
+            return JsonResponse({
+                'success': True,
+                'charges': f"{charges:.2f}",
+                'paid': f"{paid:.2f}",
+                'deposit': f"{deposit:.2f}",
+                'balance': f"{balance:.2f}",
+            })
+            
+        except Rental.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Договор не найден'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        """Добавляем дополнительный контекст для шаблона change_form"""
+        extra_context = extra_context or {}
+        
+        try:
+            rental = self.get_object(request, object_id)
+            if rental:
+                # Получаем root для группы версий
+                root = rental.root or rental
+                
+                # Получаем все версии договора
+                all_versions = list(Rental.objects.filter(root=root).order_by('version'))
+                
+                # Находим предыдущую и следующую версию
+                current_idx = None
+                for i, v in enumerate(all_versions):
+                    if v.pk == rental.pk:
+                        current_idx = i
+                        break
+                
+                if current_idx is not None:
+                    extra_context['prev_version'] = all_versions[current_idx - 1] if current_idx > 0 else None
+                    extra_context['next_version'] = all_versions[current_idx + 1] if current_idx < len(all_versions) - 1 else None
+                
+                # Получаем все назначения батарей по всем версиям договора
+                all_assignments = RentalBatteryAssignment.objects.filter(
+                    rental__root=root
+                ).select_related('battery', 'rental').order_by('-start_at')
+                extra_context['all_assignments'] = all_assignments
+                
+                # Получаем все платежи по всем версиям договора
+                all_payments = Payment.objects.filter(
+                    rental__root=root
+                ).select_related('rental').order_by('-date')
+                extra_context['all_payments'] = all_payments
+                
+                # Получаем номера батарей для текущей версии (активные сейчас)
+                now = timezone.now()
+                current_batteries = []
+                for a in rental.assignments.select_related('battery').all():
+                    a_start = a.start_at
+                    a_end = a.end_at
+                    # Батарея активна если начало <= сейчас и (нет окончания или окончание > сейчас)
+                    if a_start <= now and (a_end is None or a_end > now):
+                        current_batteries.append(a.battery.short_code)
+                extra_context['current_battery_codes'] = ', '.join(current_batteries) if current_batteries else '—'
+                
+                # Вычисляем длительность текущей версии в днях
+                start = rental.start_at
+                end = rental.end_at or now
+                duration_days = (end - start).days
+                extra_context['version_duration_days'] = duration_days
+        except Exception:
+            pass
+        
+        return super().change_view(request, object_id, form_url, extra_context)
 
     def close_with_deposit(self, request, queryset):
         closed = 0
@@ -3708,48 +4109,8 @@ class PaymentAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, Simple
             if 'city' in form.base_fields:
                 form.base_fields['city'].disabled = True
                 form.base_fields['city'].help_text = "Город автоматически устанавливается из города договора или модератора"
-            if 'rental' in form.base_fields:
-                # Фильтруем договоры по городу модератора
-                city = get_user_city(request.user)
-                # #region agent log
-                try:
-                    with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
-                        f.write(json.dumps({
-                            "sessionId": "debug-session",
-                            "runId": "run1",
-                            "hypothesisId": "B,C",
-                            "location": "admin.py:PaymentAdmin.get_form:before_queryset",
-                            "message": "Before setting rental queryset",
-                            "data": {
-                                "city_id": city.id if city else None,
-                                "city_name": city.name if city else None,
-                                "has_queryset": hasattr(form.base_fields['rental'], 'queryset')
-                            },
-                            "timestamp": __import__('time').time() * 1000
-                        }, ensure_ascii=False) + '\n')
-                except: pass
-                # #endregion
-                if city:
-                    filtered_qs = Rental.objects.filter(city=city).select_related('client', 'root').only('id', 'contract_code', 'client_id', 'root_id', 'client__name')
-                    form.base_fields['rental'].queryset = filtered_qs
-                    # #region agent log
-                    try:
-                        elapsed = (time_module.time() - start_time) * 1000
-                        with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
-                            f.write(json.dumps({
-                                "sessionId": "debug-session",
-                                "runId": "run1",
-                                "hypothesisId": "C,E,H",
-                                "location": "admin.py:PaymentAdmin.get_form:after_queryset",
-                                "message": "After setting rental queryset",
-                                "data": {
-                                    "queryset_set": True,
-                                    "elapsed_ms": elapsed
-                                },
-                                "timestamp": time_module.time() * 1000
-                            }, ensure_ascii=False) + '\n')
-                    except: pass
-                    # #endregion
+            # НЕ переопределяем queryset для rental здесь, так как это уже делается правильно
+            # в formfield_for_foreignkey с учетом параметра show_all_rentals и фильтрации активных договоров
         # #region agent log
         try:
             elapsed = (time_module.time() - start_time) * 1000
@@ -4043,47 +4404,8 @@ class PaymentAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, Simple
         response = super().add_view(request, form_url, extra_context)
         
         # Если это TemplateResponse, можем получить форму из контекста
-        if hasattr(response, 'context_data'):
-            form = response.context_data.get('adminform') or response.context_data.get('form')
-            if form and hasattr(form, 'fields') and 'rental' in form.fields:
-                if is_moderator(request.user):
-                    city = get_user_city(request.user)
-                    # #region agent log
-                    try:
-                        with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
-                            f.write(json.dumps({
-                                "sessionId": "debug-session",
-                                "runId": "run1",
-                                "hypothesisId": "B,C",
-                                "location": "admin.py:PaymentAdmin.add_view:filtering_form",
-                                "message": "Filtering rental field in form",
-                                "data": {
-                                    "city_id": city.id if city else None,
-                                    "city_name": city.name if city else None,
-                                    "has_queryset": hasattr(form.fields['rental'], 'queryset')
-                                },
-                                "timestamp": __import__('time').time() * 1000
-                            }, ensure_ascii=False) + '\n')
-                    except: pass
-                    # #endregion
-                    if city:
-                        form.fields['rental'].queryset = Rental.objects.filter(city=city).select_related('client', 'root')
-                        # #region agent log
-                        try:
-                            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
-                                f.write(json.dumps({
-                                    "sessionId": "debug-session",
-                                    "runId": "run1",
-                                    "hypothesisId": "C,E",
-                                    "location": "admin.py:PaymentAdmin.add_view:after_filter",
-                                    "message": "After filtering rental queryset in form",
-                                    "data": {
-                                        "queryset_set": True
-                                    },
-                                    "timestamp": __import__('time').time() * 1000
-                                }, ensure_ascii=False) + '\n')
-                        except: pass
-                        # #endregion
+        # НЕ переопределяем queryset здесь, так как это уже сделано в formfield_for_foreignkey
+        # с учетом параметра show_all_rentals и фильтрации активных договоров
         # #region agent log
         import time as time_module
         try:
@@ -4357,46 +4679,120 @@ class PaymentAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, Simple
             if is_moderator(request.user):
                 city = get_user_city(request.user)
                 # #region agent log
+                import json
                 try:
                     with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                         f.write(json.dumps({
                             "sessionId": "debug-session",
                             "runId": "run1",
-                            "hypothesisId": "D,FIX",
-                            "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:FIX:entry",
-                            "message": "formfield_for_foreignkey FIX called for moderator",
+                            "hypothesisId": "A,B,C",
+                            "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:moderator_entry",
+                            "message": "formfield_for_foreignkey called for moderator",
                             "data": {
                                 "city_id": city.id if city else None,
                                 "city_name": city.name if city else None,
                                 "user_id": request.user.id if request.user else None,
-                                "username": request.user.username if request.user else None
+                                "username": request.user.username if request.user else None,
+                                "show_all_param": request.GET.get('show_all_rentals'),
+                                "show_all_post": request.POST.get('show_all_rentals')
                             },
                             "timestamp": __import__('time').time() * 1000
                         }, ensure_ascii=False) + '\n')
                 except: pass
                 # #endregion
                 if city:
-                    # Для модераторов всегда показываем только договора их города
-                    kwargs["queryset"] = Rental.objects.filter(city=city).select_related('client', 'root').order_by('-id')
+                    # Проверяем параметр show_all_rentals для модераторов
+                    show_all = request.GET.get('show_all_rentals') == '1' or request.POST.get('show_all_rentals') == '1'
                     # #region agent log
                     try:
                         with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                             f.write(json.dumps({
                                 "sessionId": "debug-session",
                                 "runId": "run1",
-                                "hypothesisId": "D,FIX",
-                                "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:FIX:after_filter",
-                                "message": "After filtering for moderator",
+                                "hypothesisId": "B",
+                                "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:before_queryset",
+                                "message": "Before creating queryset for moderator",
                                 "data": {
-                                    "queryset_count": kwargs["queryset"].count() if "queryset" in kwargs else None
+                                    "show_all": show_all,
+                                    "city_id": city.id,
+                                    "city_name": city.name
                                 },
                                 "timestamp": __import__('time').time() * 1000
                             }, ensure_ascii=False) + '\n')
                     except: pass
                     # #endregion
+                    if show_all:
+                        # Показываем все договора города модератора
+                        all_rentals_qs = Rental.objects.filter(city=city).select_related('client', 'root').order_by('-id')
+                        kwargs["queryset"] = all_rentals_qs
+                        # #region agent log
+                        try:
+                            count = all_rentals_qs.count()
+                            statuses = list(all_rentals_qs.values_list('status', flat=True).distinct())
+                            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                                f.write(json.dumps({
+                                    "sessionId": "debug-session",
+                                    "runId": "run1",
+                                    "hypothesisId": "B",
+                                    "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:all_rentals",
+                                    "message": "All rentals queryset for moderator",
+                                    "data": {
+                                        "queryset_count": count,
+                                        "statuses": statuses
+                                    },
+                                    "timestamp": __import__('time').time() * 1000
+                                }, ensure_ascii=False) + '\n')
+                        except: pass
+                        # #endregion
+                    else:
+                        # По умолчанию показываем только активные договора последней версии города модератора
+                        from django.db.models import Count, Q
+                        active_rentals_qs = Rental.objects.filter(city=city).select_related('client', 'root').annotate(
+                            children_count=Count('children')
+                        ).filter(
+                            Q(status=Rental.Status.ACTIVE) & Q(children_count=0)
+                        ).order_by('-id')
+                        kwargs["queryset"] = active_rentals_qs
+                        # #region agent log
+                        try:
+                            count = active_rentals_qs.count()
+                            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                                f.write(json.dumps({
+                                    "sessionId": "debug-session",
+                                    "runId": "run1",
+                                    "hypothesisId": "A",
+                                    "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:active_rentals",
+                                    "message": "Active rentals queryset for moderator",
+                                    "data": {
+                                        "queryset_count": count,
+                                        "city_id": city.id,
+                                        "city_name": city.name,
+                                        "filter_applied": "status=ACTIVE AND children_count=0"
+                                    },
+                                    "timestamp": __import__('time').time() * 1000
+                                }, ensure_ascii=False) + '\n')
+                        except: pass
+                        # #endregion
                 else:
                     # Если у модератора нет города, показываем пустой queryset
                     kwargs["queryset"] = Rental.objects.none()
+                    # #region agent log
+                    try:
+                        with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                            f.write(json.dumps({
+                                "sessionId": "debug-session",
+                                "runId": "run1",
+                                "hypothesisId": "C",
+                                "location": "admin.py:PaymentAdmin.formfield_for_foreignkey:no_city",
+                                "message": "Moderator has no city, returning empty queryset",
+                                "data": {
+                                    "user_id": request.user.id,
+                                    "username": request.user.username
+                                },
+                                "timestamp": __import__('time').time() * 1000
+                            }, ensure_ascii=False) + '\n')
+                    except: pass
+                    # #endregion
             else:
                 # Для не-модераторов используем существующую логику
                 # Проверяем параметр show_all_rentals в GET или POST

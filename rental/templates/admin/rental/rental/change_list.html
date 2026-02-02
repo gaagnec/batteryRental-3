@@ -1,11 +1,241 @@
 {% extends "admin/change_list.html" %}
 {% load i18n %}
+{% load static %}
 
 {% block extrahead %}
   {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/bootstrap-icons.css' %}">
   <style>
-    /* Hide default right sidebar filter */
+    /* Hide default elements */
     #changelist-filter { display: none !important; }
+    .actions { display: none !important; }
+    
+    /* Action Buttons for changelist */
+    .rental-actions-container {
+      background-color: #1c1e2d;
+      border: 1px solid #2a2e41;
+      border-radius: 0.5rem;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1rem;
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    
+    .rental-actions-label {
+      color: #9fa6bc;
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-right: 0.5rem;
+    }
+    
+    .rental-action-btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 0.375rem;
+      font-weight: 500;
+      font-size: 0.8125rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      text-decoration: none;
+    }
+    
+    .rental-action-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    
+    .rental-action-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    
+    .btn-close-rental {
+      background-color: #dc3545;
+      color: white;
+      display: none !important;
+    }
+    
+    .btn-close-rental:hover:not(:disabled) {
+      background-color: #c82333;
+      color: white;
+    }
+    
+    .btn-pause-rental {
+      background-color: #ffc107;
+      color: #1a1c2e;
+    }
+    
+    .btn-pause-rental:hover:not(:disabled) {
+      background-color: #e0a800;
+      color: #1a1c2e;
+    }
+    
+    .btn-new-tariff {
+      background-color: #667eea;
+      color: white;
+    }
+    
+    .btn-new-tariff:hover:not(:disabled) {
+      background-color: #5568d3;
+      color: white;
+    }
+    
+    .btn-add-payment {
+      background-color: #28a745;
+      color: white;
+    }
+    
+    .btn-add-payment:hover:not(:disabled) {
+      background-color: #218838;
+      color: white;
+    }
+    
+    .selected-count {
+      color: #667eea;
+      font-weight: 600;
+      margin-left: auto;
+    }
+    
+    /* Modal Styling */
+    .modal-content {
+      background-color: #1c1e2d;
+      border: 1px solid #2a2e41;
+      color: #e9ecef;
+    }
+    
+    .modal-header {
+      background-color: #0e1018;
+      border-bottom: 1px solid #2a2e41;
+    }
+    
+    .modal-title {
+      color: #e9ecef;
+    }
+    
+    .modal-body {
+      background-color: #1c1e2d;
+    }
+    
+    .modal-footer {
+      background-color: #0e1018;
+      border-top: 1px solid #2a2e41;
+    }
+    
+    .form-label {
+      color: #9fa6bc;
+      font-weight: 500;
+      font-size: 0.875rem;
+    }
+    
+    .form-control {
+      background-color: #0e1018;
+      border: 1px solid #2a2e41;
+      color: #e9ecef;
+    }
+    
+    .form-control:focus {
+      background-color: #1c1e2d;
+      border-color: #667eea;
+      color: #e9ecef;
+      box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    
+    .form-text {
+      color: #9fa6bc;
+    }
+    
+    .alert-info {
+      background-color: rgba(102, 126, 234, 0.1);
+      border-color: #667eea;
+      color: #e9ecef;
+    }
+    
+    .btn-close-white {
+      filter: invert(1) grayscale(100%) brightness(200%);
+    }
+
+    /* Phoenix Pagination Styles */
+    .paginator {
+      background-color: #1c1e2d !important;
+      border: 1px solid #2a2e41 !important;
+      border-radius: 0.5rem !important;
+      padding: 0.75rem 1rem !important;
+      margin: 1rem 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 0.5rem !important;
+      flex-wrap: wrap !important;
+    }
+    
+    .paginator a,
+    .paginator .this-page,
+    .paginator span {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      min-width: 2.5rem !important;
+      height: 2.5rem !important;
+      padding: 0 0.75rem !important;
+      background-color: #0e1018 !important;
+      border: 1px solid #2a2e41 !important;
+      border-radius: 0.375rem !important;
+      color: #9fa6bc !important;
+      text-decoration: none !important;
+      font-size: 0.875rem !important;
+      font-weight: 500 !important;
+      transition: all 0.2s !important;
+      line-height: 1 !important;
+    }
+    
+    .paginator a:hover {
+      background-color: #252840 !important;
+      border-color: #667eea !important;
+      color: #e9ecef !important;
+      transform: translateY(-1px) !important;
+    }
+    
+    .paginator .this-page {
+      background-color: #667eea !important;
+      border-color: #667eea !important;
+      color: white !important;
+      font-weight: 600 !important;
+    }
+    
+    .paginator a:active {
+      transform: translateY(0) !important;
+    }
+    
+    .paginator .end,
+    .paginator .showall {
+      color: #667eea !important;
+      font-weight: 500 !important;
+    }
+    
+    .paginator .end:hover,
+    .paginator .showall:hover {
+      color: #8fa3f0 !important;
+    }
+    
+    .paginator .disabled {
+      opacity: 0.4 !important;
+      cursor: not-allowed !important;
+      pointer-events: none !important;
+    }
+    
+    .paginator .disabled:hover {
+      background-color: #0e1018 !important;
+      border-color: #2a2e41 !important;
+      transform: none !important;
+    }
 
     /* Make content stretch full width */
     #content { width: 100% !important; max-width: none !important; }
@@ -22,6 +252,156 @@
     /* Make headers wrap to allow two-line labels */
     #result_list thead th { white-space: normal; word-break: break-word; vertical-align: middle; }
     #result_list thead th .two-lines { display: inline-block; line-height: 1.1; }
+
+    /* Phoenix-style filters */
+    .phoenix-filters-container {
+      background-color: #1c1e2d;
+      border: 1px solid #2a2e41;
+      border-radius: 0.5rem;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .phoenix-filters-row {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .filter-group {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .filter-label {
+      color: #9fa6bc;
+      font-size: 0.875rem;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .filter-buttons {
+      display: flex;
+      gap: 0.375rem;
+    }
+
+    .filter-btn {
+      padding: 0.375rem 0.875rem;
+      border: 1px solid #2a2e41;
+      background-color: #0e1018;
+      color: #9fa6bc;
+      border-radius: 0.25rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .filter-btn:hover {
+      background-color: #252840;
+      color: #e9ecef;
+      border-color: #667eea;
+    }
+
+    .filter-btn.active {
+      background-color: #667eea;
+      color: white;
+      border-color: #667eea;
+    }
+
+    .search-group {
+      flex: 1;
+      min-width: 250px;
+      max-width: 400px;
+      position: relative;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 0.5rem 1rem;
+      background-color: #0e1018;
+      border: 1px solid #2a2e41;
+      border-radius: 0.375rem;
+      color: #e9ecef;
+      font-size: 0.875rem;
+    }
+    
+    .search-input:not(:placeholder-shown) {
+      padding-left: 1rem;
+    }
+    
+    .search-input:placeholder-shown {
+      padding-left: 2.5rem;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 0.875rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #9fa6bc;
+      font-size: 1rem;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    
+    .search-input:not(:placeholder-shown) + .search-icon,
+    .search-input:focus + .search-icon {
+      opacity: 0;
+    }
+    
+    .reset-filters-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.5rem 1rem;
+      background-color: #dc3545;
+      color: white;
+      border: none;
+      border-radius: 0.375rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+    
+    .reset-filters-btn:hover {
+      background-color: #c82333;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      color: white;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .phoenix-filters-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .filter-group {
+        width: 100%;
+      }
+
+      .filter-buttons {
+        flex-wrap: wrap;
+      }
+
+      .search-group {
+        max-width: 100%;
+      }
+    }
   </style>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -70,6 +450,51 @@
         });
       }
 
+      // AJAX Search
+      const searchInput = document.getElementById('rentalSearch');
+      if (searchInput) {
+        let searchTimeout;
+        searchInput.addEventListener('input', function() {
+          clearTimeout(searchTimeout);
+          const query = this.value.trim();
+          
+          if (query.length === 0) {
+            // Reset to current filters
+            return;
+          }
+          
+          if (query.length < 2) {
+            return; // Wait for at least 2 characters
+          }
+          
+          searchTimeout = setTimeout(() => {
+            performSearch(query);
+          }, 500);
+        });
+      }
+
+      function performSearch(query) {
+        // Build URL with current filters
+        const url = new URL(window.location.href);
+        const params = new URLSearchParams(url.search);
+        
+        // Add search query
+        if (query) {
+          params.set('q', query);
+        } else {
+          params.delete('q');
+        }
+        
+        // Navigate to new URL
+        window.location.href = url.pathname + '?' + params.toString();
+      }
+
+      // Set search value from URL if present
+      const urlParams = new URLSearchParams(window.location.search);
+      const searchQuery = urlParams.get('q');
+      if (searchQuery && searchInput) {
+        searchInput.value = searchQuery;
+      }
     });
   </script>
 
@@ -112,32 +537,505 @@
 {% endblock %}
 
 {% block object-tools-items %}
-  {# Centered filter controls replacing sidebar filters #}
-  <li class="d-flex w-100 justify-content-center" style="list-style:none;">
-    <div class="btn-group btn-group-sm" role="group" aria-label="Filters">
-      {% with cur=request.GET.status__exact %}
-        <a class="btn {% if not cur %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href=".">{% trans "All" %}</a>
-        <a class="btn {% if cur == 'active' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?status__exact=active">Активен</a>
-        <a class="btn {% if cur == 'modified' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?status__exact=modified">Модифицирован</a>
-        <a class="btn {% if cur == 'closed' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?status__exact=closed">Закрыт</a>
-      {% endwith %}
-    </div>
-  </li>
-
-  <li class="d-flex w-100 justify-content-center mt-2" style="list-style:none;">
-    <input id="client-search" class="form-control form-control-sm" type="text" placeholder="Поиск клиента..." aria-label="Поиск клиента" autocomplete="off" list="client-list" style="max-width: 300px;">
-    <datalist id="client-list">
-      {% for client in clients %}
-        <option value="{{ client.name }}"></option>
-      {% endfor %}
-    </datalist>
-  </li>
-
   {{ block.super }}
 {% endblock %}
 
 {% block result_list %}
+  <!-- Action Buttons -->
+  <div class="rental-actions-container">
+    <span class="rental-actions-label">
+      <i class="bi bi-lightning-charge"></i>
+      Действия:
+    </span>
+    <button type="button" class="rental-action-btn btn-close-rental" id="btnCloseRental" disabled data-bs-toggle="modal" data-bs-target="#closeRentalModal">
+      <i class="bi bi-x-circle"></i>
+      <span>Закрыть договор</span>
+    </button>
+    <button type="button" class="rental-action-btn btn-pause-rental" id="btnPauseRental" disabled data-bs-toggle="modal" data-bs-target="#pauseRentalModal">
+      <i class="bi bi-pause-circle"></i>
+      <span>Пауза</span>
+    </button>
+    <button type="button" class="rental-action-btn btn-new-tariff" id="btnNewTariff" disabled data-bs-toggle="modal" data-bs-target="#newTariffModal">
+      <i class="bi bi-cash-coin"></i>
+      <span>Новый тариф</span>
+    </button>
+    <button type="button" class="rental-action-btn btn-add-payment" id="btnAddPayment" disabled data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+      <i class="bi bi-plus-circle"></i>
+      <span>Добавить платеж</span>
+    </button>
+    <span class="selected-count" id="selectedCount">Выберите договор</span>
+  </div>
+  
+  <!-- Phoenix-style Filters Container - moved before table -->
+  <div class="phoenix-filters-container" style="width: 100%; list-style: none; margin: 0 0 1rem 0; padding: 0;">
+    <div class="phoenix-filters-row">
+      <!-- Status Filter -->
+      <div class="filter-group">
+        <span class="filter-label">
+          <i class="bi bi-funnel"></i>
+          Статус:
+        </span>
+        <div class="filter-buttons">
+          {% with cur=request.GET.status__exact %}
+            <a class="filter-btn {% if not cur %}active{% endif %}" href=".">Все</a>
+            <a class="filter-btn {% if cur == 'active' %}active{% endif %}" href="?status__exact=active">Активен</a>
+            <a class="filter-btn {% if cur == 'modified' %}active{% endif %}" href="?status__exact=modified">Модифицирован</a>
+            <a class="filter-btn {% if cur == 'closed' %}active{% endif %}" href="?status__exact=closed">Закрыт</a>
+          {% endwith %}
+        </div>
+      </div>
+
+      <!-- City Filter (Admin only) -->
+      {% if user.is_superuser %}
+      <div class="filter-group">
+        <span class="filter-label">
+          <i class="bi bi-geo-alt"></i>
+          Город:
+        </span>
+        <div class="filter-buttons">
+          {% with cur_city=request.GET.city__id__exact %}
+            <a class="filter-btn {% if not cur_city %}active{% endif %}" href="{% if request.GET.status__exact %}?status__exact={{ request.GET.status__exact }}{% else %}.{% endif %}">Все</a>
+            {% for city in cities %}
+              <a class="filter-btn {% if cur_city == city.id|stringformat:'s' %}active{% endif %}" 
+                 href="?city__id__exact={{ city.id }}{% if request.GET.status__exact %}&status__exact={{ request.GET.status__exact }}{% endif %}">
+                {{ city.name }}
+              </a>
+            {% endfor %}
+          {% endwith %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- AJAX Search -->
+      <div class="search-group">
+        <input type="text" 
+               class="search-input" 
+               id="rentalSearch" 
+               placeholder="Поиск по клиенту, коду договора или статусу..." 
+               autocomplete="off">
+        <i class="bi bi-search search-icon"></i>
+      </div>
+      
+      <!-- Reset Filters Button -->
+      {% if request.GET.status__exact or request.GET.city__id__exact or request.GET.q %}
+      <a href="." class="reset-filters-btn">
+        <i class="bi bi-x-circle"></i>
+        <span>Сбросить фильтры</span>
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  
   <div class="table-responsive">
     {{ block.super }}
   </div>
+
+  <!-- Close Rental Modal -->
+  <div class="modal fade" id="closeRentalModal" tabindex="-1" aria-labelledby="closeRentalModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="closeRentalModalLabel">
+            <i class="bi bi-x-circle me-2"></i>
+            Закрыть договор
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="closeRentalForm">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label for="close_date" class="form-label">Дата и время закрытия</label>
+              <input type="datetime-local" class="form-control" id="close_date" name="close_date" required>
+              <div class="form-text">По умолчанию установлены текущие дата и время</div>
+            </div>
+            <div class="alert alert-info">
+              <i class="bi bi-info-circle me-2"></i>
+              <small>При закрытии договора будет установлено время завершения аренды всех батарей.</small>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+          <button type="button" class="btn btn-danger" onclick="submitCloseRental()">
+            <i class="bi bi-check-circle me-1"></i>
+            Закрыть договор
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pause Rental Modal -->
+  <div class="modal fade" id="pauseRentalModal" tabindex="-1" aria-labelledby="pauseRentalModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="pauseRentalModalLabel">
+            <i class="bi bi-pause-circle me-2"></i>
+            Пауза договора
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="pauseRentalForm">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label for="pause_days" class="form-label">Количество дней паузы</label>
+              <input type="number" class="form-control" id="pause_days" name="pause_days" min="1" max="365" required>
+              <div class="form-text">Укажите количество бесплатных дней</div>
+            </div>
+            <div class="mb-3">
+              <label for="pause_start_date" class="form-label">Дата начала паузы (опционально)</label>
+              <input type="datetime-local" class="form-control" id="pause_start_date" name="pause_start_date">
+              <div class="form-text">Оставьте пустым для начала с текущего момента</div>
+            </div>
+            <div class="alert alert-info">
+              <i class="bi bi-info-circle me-2"></i>
+              <small>Будет создана новая версия договора с нулевой ставкой на указанное количество дней.</small>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+          <button type="button" class="btn btn-warning" onclick="submitPauseRental()" style="color: #1a1c2e;">
+            <i class="bi bi-check-circle me-1"></i>
+            Создать паузу
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Tariff Modal -->
+  <div class="modal fade" id="newTariffModal" tabindex="-1" aria-labelledby="newTariffModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="newTariffModalLabel">
+            <i class="bi bi-cash-coin me-2"></i>
+            Новый тариф
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="newTariffForm">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label for="new_weekly_rate" class="form-label">Цена батареи в неделю (PLN)</label>
+              <input type="number" class="form-control" id="new_weekly_rate" name="new_weekly_rate" step="0.01" min="0" required>
+              <div class="form-text">Укажите новую недельную ставку</div>
+            </div>
+            <div class="mb-3">
+              <label for="tariff_start_date" class="form-label">Дата начала нового тарифа</label>
+              <input type="datetime-local" class="form-control" id="tariff_start_date" name="tariff_start_date" required>
+              <div class="form-text">По умолчанию установлена текущая дата</div>
+            </div>
+            <div class="alert alert-info">
+              <i class="bi bi-info-circle me-2"></i>
+              <small>Будет создана новая версия договора с новым тарифом. Активные батареи будут перенесены в новую версию.</small>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+          <button type="button" class="btn" style="background-color: #667eea; color: white;" onclick="submitNewTariff()">
+            <i class="bi bi-check-circle me-1"></i>
+            Создать новый тариф
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Payment Modal -->
+  <div class="modal fade" id="addPaymentModal" tabindex="-1" aria-labelledby="addPaymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="addPaymentModalLabel">
+            <i class="bi bi-plus-circle me-2"></i>
+            Добавить платеж
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="addPaymentForm">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label for="payment_amount" class="form-label">Сумма платежа (PLN)</label>
+              <input type="number" class="form-control" id="payment_amount" name="payment_amount" step="0.01" required>
+              <div class="form-text">Укажите сумму платежа</div>
+            </div>
+            <div class="mb-3">
+              <label for="payment_date" class="form-label">Дата платежа</label>
+              <input type="date" class="form-control" id="payment_date" name="payment_date" required>
+              <div class="form-text">Дата получения платежа</div>
+            </div>
+            <div class="mb-3">
+              <label for="payment_type" class="form-label">Тип платежа</label>
+              <select class="form-control" id="payment_type" name="payment_type" required>
+                <option value="rent">Аренда</option>
+                <option value="deposit">Депозит</option>
+                <option value="sold">Продажа</option>
+                <option value="adjustment">Корректировка</option>
+                <option value="return_deposit">Возврат депозита</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="payment_method" class="form-label">Метод оплаты</label>
+              <select class="form-control" id="payment_method" name="payment_method" required>
+                <option value="cash">Наличные</option>
+                <option value="blik">BLIK</option>
+                <option value="revolut">Revolut</option>
+                <option value="other">Другое</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="payment_note" class="form-label">Примечание (опционально)</label>
+              <textarea class="form-control" id="payment_note" name="payment_note" rows="2"></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+          <button type="button" class="btn btn-success" onclick="submitAddPayment()">
+            <i class="bi bi-check-circle me-1"></i>
+            Добавить платеж
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
+    <div id="notificationToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="toast-header" style="background-color: #0e1018; border-bottom: 1px solid #2a2e41;">
+        <i class="bi bi-check-circle text-success me-2" id="toastIcon"></i>
+        <strong class="me-auto" id="toastTitle" style="color: #e9ecef;">Успешно</strong>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+      <div class="toast-body" id="toastBody" style="background-color: #1c1e2d; color: #e9ecef;">
+        Операция выполнена успешно
+      </div>
+    </div>
+  </div>
+
+  <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+  <script>
+    // Track selected rental ID
+    let selectedRentalId = null;
+    
+    // Initialize datetime inputs
+    document.addEventListener('DOMContentLoaded', function() {
+      const now = new Date();
+      const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+      
+      document.getElementById('close_date').value = localDateTime;
+      document.getElementById('tariff_start_date').value = localDateTime;
+      document.getElementById('payment_date').value = localDate;
+      
+      // Monitor checkbox changes
+      setupCheckboxListeners();
+    });
+    
+    function setupCheckboxListeners() {
+      const checkboxes = document.querySelectorAll('#result_list input[type="checkbox"][name="_selected_action"]');
+      const actionCheckbox = document.querySelector('input[type="checkbox"]#action-toggle');
+      
+      checkboxes.forEach(cb => {
+        cb.addEventListener('change', updateSelectedState);
+      });
+      
+      if (actionCheckbox) {
+        actionCheckbox.addEventListener('change', updateSelectedState);
+      }
+      
+      // Also listen for clicks on table rows
+      document.querySelectorAll('#result_list tbody tr').forEach(row => {
+        row.addEventListener('click', function(e) {
+          // Don't trigger if clicking on a link or checkbox
+          if (e.target.tagName === 'A' || e.target.tagName === 'INPUT') return;
+          
+          const checkbox = this.querySelector('input[type="checkbox"][name="_selected_action"]');
+          if (checkbox) {
+            checkbox.checked = !checkbox.checked;
+            updateSelectedState();
+          }
+        });
+      });
+    }
+    
+    function updateSelectedState() {
+      const checkboxes = document.querySelectorAll('#result_list input[type="checkbox"][name="_selected_action"]:checked');
+      const count = checkboxes.length;
+      const countEl = document.getElementById('selectedCount');
+      const buttons = document.querySelectorAll('.rental-action-btn');
+      
+      if (count === 0) {
+        countEl.textContent = 'Выберите договор';
+        selectedRentalId = null;
+        buttons.forEach(btn => btn.disabled = true);
+      } else if (count === 1) {
+        selectedRentalId = checkboxes[0].value;
+        countEl.textContent = `Выбран 1 договор (ID: ${selectedRentalId})`;
+        buttons.forEach(btn => btn.disabled = false);
+      } else {
+        selectedRentalId = null;
+        countEl.textContent = `Выбрано ${count} договоров (выберите только 1)`;
+        buttons.forEach(btn => btn.disabled = true);
+      }
+    }
+    
+    function getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim();
+          if (cookie.substring(0, name.length + 1) === (name + '=')) {
+            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+            break;
+          }
+        }
+      }
+      return cookieValue;
+    }
+    
+    function showNotification(title, message, isSuccess = true) {
+      const toast = new bootstrap.Toast(document.getElementById('notificationToast'));
+      const icon = document.getElementById('toastIcon');
+      icon.className = isSuccess ? 'bi bi-check-circle text-success me-2' : 'bi bi-x-circle text-danger me-2';
+      document.getElementById('toastTitle').textContent = title;
+      document.getElementById('toastBody').textContent = message;
+      toast.show();
+    }
+    
+    function submitCloseRental() {
+      if (!selectedRentalId) return;
+      
+      const form = document.getElementById('closeRentalForm');
+      const formData = new FormData(form);
+      
+      fetch(`/admin/rental/rental/${selectedRentalId}/close/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': getCookie('csrftoken'),
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          showNotification('Успешно', 'Договор закрыт');
+          setTimeout(() => window.location.reload(), 1500);
+        } else {
+          showNotification('Ошибка', data.error || 'Не удалось закрыть договор', false);
+        }
+      })
+      .catch(error => {
+        showNotification('Ошибка', 'Произошла ошибка при выполнении операции', false);
+        console.error('Error:', error);
+      });
+      
+      bootstrap.Modal.getInstance(document.getElementById('closeRentalModal')).hide();
+    }
+    
+    function submitPauseRental() {
+      if (!selectedRentalId) return;
+      
+      const form = document.getElementById('pauseRentalForm');
+      const formData = new FormData(form);
+      
+      fetch(`/admin/rental/rental/${selectedRentalId}/pause/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': getCookie('csrftoken'),
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          showNotification('Успешно', 'Пауза создана');
+          setTimeout(() => window.location.reload(), 1500);
+        } else {
+          showNotification('Ошибка', data.error || 'Не удалось создать паузу', false);
+        }
+      })
+      .catch(error => {
+        showNotification('Ошибка', 'Произошла ошибка при выполнении операции', false);
+        console.error('Error:', error);
+      });
+      
+      bootstrap.Modal.getInstance(document.getElementById('pauseRentalModal')).hide();
+    }
+    
+    function submitNewTariff() {
+      if (!selectedRentalId) return;
+      
+      const form = document.getElementById('newTariffForm');
+      const formData = new FormData(form);
+      
+      fetch(`/admin/rental/rental/${selectedRentalId}/new-tariff/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': getCookie('csrftoken'),
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          showNotification('Успешно', 'Новый тариф создан');
+          setTimeout(() => window.location.href = data.redirect_url || window.location.href, 1500);
+        } else {
+          showNotification('Ошибка', data.error || 'Не удалось создать новый тариф', false);
+        }
+      })
+      .catch(error => {
+        showNotification('Ошибка', 'Произошла ошибка при выполнении операции', false);
+        console.error('Error:', error);
+      });
+      
+      bootstrap.Modal.getInstance(document.getElementById('newTariffModal')).hide();
+    }
+    
+    function submitAddPayment() {
+      if (!selectedRentalId) return;
+      
+      const form = document.getElementById('addPaymentForm');
+      const formData = new FormData(form);
+      formData.append('rental_id', selectedRentalId);
+      
+      fetch(`/admin/rental/rental/${selectedRentalId}/add-payment/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': getCookie('csrftoken'),
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          showNotification('Успешно', 'Платеж добавлен');
+          setTimeout(() => window.location.reload(), 1500);
+        } else {
+          showNotification('Ошибка', data.error || 'Не удалось добавить платеж', false);
+        }
+      })
+      .catch(error => {
+        showNotification('Ошибка', 'Произошла ошибка при выполнении операции', false);
+        console.error('Error:', error);
+      });
+      
+      bootstrap.Modal.getInstance(document.getElementById('addPaymentModal')).hide();
+    }
+  </script>
 {% endblock %}
