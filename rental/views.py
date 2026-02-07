@@ -54,13 +54,8 @@ def calculate_balances_for_rentals(rentals, tz, now_dt):
         end = timezone.localtime(end, tz)
         if end <= start:
             return 0
-        days = (end.date() - start.date()).days
-        if start.hour < 14 or (start.hour == 14 and start.minute == 0 and start.second == 0):
-            days += 1
-        if end.hour < 14 or (end.hour == 14 and end.minute == 0 and end.second == 0):
-            days -= 1
-        return max(days, 0)
-    
+        return (end.date() - start.date()).days + 1
+
     # Посчитаем charges для каждого root без посуточных циклов
     charges_by_root = {}
     for root_id in root_ids:
@@ -69,7 +64,7 @@ def calculate_balances_for_rentals(rentals, tz, now_dt):
             v_start = timezone.localtime(v.start_at, tz)
             v_end = timezone.localtime(v.end_at, tz) if v.end_at else timezone.localtime(now_dt, tz)
             daily_rate = (v.weekly_rate or Decimal(0)) / Decimal(7)
-            # Для каждой привязки этой версии считаем дни пересечения интервалов (с 14:00 cut-off)
+            # Для каждой привязки считаем календарные дни пересечения интервалов (включительно)
             for a in getattr(v, 'assignments', []).all():
                 a_start = timezone.localtime(a.start_at, tz)
                 a_end = timezone.localtime(a.end_at, tz) if a.end_at else timezone.localtime(now_dt, tz)
@@ -296,14 +291,14 @@ def dashboard(request):
     paid_values = []
     totals_pay = {row['date']: row['total'] for row in pay_qs}
 
-    # Оптимизация: загрузить все назначения, пересекающие окно, одним запросом
+    # Оптимизация: загрузить все назначения, пересекающие окно по календарным дням
     tz = timezone.get_current_timezone()
-    window_start_anchor = timezone.make_aware(datetime.combine(start_date, time(14, 0)), tz)
-    window_end_anchor = timezone.make_aware(datetime.combine(timezone.localdate(), time(14, 0)), tz)
+    window_start = timezone.make_aware(datetime.combine(start_date, time(0, 0)), tz)
+    window_end = timezone.make_aware(datetime.combine(timezone.localdate() + timedelta(days=1), time(0, 0)), tz)
     assigns_window = (
         RentalBatteryAssignment.objects
-        .filter(start_at__lte=window_end_anchor)
-        .filter(models.Q(end_at__isnull=True) | models.Q(end_at__gte=window_start_anchor))
+        .filter(start_at__lt=window_end)
+        .filter(models.Q(end_at__isnull=True) | models.Q(end_at__gt=window_start))
         .select_related('rental')
     )
     if filter_city:
@@ -335,11 +330,12 @@ def dashboard(request):
         d = start_date + timedelta(days=i)
         labels.append(d.isoformat())
         paid_values.append(float(totals_pay.get(d, 0) or 0))
-        anchor = timezone.make_aware(datetime.combine(d, time(14, 0)), tz)
+        day_start = timezone.make_aware(datetime.combine(d, time(0, 0)), tz)
+        day_end = timezone.make_aware(datetime.combine(d + timedelta(days=1), time(0, 0)), tz)
         day_total = Decimal(0)
         for na in norm_assigns:
-            if na['a_start'] <= anchor and (na['a_end'] is None or na['a_end'] > anchor):
-                if na['r_start'] <= anchor and (na['r_end'] is None or na['r_end'] > anchor):
+            if na['a_start'] < day_end and (na['a_end'] is None or na['a_end'] > day_start):
+                if na['r_start'] < day_end and (na['r_end'] is None or na['r_end'] > day_start):
                     day_total += na['daily_rate']
         charges_values.append(float(day_total))
 

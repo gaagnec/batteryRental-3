@@ -2419,15 +2419,15 @@ class BatteryAdmin(ModeratorRestrictedMixin, CityFilteredAdminMixin, SimpleHisto
             for a in obj.assignments.filter(rental__root=root).all():
                 a_start = timezone.localtime(a.start_at, tz)
                 a_end = timezone.localtime(a.end_at, tz) if a.end_at else now
-                # Идём по дням, считаем только те дни, когда есть активная версия
+                # Идём по календарным дням, считаем только те дни, когда есть активная версия
                 d = a_start.date()
                 end_date = a_end.date()
                 while d <= end_date:
-                    anchor = timezone.make_aware(datetime.combine(d, time(14, 0)), tz)
-                    # Найти активную версию на этот anchor
+                    day_start = timezone.make_aware(datetime.combine(d, time(0, 0)), tz)
+                    day_end = timezone.make_aware(datetime.combine(d + timedelta(days=1), time(0, 0)), tz)
                     rate = None
                     for v_start, v_end, v_rate in v_windows:
-                        if v_start <= anchor and anchor < v_end and anchor <= now:
+                        if v_start < day_end and v_end > day_start:
                             rate = v_rate
                             break
                     if rate is not None:

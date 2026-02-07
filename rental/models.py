@@ -142,7 +142,7 @@ class Rental(TimeStampedModel):
         return (self.weekly_rate or Decimal(0)) / Decimal(7)
 
     def billable_days(self, until: timezone.datetime | None = None) -> int:
-        """Calculate billable days with 14:00 cutoff for this version interval only."""
+        """Calculate billable days as inclusive calendar days (e.g. Mon–Fri = 5 days), regardless of time."""
         tz = timezone.get_current_timezone()
         start = timezone.localtime(self.start_at, tz)
         end = timezone.localtime(until or self.end_at or timezone.now(), tz)
@@ -150,16 +150,12 @@ class Rental(TimeStampedModel):
             return 0
         start_date = start.date()
         end_date = end.date()
-        days = (end_date - start_date).days
-        if start.hour < 14 or (start.hour == 14 and start.minute == 0 and start.second == 0):
-            days += 1
-        if end.hour < 14 or (end.hour == 14 and end.minute == 0 and end.second == 0):
-            days -= 1
+        days = (end_date - start_date).days + 1
         return max(days, 0)
 
     def charges_until(self, until: timezone.datetime | None = None) -> Decimal:
         """Charges for this version only, multiplied by number of assigned batteries per day.
-        Day is billable if 14:00 anchor of that day lies within [start, end).
+        Each calendar day in [start_date, end_date] is billed once; day overlaps are by calendar day, not 14:00.
         """
         # #region agent log
         import json
@@ -207,15 +203,15 @@ class Rental(TimeStampedModel):
         d = start.date()
         end_date = end.date()
         while d <= end_date:
-            anchor = timezone.make_aware(datetime.combine(d, time(14, 0)), tz)
-            # Count day only if rental covers the 14:00 anchor
-            if start <= anchor and (self.end_at is None or timezone.localtime(self.end_at, tz) > anchor) and anchor <= end:
-                # number of batteries assigned at this anchor
+            day_start = timezone.make_aware(datetime.combine(d, time(0, 0)), tz)
+            day_end = timezone.make_aware(datetime.combine(d + timedelta(days=1), time(0, 0)), tz)
+            # Rental covers this calendar day if it overlaps [day_start, day_end)
+            if start < day_end and end > day_start:
                 cnt = 0
                 for a in assignments:
                     a_start = timezone.localtime(a.start_at, tz)
                     a_end = timezone.localtime(a.end_at, tz) if a.end_at else None
-                    if a_start <= anchor and (a_end is None or a_end > anchor):
+                    if a_start < day_end and (a_end is None or a_end > day_start):
                         cnt += 1
                 if cnt:
                     total += ((self.weekly_rate or Decimal(0)) / Decimal(7)) * Decimal(cnt)
