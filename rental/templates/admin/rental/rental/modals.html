@@ -222,11 +222,26 @@
               </div>
               <div>
                 <label class="form-label small mb-0" style="color: #9fa6bc;">С даты</label>
-                <input type="datetime-local" class="form-control form-control-sm" id="changeBatteriesAddStart">
+                <input type="date" class="form-control form-control-sm" id="changeBatteriesAddStart">
               </div>
               <button type="button" class="btn btn-sm btn-success" id="changeBatteriesAddBtn">
                 <i class="bi bi-plus"></i> Добавить
               </button>
+            </div>
+          </div>
+          <div id="changeBatteriesEndForm" class="mb-3 p-3 rounded" style="display: none; background: #0e1018; border: 1px solid #2a2e41;">
+            <p class="mb-2 small" style="color: #e9ecef;">Завершить назначение батареи <strong id="endBatteryCode"></strong></p>
+            <div class="d-flex flex-wrap gap-2 align-items-end">
+              <div>
+                <label class="form-label small mb-0" style="color: #9fa6bc;">Дата окончания</label>
+                <input type="date" class="form-control form-control-sm" id="endAssignmentDate">
+              </div>
+              <div>
+                <label class="form-label small mb-0" style="color: #9fa6bc;">Причина</label>
+                <input type="text" class="form-control form-control-sm" id="endAssignmentReason" placeholder="Необязательно" style="min-width: 160px;">
+              </div>
+              <button type="button" class="btn btn-sm btn-warning" id="endApplyBtn">Применить</button>
+              <button type="button" class="btn btn-sm btn-secondary" id="endCancelBtn">Отмена</button>
             </div>
           </div>
           <div id="changeBatteriesReplaceForm" class="mb-3 p-3 rounded" style="display: none; background: #0e1018; border: 1px solid #2a2e41;">
@@ -238,7 +253,7 @@
               </div>
               <div>
                 <label class="form-label small mb-0" style="color: #9fa6bc;">С даты</label>
-                <input type="datetime-local" class="form-control form-control-sm" id="replaceDate">
+                <input type="date" class="form-control form-control-sm" id="replaceDate">
               </div>
               <div>
                 <label class="form-label small mb-0" style="color: #9fa6bc;">Причина</label>
@@ -439,11 +454,18 @@
   let changeBatteriesPendingActions = [];
   let replaceAssignmentId = null;
   let replaceOldCode = '';
+  let endAssignmentId = null;
+  let endBatteryCodeVal = '';
 
   function formatDateTime(iso) {
     if (!iso) return '—';
     const d = new Date(iso);
     return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+  function formatDateOnly(dateStr) {
+    if (!dateStr) return '—';
+    if (String(dateStr).length <= 10) return String(dateStr).split('-').reverse().join('.');
+    return formatDateTime(dateStr);
   }
 
   function renderChangeBatteriesPending() {
@@ -457,9 +479,9 @@
       li.style.borderColor = '#2a2e41';
       li.style.color = '#e9ecef';
       let text = '';
-      if (act.type === 'end') text = 'Завершить: ' + (act.battery_short_code || '') + ' с ' + formatDateTime(act.end_at);
-      else if (act.type === 'replace') text = 'Заменить на ' + (act.new_battery_short_code || '') + ' с ' + formatDateTime(act.date);
-      else if (act.type === 'add') text = 'Добавить: ' + (act.battery_short_code || '') + ' с ' + formatDateTime(act.start_at);
+      if (act.type === 'end') text = 'Завершить: ' + (act.battery_short_code || '') + ' с ' + formatDateOnly(act.end_at);
+      else if (act.type === 'replace') text = 'Заменить на ' + (act.new_battery_short_code || '') + ' с ' + formatDateOnly(act.date);
+      else if (act.type === 'add') text = 'Добавить: ' + (act.battery_short_code || '') + ' с ' + formatDateOnly(act.start_at);
       li.innerHTML = '<span>' + text + '</span><button type="button" class="btn btn-sm btn-outline-danger" data-idx="' + idx + '"><i class="bi bi-x"></i></button>';
       li.querySelector('button').addEventListener('click', function() {
         changeBatteriesPendingActions.splice(parseInt(this.getAttribute('data-idx'), 10), 1);
@@ -474,6 +496,7 @@
     document.getElementById('changeBatteriesLoading').style.display = 'block';
     document.getElementById('changeBatteriesContent').style.display = 'none';
     document.getElementById('changeBatteriesError').style.display = 'none';
+    document.getElementById('changeBatteriesEndForm').style.display = 'none';
     document.getElementById('changeBatteriesReplaceForm').style.display = 'none';
     changeBatteriesPendingActions = [];
 
@@ -522,29 +545,20 @@
       });
 
       const now = new Date();
-      const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-      document.getElementById('changeBatteriesAddStart').value = localDateTime;
+      const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+      document.getElementById('changeBatteriesAddStart').value = localDate;
 
       document.getElementById('changeBatteriesLoading').style.display = 'none';
       document.getElementById('changeBatteriesContent').style.display = 'block';
 
       document.querySelectorAll('.change-batteries-end-btn').forEach(btn => {
         btn.addEventListener('click', function() {
-          const assignmentId = parseInt(this.getAttribute('data-id'), 10);
-          const code = this.getAttribute('data-code') || '';
-          const endAt = new Date();
-          endAt.setSeconds(0, 0);
-          const endAtStr = endAt.toISOString().slice(0, 19);
-          const reason = window.prompt('Причина завершения (необязательно):', '');
-          if (reason === null) return;
-          changeBatteriesPendingActions.push({
-            type: 'end',
-            assignment_id: assignmentId,
-            end_at: endAtStr,
-            reason: reason || '',
-            battery_short_code: code
-          });
-          renderChangeBatteriesPending();
+          endAssignmentId = parseInt(this.getAttribute('data-id'), 10);
+          endBatteryCodeVal = this.getAttribute('data-code') || '';
+          document.getElementById('endBatteryCode').textContent = endBatteryCodeVal;
+          document.getElementById('endAssignmentDate').value = localDate;
+          document.getElementById('endAssignmentReason').value = '';
+          document.getElementById('changeBatteriesEndForm').style.display = 'block';
         });
       });
 
@@ -559,7 +573,7 @@
             sel.innerHTML += '<option value="' + b.id + '">' + b.short_code + '</option>';
           });
           const now = new Date();
-          document.getElementById('replaceDate').value = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+          document.getElementById('replaceDate').value = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
           document.getElementById('replaceReason').value = 'Замена батареи';
           document.getElementById('changeBatteriesReplaceForm').style.display = 'block';
         });
@@ -583,7 +597,7 @@
       return;
     }
     const startEl = document.getElementById('changeBatteriesAddStart');
-    const startAt = startEl.value ? new Date(startEl.value).toISOString().slice(0, 19) : new Date().toISOString().slice(0, 19);
+    const startAt = startEl.value || new Date().toISOString().slice(0, 10);
     const bat = changeBatteriesData.availableBatteries.find(b => b.id === batteryId);
     const code = bat ? bat.short_code : '';
     changeBatteriesPendingActions.push({
@@ -635,7 +649,11 @@
       if (data.success) {
         showNotification('Успешно', data.message || 'Состав батарей обновлён');
         bootstrap.Modal.getInstance(document.getElementById('changeBatteriesModal')).hide();
-        setTimeout(() => window.location.reload(), 1200);
+        if (data.redirect_url) {
+          setTimeout(() => window.location.href = data.redirect_url, 1200);
+        } else {
+          setTimeout(() => window.location.reload(), 1200);
+        }
       } else {
         showNotification('Ошибка', data.error || 'Не удалось сохранить', false);
       }
@@ -654,7 +672,7 @@
     const bat = batteries.find(b => b.id === batteryId);
     const newCode = bat ? bat.short_code : '';
     const dateVal = document.getElementById('replaceDate').value;
-    const dateStr = dateVal ? new Date(dateVal).toISOString().slice(0, 19) : new Date().toISOString().slice(0, 19);
+    const dateStr = dateVal || new Date().toISOString().slice(0, 10);
     const reason = document.getElementById('replaceReason').value || 'Замена батареи';
     changeBatteriesPendingActions.push({
       type: 'replace',
@@ -672,6 +690,27 @@
   document.getElementById('replaceCancelBtn').addEventListener('click', function() {
     document.getElementById('changeBatteriesReplaceForm').style.display = 'none';
     replaceAssignmentId = null;
+  });
+
+  document.getElementById('endApplyBtn').addEventListener('click', function() {
+    if (!endAssignmentId) return;
+    const dateVal = document.getElementById('endAssignmentDate').value;
+    const dateStr = dateVal || new Date().toISOString().slice(0, 10);
+    const reason = document.getElementById('endAssignmentReason').value || '';
+    changeBatteriesPendingActions.push({
+      type: 'end',
+      assignment_id: endAssignmentId,
+      end_at: dateStr,
+      reason: reason,
+      battery_short_code: endBatteryCodeVal
+    });
+    document.getElementById('changeBatteriesEndForm').style.display = 'none';
+    endAssignmentId = null;
+    renderChangeBatteriesPending();
+  });
+  document.getElementById('endCancelBtn').addEventListener('click', function() {
+    document.getElementById('changeBatteriesEndForm').style.display = 'none';
+    endAssignmentId = null;
   });
 </script>
 

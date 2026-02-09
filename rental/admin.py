@@ -16,7 +16,7 @@ from django.template.response import TemplateResponse
 from django.forms import inlineformset_factory, BaseInlineFormSet
 from decimal import Decimal
 from django.utils.safestring import mark_safe
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, date as date_type
 from admin_auto_filters.filters import AutocompleteFilter
 import json
 import traceback
@@ -3532,118 +3532,196 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
             return JsonResponse({'success': False, 'error': 'Неверный JSON'}, status=400)
         actions = body.get('actions') or []
 
-        def parse_dt(s):
+        def parse_date_to_start_of_day(s):
+            """Parse YYYY-MM-DD or datetime string to 00:00:00 in current timezone (для стыковки дат при замене)."""
             if not s:
                 return None
-            dt = timezone.datetime.fromisoformat(s.replace('Z', '+00:00'))
+            s = (s or "").strip()
+            tz = timezone.get_current_timezone()
+            if len(s) <= 10 or "T" not in s:
+                try:
+                    d = date_type.fromisoformat(s[:10])
+                except ValueError:
+                    dt = timezone.datetime.fromisoformat(s.replace("Z", "+00:00"))
+                    if timezone.is_naive(dt):
+                        dt = timezone.make_aware(dt, tz)
+                    return dt.replace(hour=0, minute=0, second=0, microsecond=0)
+                return timezone.make_aware(datetime.combine(d, time(0, 0)), tz)
+            dt = timezone.datetime.fromisoformat(s.replace("Z", "+00:00"))
             if timezone.is_naive(dt):
-                dt = timezone.make_aware(dt, timezone.get_current_timezone())
-            return dt
+                dt = timezone.make_aware(dt, tz)
+            return dt.replace(hour=0, minute=0, second=0, microsecond=0)
 
         try:
             with transaction.atomic():
-                assignment_ids_ended = set()
+                end_actions = {}   # assignment_id -> (end_date_dt, reason)
+                replace_actions = {}  # assignment_id -> (new_battery_id, replace_date_dt, reason)
+                add_actions = []  # (battery_id, start_date_dt)
+                all_dates = []
+
                 for act in actions:
-                    if act.get('type') == 'end':
-                        aid = act.get('assignment_id')
+                    if act.get("type") == "end":
+                        aid = act.get("assignment_id")
                         if not aid:
-                            raise ValidationError('end: assignment_id обязателен')
-                        a = RentalBatteryAssignment.objects.filter(rental=rental, id=aid).first()
-                        if not a:
-                            raise ValidationError(f'Назначение {aid} не найдено в этом договоре')
-                        end_at = parse_dt(act.get('end_at'))
+                            raise ValidationError("end: assignment_id обязателен")
+                        end_at = parse_date_to_start_of_day(act.get("end_at"))
                         if not end_at:
-                            end_at = timezone.now()
-                        a.end_at = end_at
-                        a.end_reason = (act.get('reason') or '')[:255]
-                        a.updated_by = request.user
-                        a.save(update_fields=['end_at', 'end_reason', 'updated_by'])
-                        a.battery.status = Battery.Status.AVAILABLE
-                        a.battery.save(update_fields=['status'])
-                        assignment_ids_ended.add(a.id)
-                    elif act.get('type') == 'replace':
-                        aid = act.get('assignment_id')
-                        new_battery_id = act.get('new_battery_id')
+                            end_at = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                        end_actions[aid] = (end_at, (act.get("reason") or "")[:255])
+                        all_dates.append(end_at)
+                    elif act.get("type") == "replace":
+                        aid = act.get("assignment_id")
+                        new_battery_id = act.get("new_battery_id")
                         if not aid or not new_battery_id:
-                            raise ValidationError('replace: assignment_id и new_battery_id обязательны')
-                        a = RentalBatteryAssignment.objects.select_related('battery').filter(rental=rental, id=aid).first()
-                        if not a:
-                            raise ValidationError(f'Назначение {aid} не найдено')
-                        replace_date = parse_dt(act.get('date'))
+                            raise ValidationError("replace: assignment_id и new_battery_id обязательны")
+                        replace_date = parse_date_to_start_of_day(act.get("date"))
                         if not replace_date:
-                            replace_date = timezone.now()
-                        reason = (act.get('reason') or '')[:255]
+                            replace_date = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                        reason = (act.get("reason") or "Замена батареи")[:255]
                         new_battery = Battery.objects.filter(pk=new_battery_id).first()
                         if not new_battery:
-                            raise ValidationError('Новая батарея не найдена')
+                            raise ValidationError("Новая батарея не найдена")
                         if new_battery.city_id != rental.city_id:
-                            raise ValidationError(f'Батарея {new_battery.short_code} из другого города')
+                            raise ValidationError(f"Батарея {new_battery.short_code} из другого города")
                         if new_battery.status != Battery.Status.AVAILABLE:
-                            raise ValidationError(f'Батарея {new_battery.short_code} недоступна (статус не AVAILABLE)')
+                            raise ValidationError(f"Батарея {new_battery.short_code} недоступна (статус не AVAILABLE)")
                         overlap = RentalBatteryAssignment.objects.filter(
                             battery_id=new_battery_id,
                         ).filter(
                             Q(end_at__isnull=True) | Q(end_at__gt=replace_date),
                         ).filter(start_at__lte=replace_date).exclude(rental=rental).exists()
                         if overlap:
-                            raise ValidationError(f'Батарея {new_battery.short_code} уже занята в другом договоре')
-                        a.end_at = replace_date
-                        a.end_reason = reason or 'Замена батареи'
-                        a.updated_by = request.user
-                        a.save(update_fields=['end_at', 'end_reason', 'updated_by'])
-                        a.battery.status = Battery.Status.AVAILABLE
-                        a.battery.save(update_fields=['status'])
-                        assignment_ids_ended.add(a.id)
-                        RentalBatteryAssignment.objects.create(
-                            rental=rental,
-                            battery=new_battery,
-                            start_at=replace_date,
-                            end_at=None,
-                            created_by=request.user,
-                            updated_by=request.user,
-                        )
-                        new_battery.status = Battery.Status.RENTED
-                        new_battery.save(update_fields=['status'])
-                    elif act.get('type') == 'add':
-                        battery_id = act.get('battery_id')
-                        start_at = parse_dt(act.get('start_at'))
+                            raise ValidationError(f"Батарея {new_battery.short_code} уже занята в другом договоре")
+                        replace_actions[aid] = (new_battery_id, replace_date, reason)
+                        all_dates.append(replace_date)
+                    elif act.get("type") == "add":
+                        battery_id = act.get("battery_id")
+                        start_at = parse_date_to_start_of_day(act.get("start_at"))
                         if not battery_id:
-                            raise ValidationError('add: battery_id обязателен')
+                            raise ValidationError("add: battery_id обязателен")
                         if not start_at:
-                            start_at = timezone.now()
+                            start_at = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
                         bat = Battery.objects.filter(pk=battery_id).first()
                         if not bat:
-                            raise ValidationError('Батарея не найдена')
+                            raise ValidationError("Батарея не найдена")
                         if bat.city_id != rental.city_id:
-                            raise ValidationError(f'Батарея {bat.short_code} из другого города')
+                            raise ValidationError(f"Батарея {bat.short_code} из другого города")
                         if bat.status != Battery.Status.AVAILABLE:
-                            raise ValidationError(f'Батарея {bat.short_code} недоступна (статус не AVAILABLE)')
+                            raise ValidationError(f"Батарея {bat.short_code} недоступна (статус не AVAILABLE)")
                         overlap = RentalBatteryAssignment.objects.filter(battery_id=battery_id).filter(
                             Q(end_at__isnull=True) | Q(end_at__gt=start_at),
                         ).filter(start_at__lte=start_at).exclude(rental=rental).exists()
                         if overlap:
-                            raise ValidationError(f'Батарея {bat.short_code} уже занята в другом договоре')
+                            raise ValidationError(f"Батарея {bat.short_code} уже занята в другом договоре")
+                        add_actions.append((battery_id, start_at))
+                        all_dates.append(start_at)
+
+                if not all_dates:
+                    raise ValidationError("Нет действий для применения")
+
+                cut_date_dt = min(all_dates)
+                root = rental.root or rental
+                tz = timezone.get_current_timezone()
+
+                # Активные на cut_date назначения до закрытия (для переноса в новую версию)
+                active_at_cut = list(
+                    rental.assignments.select_related("battery").filter(
+                        start_at__lte=cut_date_dt,
+                    ).filter(Q(end_at__isnull=True) | Q(end_at__gt=cut_date_dt))
+                )
+
+                # Закрываем текущую версию
+                if not rental.end_at or rental.end_at > cut_date_dt:
+                    rental.end_at = cut_date_dt
+                rental.status = Rental.Status.MODIFIED
+                rental.updated_by = request.user
+                rental.save(update_fields=["end_at", "status", "updated_by"])
+
+                # В старой версии закрываем все назначения на cut_date_dt (00:00)
+                for a in rental.assignments.filter(Q(end_at__isnull=True) | Q(end_at__gt=cut_date_dt)):
+                    a.end_at = cut_date_dt
+                    a.updated_by = request.user
+                    if a.id in end_actions:
+                        a.end_reason = end_actions[a.id][1]
+                    elif a.id in replace_actions:
+                        a.end_reason = replace_actions[a.id][2]
+                    else:
+                        a.end_reason = ""
+                    a.save(update_fields=["end_at", "end_reason", "updated_by"])
+                    if a.id in end_actions or a.id in replace_actions:
+                        a.battery.status = Battery.Status.AVAILABLE
+                        a.battery.save(update_fields=["status"])
+
+                # Создаём новую версию договора
+                new_version_num = root.group_versions().count() + 1
+                new_rental = Rental(
+                    client=rental.client,
+                    city=rental.city,
+                    start_at=cut_date_dt,
+                    weekly_rate=rental.weekly_rate,
+                    deposit_amount=rental.deposit_amount,
+                    status=Rental.Status.ACTIVE,
+                    battery_type=rental.battery_type,
+                    parent=rental,
+                    root=root,
+                    version=new_version_num,
+                    contract_code=root.contract_code or rental.contract_code,
+                    created_by=request.user,
+                    updated_by=request.user,
+                )
+                new_rental.save()
+
+                # Переносим в новую версию: продолжения (не end, не replace) с cut_date_dt; replace — новая батарея с replace_date (00:00)
+                for a in active_at_cut:
+                    if a.id in end_actions:
+                        continue
+                    if a.id in replace_actions:
+                        new_bid, rep_dt, _ = replace_actions[a.id]
                         RentalBatteryAssignment.objects.create(
-                            rental=rental,
-                            battery=bat,
-                            start_at=start_at,
+                            rental=new_rental,
+                            battery_id=new_bid,
+                            start_at=rep_dt,
                             end_at=None,
                             created_by=request.user,
                             updated_by=request.user,
                         )
-                        bat.status = Battery.Status.RENTED
-                        bat.save(update_fields=['status'])
+                        Battery.objects.filter(pk=new_bid).update(status=Battery.Status.RENTED)
+                        continue
+                    RentalBatteryAssignment.objects.create(
+                        rental=new_rental,
+                        battery=a.battery,
+                        start_at=cut_date_dt,
+                        end_at=None,
+                        created_by=request.user,
+                        updated_by=request.user,
+                    )
+
+                for battery_id, start_dt in add_actions:
+                    RentalBatteryAssignment.objects.create(
+                        rental=new_rental,
+                        battery_id=battery_id,
+                        start_at=start_dt,
+                        end_at=None,
+                        created_by=request.user,
+                        updated_by=request.user,
+                    )
+                    Battery.objects.filter(pk=battery_id).update(status=Battery.Status.RENTED)
 
                 now = timezone.now()
-                active_count = rental.assignments.filter(
+                active_count = new_rental.assignments.filter(
                     start_at__lte=now,
                 ).filter(Q(end_at__isnull=True) | Q(end_at__gt=now)).count()
                 if active_count < 1:
-                    raise ValidationError('Должна остаться минимум одна активная батарея на текущий момент')
+                    raise ValidationError("Должна остаться минимум одна активная батарея на текущий момент")
 
-            return JsonResponse({'success': True, 'message': 'Состав батарей обновлён'})
+                redirect_url = reverse("admin:rental_rental_change", args=[new_rental.pk])
+                return JsonResponse({
+                    "success": True,
+                    "message": "Состав батарей обновлён, создана новая версия договора",
+                    "redirect_url": redirect_url,
+                })
         except ValidationError as e:
-            return JsonResponse({'success': False, 'error': str(e)}, status=400)
+            return JsonResponse({"success": False, "error": str(e)}, status=400)
 
     def close_rental_view(self, request, pk):
         """AJAX endpoint для закрытия договора"""
