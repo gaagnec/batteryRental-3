@@ -768,7 +768,8 @@
 {% block content %}
 <div id="content-main">
   {% if original %}
-    <!-- Action Buttons -->
+    <!-- Action Buttons (only for active rentals) -->
+    {% if original.status == 'active' %}
     <div class="rental-action-buttons">
       <button type="button" class="rental-action-btn btn-close-rental" data-bs-toggle="modal" data-bs-target="#closeRentalModal">
         <i class="bi bi-x-circle"></i>
@@ -791,6 +792,7 @@
         <span>Изменить батареи</span>
       </button>
     </div>
+    {% endif %}
 
     <!-- Main Info Card -->
     <div class="phoenix-card">

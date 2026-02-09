@@ -216,8 +216,8 @@
             <div class="d-flex flex-wrap gap-2 align-items-end">
               <div>
                 <label class="form-label small mb-0" style="color: #9fa6bc;">Батарея</label>
-                <select class="form-select form-select-sm" id="changeBatteriesAddSelect" style="min-width: 140px;">
-                  <option value="">— выбрать —</option>
+                <input type="text" class="form-control form-control-sm" id="changeBatteriesAddSearch" placeholder="Поиск батареи..." style="min-width: 140px;" autocomplete="off">
+                <select class="form-select form-select-sm mt-1" id="changeBatteriesAddSelect" style="min-width: 140px;" size="5">
                 </select>
               </div>
               <div>
@@ -249,7 +249,8 @@
             <div class="d-flex flex-wrap gap-2 align-items-end">
               <div>
                 <label class="form-label small mb-0" style="color: #9fa6bc;">Новая батарея</label>
-                <select class="form-select form-select-sm" id="replaceNewBatterySelect" style="min-width: 140px;"></select>
+                <input type="text" class="form-control form-control-sm" id="replaceNewBatterySearch" placeholder="Поиск батареи..." style="min-width: 140px;" autocomplete="off">
+                <select class="form-select form-select-sm mt-1" id="replaceNewBatterySelect" style="min-width: 140px;" size="5"></select>
               </div>
               <div>
                 <label class="form-label small mb-0" style="color: #9fa6bc;">С даты</label>
@@ -468,6 +469,40 @@
     return formatDateTime(dateStr);
   }
 
+  // #9: hide both forms
+  function hideAllBatteryForms() {
+    document.getElementById('changeBatteriesEndForm').style.display = 'none';
+    document.getElementById('changeBatteriesReplaceForm').style.display = 'none';
+  }
+
+  // #7: check if assignment is already in pending actions
+  function isAssignmentPending(assignmentId) {
+    return changeBatteriesPendingActions.some(a => a.assignment_id === assignmentId);
+  }
+
+  // #10: populate a select with filtered batteries
+  function populateBatterySelect(selectEl, searchVal) {
+    const batteries = changeBatteriesData.availableBatteries || [];
+    const q = (searchVal || '').toLowerCase();
+    selectEl.innerHTML = '';
+    batteries.filter(b => !q || b.short_code.toLowerCase().includes(q)).forEach(b => {
+      selectEl.innerHTML += '<option value="' + b.id + '">' + b.short_code + '</option>';
+    });
+  }
+
+  // #7: update table row styles based on pending actions
+  function updateTableRowStyles() {
+    const tbody = document.getElementById('changeBatteriesAssignmentsTbody');
+    if (!tbody) return;
+    const rows = tbody.querySelectorAll('tr[data-assignment-id]');
+    rows.forEach(tr => {
+      const aid = parseInt(tr.getAttribute('data-assignment-id'), 10);
+      const pending = isAssignmentPending(aid);
+      tr.style.opacity = pending ? '0.4' : '1';
+      tr.querySelectorAll('button').forEach(btn => { btn.disabled = pending; });
+    });
+  }
+
   function renderChangeBatteriesPending() {
     const list = document.getElementById('changeBatteriesPendingList');
     const block = document.getElementById('changeBatteriesPendingBlock');
@@ -480,7 +515,7 @@
       li.style.color = '#e9ecef';
       let text = '';
       if (act.type === 'end') text = 'Завершить: ' + (act.battery_short_code || '') + ' с ' + formatDateOnly(act.end_at);
-      else if (act.type === 'replace') text = 'Заменить на ' + (act.new_battery_short_code || '') + ' с ' + formatDateOnly(act.date);
+      else if (act.type === 'replace') text = 'Заменить ' + (act.battery_short_code || '') + ' → ' + (act.new_battery_short_code || '') + ' с ' + formatDateOnly(act.date);
       else if (act.type === 'add') text = 'Добавить: ' + (act.battery_short_code || '') + ' с ' + formatDateOnly(act.start_at);
       li.innerHTML = '<span>' + text + '</span><button type="button" class="btn btn-sm btn-outline-danger" data-idx="' + idx + '"><i class="bi bi-x"></i></button>';
       li.querySelector('button').addEventListener('click', function() {
@@ -490,14 +525,14 @@
       list.appendChild(li);
     });
     block.style.display = changeBatteriesPendingActions.length ? 'block' : 'none';
+    updateTableRowStyles();
   }
 
   function loadChangeBatteriesModal() {
     document.getElementById('changeBatteriesLoading').style.display = 'block';
     document.getElementById('changeBatteriesContent').style.display = 'none';
     document.getElementById('changeBatteriesError').style.display = 'none';
-    document.getElementById('changeBatteriesEndForm').style.display = 'none';
-    document.getElementById('changeBatteriesReplaceForm').style.display = 'none';
+    hideAllBatteryForms();
     changeBatteriesPendingActions = [];
 
     Promise.all([
@@ -526,7 +561,8 @@
       tbody.innerHTML = '';
       assignments.forEach(a => {
         const tr = document.createElement('tr');
-        const endDisplay = a.end_at ? formatDateTime(a.end_at) : 'Активна';
+        tr.setAttribute('data-assignment-id', a.id);
+        const endDisplay = a.end_at ? formatDateTime(a.end_at) : '<span style="color:#28a745;">Активна</span>';
         let actionsHtml = '';
         if (a.is_active) {
           actionsHtml = '<button type="button" class="btn btn-sm btn-outline-warning me-1 change-batteries-end-btn" data-id="' + a.id + '" data-code="' + (a.battery_short_code || '') + '">Завершить</button>' +
@@ -538,11 +574,9 @@
         tbody.appendChild(tr);
       });
 
-      const addSelect = document.getElementById('changeBatteriesAddSelect');
-      addSelect.innerHTML = '<option value="">— выбрать —</option>';
-      batteries.forEach(b => {
-        addSelect.innerHTML += '<option value="' + b.id + '">' + b.short_code + '</option>';
-      });
+      // #10: search for Add
+      populateBatterySelect(document.getElementById('changeBatteriesAddSelect'), '');
+      document.getElementById('changeBatteriesAddSearch').value = '';
 
       const now = new Date();
       const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
@@ -553,7 +587,11 @@
 
       document.querySelectorAll('.change-batteries-end-btn').forEach(btn => {
         btn.addEventListener('click', function() {
-          endAssignmentId = parseInt(this.getAttribute('data-id'), 10);
+          // #5: check not already pending
+          const aid = parseInt(this.getAttribute('data-id'), 10);
+          if (isAssignmentPending(aid)) return;
+          hideAllBatteryForms(); // #9
+          endAssignmentId = aid;
           endBatteryCodeVal = this.getAttribute('data-code') || '';
           document.getElementById('endBatteryCode').textContent = endBatteryCodeVal;
           document.getElementById('endAssignmentDate').value = localDate;
@@ -564,20 +602,22 @@
 
       document.querySelectorAll('.change-batteries-replace-btn').forEach(btn => {
         btn.addEventListener('click', function() {
-          replaceAssignmentId = parseInt(this.getAttribute('data-id'), 10);
+          const aid = parseInt(this.getAttribute('data-id'), 10);
+          if (isAssignmentPending(aid)) return;
+          hideAllBatteryForms(); // #9
+          replaceAssignmentId = aid;
           replaceOldCode = this.getAttribute('data-code') || '';
           document.getElementById('replaceOldCode').textContent = replaceOldCode;
-          const sel = document.getElementById('replaceNewBatterySelect');
-          sel.innerHTML = '<option value="">— выбрать —</option>';
-          batteries.forEach(b => {
-            sel.innerHTML += '<option value="' + b.id + '">' + b.short_code + '</option>';
-          });
-          const now = new Date();
-          document.getElementById('replaceDate').value = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+          // #10: search for Replace
+          populateBatterySelect(document.getElementById('replaceNewBatterySelect'), '');
+          document.getElementById('replaceNewBatterySearch').value = '';
+          document.getElementById('replaceDate').value = localDate;
           document.getElementById('replaceReason').value = 'Замена батареи';
           document.getElementById('changeBatteriesReplaceForm').style.display = 'block';
         });
       });
+
+      renderChangeBatteriesPending();
     }).catch(err => {
       document.getElementById('changeBatteriesError').textContent = 'Ошибка загрузки: ' + err.message;
       document.getElementById('changeBatteriesError').style.display = 'block';
@@ -585,8 +625,17 @@
     });
   }
 
+  // #11: if current rental is not active, GET will still work but show history
   document.getElementById('changeBatteriesModal').addEventListener('show.bs.modal', function() {
     loadChangeBatteriesModal();
+  });
+
+  // #10: search handlers
+  document.getElementById('changeBatteriesAddSearch').addEventListener('input', function() {
+    populateBatterySelect(document.getElementById('changeBatteriesAddSelect'), this.value);
+  });
+  document.getElementById('replaceNewBatterySearch').addEventListener('input', function() {
+    populateBatterySelect(document.getElementById('replaceNewBatterySelect'), this.value);
   });
 
   document.getElementById('changeBatteriesAddBtn').addEventListener('click', function() {
@@ -614,6 +663,8 @@
       showNotification('Ошибка', 'Нет запланированных изменений', false);
       return;
     }
+    if (!confirm('Будет создана новая версия договора. Продолжить?')) return;
+
     const actions = changeBatteriesPendingActions.map(a => {
       const out = { type: a.type };
       if (a.type === 'end') {
@@ -667,7 +718,10 @@
   document.getElementById('replaceApplyBtn').addEventListener('click', function() {
     const sel = document.getElementById('replaceNewBatterySelect');
     const batteryId = parseInt(sel.value, 10);
-    if (!batteryId || !replaceAssignmentId) return;
+    if (!batteryId || !replaceAssignmentId) {
+      showNotification('Ошибка', 'Выберите новую батарею', false);
+      return;
+    }
     const batteries = changeBatteriesData.availableBatteries || [];
     const bat = batteries.find(b => b.id === batteryId);
     const newCode = bat ? bat.short_code : '';

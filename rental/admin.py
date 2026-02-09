@@ -3412,6 +3412,61 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
         self.message_user(request, f"Создано новых версий: {count}; активные батареи перенесены")
     make_new_version.short_description = "Создать новую версию (начало с даты и времени, с переносом батарей)"
 
+    # --- Helper: create next version and carry over batteries ---
+    def _create_next_version(self, rental, user, cut_date, weekly_rate=None, end_at=None):
+        """
+        Close current rental version and create a new one.
+        Returns the new Rental object.
+        Uses select_for_update on root to prevent race conditions on version number.
+        """
+        root = rental.root or rental
+        # Lock root row to serialize version creation
+        Rental.objects.select_for_update().filter(pk=root.pk).first()
+
+        # Close current version
+        if not rental.end_at or rental.end_at > cut_date:
+            rental.end_at = cut_date
+        rental.status = Rental.Status.MODIFIED
+        rental.updated_by = user
+        rental.save(update_fields=["end_at", "status", "updated_by"])
+
+        # New version
+        new_version_num = root.group_versions().count() + 1
+        new_rental = Rental(
+            client=rental.client,
+            city=rental.city,
+            start_at=cut_date,
+            end_at=end_at,
+            weekly_rate=weekly_rate if weekly_rate is not None else rental.weekly_rate,
+            deposit_amount=rental.deposit_amount,
+            status=Rental.Status.ACTIVE,
+            battery_type=rental.battery_type,
+            parent=rental,
+            root=root,
+            version=new_version_num,
+            contract_code=root.contract_code or rental.contract_code,
+            created_by=user,
+            updated_by=user,
+        )
+        new_rental.save()
+        return new_rental
+
+    def _carry_over_batteries(self, rental, new_rental, user, cut_date):
+        """Close active assignments in old version and create continuations in new version."""
+        for a in rental.assignments.select_related("battery").all():
+            if a.end_at is None or a.end_at > cut_date:
+                a.end_at = cut_date
+                a.updated_by = user
+                a.save(update_fields=["end_at", "updated_by"])
+                RentalBatteryAssignment.objects.create(
+                    rental=new_rental,
+                    battery=a.battery,
+                    start_at=cut_date,
+                    end_at=None,
+                    created_by=user,
+                    updated_by=user,
+                )
+
     # Пользовательский admin-view для изменения состава батарей
     def get_urls(self):
         urls = super().get_urls()
@@ -3495,14 +3550,23 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
         if not self.has_change_permission(request, rental):
             return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
 
+        if request.method == 'POST' and rental.status != Rental.Status.ACTIVE:
+            return JsonResponse({'success': False, 'error': 'Изменение батарей доступно только для активных договоров'}, status=400)
+
         if request.method == 'GET':
-            assignments = rental.assignments.select_related('battery').order_by('start_at', 'id')
+            # #11: If this version is not active, find the latest active version in group
+            target_rental = rental
+            if rental.status != Rental.Status.ACTIVE:
+                root = rental.root or rental
+                latest_active = Rental.objects.filter(root=root, status=Rental.Status.ACTIVE).order_by('-version').first()
+                if latest_active:
+                    target_rental = latest_active
+
+            assignments = target_rental.assignments.select_related('battery').order_by('start_at', 'id')
             tz = timezone.get_current_timezone()
             now = timezone.now()
             out = []
             for a in assignments:
-                start_local = timezone.localtime(a.start_at, tz)
-                end_local = timezone.localtime(a.end_at, tz) if a.end_at else None
                 is_active = a.start_at <= now and (a.end_at is None or a.end_at > now)
                 out.append({
                     'id': a.id,
@@ -3515,10 +3579,11 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                 })
             return JsonResponse({
                 'rental': {
-                    'id': rental.id,
-                    'city_id': rental.city_id,
-                    'contract_code': rental.contract_code,
-                    'version': rental.version,
+                    'id': target_rental.id,
+                    'city_id': target_rental.city_id,
+                    'contract_code': target_rental.contract_code,
+                    'version': target_rental.version,
+                    'is_active': target_rental.status == Rental.Status.ACTIVE,
                 },
                 'assignments': out,
             })
@@ -3619,9 +3684,12 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                 if not all_dates:
                     raise ValidationError("Нет действий для применения")
 
+                # #5: Validate no conflict: same assignment_id in both end and replace
+                conflict_ids = set(end_actions.keys()) & set(replace_actions.keys())
+                if conflict_ids:
+                    raise ValidationError("Нельзя одновременно завершить и заменить одну и ту же батарею")
+
                 cut_date_dt = min(all_dates)
-                root = rental.root or rental
-                tz = timezone.get_current_timezone()
 
                 # Активные на cut_date назначения до закрытия (для переноса в новую версию)
                 active_at_cut = list(
@@ -3630,12 +3698,8 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                     ).filter(Q(end_at__isnull=True) | Q(end_at__gt=cut_date_dt))
                 )
 
-                # Закрываем текущую версию
-                if not rental.end_at or rental.end_at > cut_date_dt:
-                    rental.end_at = cut_date_dt
-                rental.status = Rental.Status.MODIFIED
-                rental.updated_by = request.user
-                rental.save(update_fields=["end_at", "status", "updated_by"])
+                # Создаём новую версию через хелпер (с select_for_update на root)
+                new_rental = self._create_next_version(rental, request.user, cut_date_dt)
 
                 # В старой версии закрываем все назначения на cut_date_dt (00:00)
                 for a in rental.assignments.filter(Q(end_at__isnull=True) | Q(end_at__gt=cut_date_dt)):
@@ -3651,25 +3715,6 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                     if a.id in end_actions or a.id in replace_actions:
                         a.battery.status = Battery.Status.AVAILABLE
                         a.battery.save(update_fields=["status"])
-
-                # Создаём новую версию договора
-                new_version_num = root.group_versions().count() + 1
-                new_rental = Rental(
-                    client=rental.client,
-                    city=rental.city,
-                    start_at=cut_date_dt,
-                    weekly_rate=rental.weekly_rate,
-                    deposit_amount=rental.deposit_amount,
-                    status=Rental.Status.ACTIVE,
-                    battery_type=rental.battery_type,
-                    parent=rental,
-                    root=root,
-                    version=new_version_num,
-                    contract_code=root.contract_code or rental.contract_code,
-                    created_by=request.user,
-                    updated_by=request.user,
-                )
-                new_rental.save()
 
                 # Переносим в новую версию: продолжения (не end, не replace) с cut_date_dt; replace — новая батарея с replace_date (00:00)
                 for a in active_at_cut:
@@ -3753,15 +3798,19 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                 v.updated_by = request.user
                 v.save()
                 
-                # Закрываем все активные назначения батарей
-                for assignment in v.assignments.filter(end_at__isnull=True):
+                # Закрываем все активные назначения батарей и освобождаем батареи
+                for assignment in v.assignments.select_related("battery").filter(end_at__isnull=True):
                     assignment.end_at = close_date
                     assignment.updated_by = request.user
                     assignment.save()
-                for assignment in v.assignments.filter(end_at__gt=close_date):
+                    assignment.battery.status = Battery.Status.AVAILABLE
+                    assignment.battery.save(update_fields=["status"])
+                for assignment in v.assignments.select_related("battery").filter(end_at__gt=close_date):
                     assignment.end_at = close_date
                     assignment.updated_by = request.user
                     assignment.save()
+                    assignment.battery.status = Battery.Status.AVAILABLE
+                    assignment.battery.save(update_fields=["status"])
             
             return JsonResponse({'success': True, 'message': 'Договор закрыт'})
             
@@ -3795,75 +3844,11 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
             else:
                 pause_start = timezone.now()
             
-            # Используем логику из make_new_version с бесплатными днями
-            root = rental.root or rental
-            
-            # Закрываем текущую версию
-            if not rental.end_at or rental.end_at > pause_start:
-                rental.end_at = pause_start
-            rental.status = Rental.Status.MODIFIED
-            rental.updated_by = request.user
-            rental.save()
-            
-            # Создаем версию с паузой (нулевая ставка)
             pause_end = pause_start + timezone.timedelta(days=pause_days)
-            new_version_num = root.group_versions().count() + 1
-            
-            pause_version = Rental(
-                client=rental.client,
-                city=rental.city,
-                start_at=pause_start,
-                end_at=pause_end,
-                weekly_rate=Decimal(0),
-                deposit_amount=rental.deposit_amount,
-                status=Rental.Status.ACTIVE,
-                battery_type=rental.battery_type,
-                parent=rental,
-                root=root,
-                version=new_version_num,
-                contract_code=root.contract_code or rental.contract_code,
-                created_by=request.user,
-                updated_by=request.user,
-            )
-            pause_version.save()
-            
-            # Создаем следующую версию после паузы
-            new_version_num = root.group_versions().count() + 1
-            next_rental = Rental(
-                client=rental.client,
-                city=rental.city,
-                start_at=pause_end,
-                weekly_rate=rental.weekly_rate,
-                deposit_amount=rental.deposit_amount,
-                status=Rental.Status.ACTIVE,
-                battery_type=rental.battery_type,
-                parent=pause_version,
-                root=root,
-                version=new_version_num,
-                contract_code=root.contract_code or rental.contract_code,
-                created_by=request.user,
-                updated_by=request.user,
-            )
-            next_rental.save()
-            
-            # Переносим батареи
-            for a in rental.assignments.all():
-                a_end = a.end_at
-                if a_end is None or a_end > pause_start:
-                    # Закрываем в старой версии
-                    a.end_at = pause_start
-                    a.updated_by = request.user
-                    a.save()
-                    
-                    # Создаем в новой версии (после паузы)
-                    RentalBatteryAssignment.objects.create(
-                        rental=next_rental,
-                        battery=a.battery,
-                        start_at=pause_start,
-                        end_at=None,
-                        created_by=request.user,
-                        updated_by=request.user,
-                    )
+            with transaction.atomic():
+                pause_version = self._create_next_version(rental, request.user, pause_start, weekly_rate=Decimal(0), end_at=pause_end)
+                next_rental = self._create_next_version(pause_version, request.user, pause_end)
+                self._carry_over_batteries(rental, next_rental, request.user, pause_start)
             
             return JsonResponse({'success': True, 'message': f'Пауза на {pause_days} дней создана'})
             
@@ -3897,53 +3882,9 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
             else:
                 tariff_start = timezone.now()
             
-            # Создаем новую версию
-            root = rental.root or rental
-            
-            # Закрываем текущую версию
-            if not rental.end_at or rental.end_at > tariff_start:
-                rental.end_at = tariff_start
-            rental.status = Rental.Status.MODIFIED
-            rental.updated_by = request.user
-            rental.save()
-            
-            # Создаем новую версию с новым тарифом
-            new_version_num = root.group_versions().count() + 1
-            new_rental = Rental(
-                client=rental.client,
-                city=rental.city,
-                start_at=tariff_start,
-                weekly_rate=new_weekly_rate,
-                deposit_amount=rental.deposit_amount,
-                status=Rental.Status.ACTIVE,
-                battery_type=rental.battery_type,
-                parent=rental,
-                root=root,
-                version=new_version_num,
-                contract_code=root.contract_code or rental.contract_code,
-                created_by=request.user,
-                updated_by=request.user,
-            )
-            new_rental.save()
-            
-            # Переносим батареи
-            for a in rental.assignments.all():
-                a_end = a.end_at
-                if a_end is None or a_end > tariff_start:
-                    # Закрываем в старой версии
-                    a.end_at = tariff_start
-                    a.updated_by = request.user
-                    a.save()
-                    
-                    # Создаем в новой версии
-                    RentalBatteryAssignment.objects.create(
-                        rental=new_rental,
-                        battery=a.battery,
-                        start_at=tariff_start,
-                        end_at=None,
-                        created_by=request.user,
-                        updated_by=request.user,
-                    )
+            with transaction.atomic():
+                new_rental = self._create_next_version(rental, request.user, tariff_start, weekly_rate=new_weekly_rate)
+                self._carry_over_batteries(rental, new_rental, request.user, tariff_start)
             
             # Возвращаем URL новой версии
             redirect_url = reverse('admin:rental_rental_change', args=[new_rental.pk])
