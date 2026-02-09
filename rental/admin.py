@@ -3,6 +3,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.urls import reverse
 from django.http import HttpResponseRedirect, JsonResponse, HttpResponseForbidden
 
+from django.db import transaction
 from django.db.models import Sum, Q, F
 
 from django.contrib import admin, messages
@@ -28,7 +29,7 @@ from .models import (
     Client, Battery, Rental, RentalBatteryAssignment,
     Payment, ExpenseCategory, Expense, Repair, BatteryStatusLog, BatteryTransfer,
     FinancePartner, OwnerContribution, OwnerWithdrawal, MoneyTransfer, FinanceAdjustment,
-    City
+    City,
 )
 from .admin_utils import CityFilteredAdminMixin, get_user_city, get_user_cities, is_moderator, get_debug_log_path
 
@@ -3421,6 +3422,11 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                 name='rental_rental_change_batteries',
             ),
             path(
+                '<int:pk>/available-batteries/',
+                self.admin_site.admin_view(self.available_batteries_view),
+                name='rental_rental_available_batteries',
+            ),
+            path(
                 '<int:pk>/close/',
                 self.admin_site.admin_view(self.close_rental_view),
                 name='rental_rental_close',
@@ -3448,54 +3454,196 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
         ]
         return custom + urls
 
+    def available_batteries_view(self, request, pk):
+        """GET: список батарей города договора со статусом AVAILABLE, не занятых в других активных договорах."""
+        if request.method != 'GET':
+            return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+        try:
+            rental = Rental.objects.select_related('city').get(pk=pk)
+            if not self.has_change_permission(request, rental):
+                return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+            city_id = rental.city_id
+            if not city_id:
+                return JsonResponse({'batteries': []})
+            now = timezone.now()
+            # Батареи в активных назначениях (других договоров или текущего) — исключаем
+            busy_battery_ids = set(
+                RentalBatteryAssignment.objects.filter(
+                    end_at__isnull=True,
+                ).exclude(rental_id=pk).values_list('battery_id', flat=True)
+            )
+            busy_battery_ids |= set(
+                RentalBatteryAssignment.objects.filter(
+                    end_at__gt=now,
+                ).exclude(rental_id=pk).values_list('battery_id', flat=True)
+            )
+            qs = Battery.objects.filter(
+                city_id=city_id,
+                status=Battery.Status.AVAILABLE,
+            ).exclude(id__in=busy_battery_ids).order_by('short_code')
+            batteries = [{'id': b.id, 'short_code': b.short_code} for b in qs.only('id', 'short_code')]
+            return JsonResponse({'batteries': batteries})
+        except Rental.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Договор не найден'}, status=404)
+
     def change_batteries_view(self, request, pk):
-        rental = Rental.objects.get(pk=pk)
-        AssignmentFormSet = inlineformset_factory(
-            Rental,
-            RentalBatteryAssignment,
-            form=RentalBatteryAssignmentForm,
-            extra=0,
-            can_delete=True,
-            fields=('battery', 'start_at', 'end_at'),
-        )
-        if request.method == 'POST':
-            formset = AssignmentFormSet(request.POST, instance=rental)
-            if formset.is_valid():
-                instances = formset.save(commit=False)
-                # Валидация: после сохранения должно остаться >=1 активное назначение сейчас или в будущем
-                for inst in instances:
-                    if not getattr(inst, 'created_by_id', None):
-                        inst.created_by = request.user
-                    inst.updated_by = request.user
-                    inst.save()
-                for obj in formset.deleted_objects:
-                    obj.delete()
-                # Проверка минимума одной батареи ("на сейчас")
-                tz = timezone.get_current_timezone()
+        """GET: JSON с назначениями батарей договора. POST: JSON с actions (end, add, replace)."""
+        try:
+            rental = Rental.objects.select_related('city').get(pk=pk)
+        except Rental.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Договор не найден'}, status=404)
+        if not self.has_change_permission(request, rental):
+            return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
+        if request.method == 'GET':
+            assignments = rental.assignments.select_related('battery').order_by('start_at', 'id')
+            tz = timezone.get_current_timezone()
+            now = timezone.now()
+            out = []
+            for a in assignments:
+                start_local = timezone.localtime(a.start_at, tz)
+                end_local = timezone.localtime(a.end_at, tz) if a.end_at else None
+                is_active = a.start_at <= now and (a.end_at is None or a.end_at > now)
+                out.append({
+                    'id': a.id,
+                    'battery_id': a.battery_id,
+                    'battery_short_code': a.battery.short_code,
+                    'start_at': a.start_at.isoformat(),
+                    'end_at': a.end_at.isoformat() if a.end_at else None,
+                    'end_reason': (a.end_reason or '')[:255],
+                    'is_active': is_active,
+                })
+            return JsonResponse({
+                'rental': {
+                    'id': rental.id,
+                    'city_id': rental.city_id,
+                    'contract_code': rental.contract_code,
+                    'version': rental.version,
+                },
+                'assignments': out,
+            })
+
+        if request.method != 'POST':
+            return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+
+        try:
+            body = json.loads(request.body)
+        except (json.JSONDecodeError, TypeError):
+            return JsonResponse({'success': False, 'error': 'Неверный JSON'}, status=400)
+        actions = body.get('actions') or []
+
+        def parse_dt(s):
+            if not s:
+                return None
+            dt = timezone.datetime.fromisoformat(s.replace('Z', '+00:00'))
+            if timezone.is_naive(dt):
+                dt = timezone.make_aware(dt, timezone.get_current_timezone())
+            return dt
+
+        try:
+            with transaction.atomic():
+                assignment_ids_ended = set()
+                for act in actions:
+                    if act.get('type') == 'end':
+                        aid = act.get('assignment_id')
+                        if not aid:
+                            raise ValidationError('end: assignment_id обязателен')
+                        a = RentalBatteryAssignment.objects.filter(rental=rental, id=aid).first()
+                        if not a:
+                            raise ValidationError(f'Назначение {aid} не найдено в этом договоре')
+                        end_at = parse_dt(act.get('end_at'))
+                        if not end_at:
+                            end_at = timezone.now()
+                        a.end_at = end_at
+                        a.end_reason = (act.get('reason') or '')[:255]
+                        a.updated_by = request.user
+                        a.save(update_fields=['end_at', 'end_reason', 'updated_by'])
+                        a.battery.status = Battery.Status.AVAILABLE
+                        a.battery.save(update_fields=['status'])
+                        assignment_ids_ended.add(a.id)
+                    elif act.get('type') == 'replace':
+                        aid = act.get('assignment_id')
+                        new_battery_id = act.get('new_battery_id')
+                        if not aid or not new_battery_id:
+                            raise ValidationError('replace: assignment_id и new_battery_id обязательны')
+                        a = RentalBatteryAssignment.objects.select_related('battery').filter(rental=rental, id=aid).first()
+                        if not a:
+                            raise ValidationError(f'Назначение {aid} не найдено')
+                        replace_date = parse_dt(act.get('date'))
+                        if not replace_date:
+                            replace_date = timezone.now()
+                        reason = (act.get('reason') or '')[:255]
+                        new_battery = Battery.objects.filter(pk=new_battery_id).first()
+                        if not new_battery:
+                            raise ValidationError('Новая батарея не найдена')
+                        if new_battery.city_id != rental.city_id:
+                            raise ValidationError(f'Батарея {new_battery.short_code} из другого города')
+                        if new_battery.status != Battery.Status.AVAILABLE:
+                            raise ValidationError(f'Батарея {new_battery.short_code} недоступна (статус не AVAILABLE)')
+                        overlap = RentalBatteryAssignment.objects.filter(
+                            battery_id=new_battery_id,
+                        ).filter(
+                            Q(end_at__isnull=True) | Q(end_at__gt=replace_date),
+                        ).filter(start_at__lte=replace_date).exclude(rental=rental).exists()
+                        if overlap:
+                            raise ValidationError(f'Батарея {new_battery.short_code} уже занята в другом договоре')
+                        a.end_at = replace_date
+                        a.end_reason = reason or 'Замена батареи'
+                        a.updated_by = request.user
+                        a.save(update_fields=['end_at', 'end_reason', 'updated_by'])
+                        a.battery.status = Battery.Status.AVAILABLE
+                        a.battery.save(update_fields=['status'])
+                        assignment_ids_ended.add(a.id)
+                        RentalBatteryAssignment.objects.create(
+                            rental=rental,
+                            battery=new_battery,
+                            start_at=replace_date,
+                            end_at=None,
+                            created_by=request.user,
+                            updated_by=request.user,
+                        )
+                        new_battery.status = Battery.Status.RENTED
+                        new_battery.save(update_fields=['status'])
+                    elif act.get('type') == 'add':
+                        battery_id = act.get('battery_id')
+                        start_at = parse_dt(act.get('start_at'))
+                        if not battery_id:
+                            raise ValidationError('add: battery_id обязателен')
+                        if not start_at:
+                            start_at = timezone.now()
+                        bat = Battery.objects.filter(pk=battery_id).first()
+                        if not bat:
+                            raise ValidationError('Батарея не найдена')
+                        if bat.city_id != rental.city_id:
+                            raise ValidationError(f'Батарея {bat.short_code} из другого города')
+                        if bat.status != Battery.Status.AVAILABLE:
+                            raise ValidationError(f'Батарея {bat.short_code} недоступна (статус не AVAILABLE)')
+                        overlap = RentalBatteryAssignment.objects.filter(battery_id=battery_id).filter(
+                            Q(end_at__isnull=True) | Q(end_at__gt=start_at),
+                        ).filter(start_at__lte=start_at).exclude(rental=rental).exists()
+                        if overlap:
+                            raise ValidationError(f'Батарея {bat.short_code} уже занята в другом договоре')
+                        RentalBatteryAssignment.objects.create(
+                            rental=rental,
+                            battery=bat,
+                            start_at=start_at,
+                            end_at=None,
+                            created_by=request.user,
+                            updated_by=request.user,
+                        )
+                        bat.status = Battery.Status.RENTED
+                        bat.save(update_fields=['status'])
+
                 now = timezone.now()
-                active = 0
-                for a in rental.assignments.select_related('battery').all():
-                    a_start = timezone.localtime(a.start_at, tz)
-                    a_end = timezone.localtime(a.end_at, tz) if a.end_at else None
-                    if a_start <= now and (a_end is None or a_end > now):
-                        active += 1
-                if active <= 0:
-                    messages.error(request, "Должна быть назначена минимум одна батарея на текущий момент")
-                else:
-                    messages.success(request, "Состав батарей обновлён")
-                    return TemplateResponse(request, 'admin/rental/change_batteries_done.html', {'rental': rental})
-            else:
-                messages.error(request, "Исправьте ошибки в форме")
-        else:
-            formset = AssignmentFormSet(instance=rental)
-        context = dict(
-            self.admin_site.each_context(request),
-            opts=self.model._meta,
-            rental=rental,
-            title=f"Изменение батарей: договор {rental.contract_code} v{rental.version}",
-            formset=formset,
-        )
-        return TemplateResponse(request, 'admin/rental/change_batteries.html', context)
+                active_count = rental.assignments.filter(
+                    start_at__lte=now,
+                ).filter(Q(end_at__isnull=True) | Q(end_at__gt=now)).count()
+                if active_count < 1:
+                    raise ValidationError('Должна остаться минимум одна активная батарея на текущий момент')
+
+            return JsonResponse({'success': True, 'message': 'Состав батарей обновлён'})
+        except ValidationError as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
     def close_rental_view(self, request, pk):
         """AJAX endpoint для закрытия договора"""

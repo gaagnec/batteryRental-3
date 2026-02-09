@@ -381,6 +381,11 @@ class RentalBatteryAssignment(TimeStampedModel):
     battery = models.ForeignKey(Battery, on_delete=models.PROTECT, related_name="assignments")
     start_at = models.DateTimeField()
     end_at = models.DateTimeField(null=True, blank=True)
+    end_reason = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Причина завершения назначения (замена, неисправность, по просьбе клиента и т.д.)",
+    )
     history = HistoricalRecords()
     
     def clean(self):
