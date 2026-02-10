@@ -1,6 +1,7 @@
 {% extends "admin/change_form.html" %}
 {% load static %}
 {% load i18n %}
+{% load custom_filters %}
 
 {% block extrastyle %}
   {{ block.super }}
@@ -433,6 +434,11 @@
       color: #dc3545;
     }
     
+    .phoenix-table .badge-modified {
+      background-color: rgba(255, 193, 7, 0.15);
+      color: #ffc107;
+    }
+    
     @media (max-width: 768px) {
       .info-compact-grid {
         grid-template-columns: 1fr;
@@ -831,7 +837,7 @@
           <div class="info-date-item">
             <i class="bi bi-calendar-x"></i>
             <span class="date-label">Окончание:</span>
-            <span class="date-value">{{ original.end_at|date:"d.m.Y H:i"|default:"—" }}</span>
+            <span class="date-value">{{ original.end_at|display_end_date }}</span>
           </div>
           <div class="info-duration">
             <i class="bi bi-clock-history"></i>
@@ -1015,6 +1021,65 @@
       </div>
     </div>
 
+    <!-- Versions Card -->
+    <div class="phoenix-card">
+      <div class="phoenix-card-header">
+        <i class="bi bi-layers"></i>
+        <span>Все версии договора</span>
+      </div>
+      <div class="phoenix-card-body" style="padding: 0;">
+        {% if all_versions %}
+        <table class="phoenix-table">
+          <thead>
+            <tr>
+              <th>Версия</th>
+              <th>Начало</th>
+              <th>Окончание</th>
+              <th>Ставка</th>
+              <th>Статус</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for v in all_versions %}
+            <tr{% if v.pk == original.pk %} style="background: rgba(102, 126, 234, 0.1);"{% endif %}>
+              <td>
+                <a href="{% url 'admin:rental_rental_change' v.pk %}" style="color: #667eea;">
+                  v{{ v.version }}
+                </a>
+              </td>
+              <td>{{ v.start_at|date:"d.m.Y" }}</td>
+              <td>{{ v.end_at|display_end_date }}</td>
+              <td>{{ v.weekly_rate }} PLN/нед</td>
+              <td>
+                <span class="badge {% if v.status == 'active' %}badge-active{% elif v.status == 'closed' %}badge-closed{% else %}badge-modified{% endif %}">
+                  {{ v.get_status_display }}
+                </span>
+                {% if v.change_type == 'pause' %}
+                  <span title="Пауза" style="margin-left: 4px;">⏸</span>
+                {% elif v.change_type == 'add' %}
+                  <span title="Добавлены батареи" style="margin-left: 4px; color: #28a745;">+{{ v.change_detail }}</span>
+                {% elif v.change_type == 'remove' %}
+                  <span title="Убраны батареи" style="margin-left: 4px; color: #dc3545;">−{{ v.change_detail }}</span>
+                {% elif v.change_type == 'swap' %}
+                  <span title="Замена батарей" style="margin-left: 4px;">🔄{{ v.change_detail }}</span>
+                {% elif v.change_type == 'mixed' %}
+                  <span title="Изменение батарей" style="margin-left: 4px;">🔄{{ v.change_detail }}</span>
+                {% elif v.change_type == 'tariff' %}
+                  <span title="Смена тарифа" style="margin-left: 4px;">💰</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div style="padding: 1.5rem; color: #9fa6bc; text-align: center;">
+          Нет версий
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
     <!-- Batteries Card - all versions -->
     <div class="phoenix-card">
       <div class="phoenix-card-header">
@@ -1043,7 +1108,7 @@
               </td>
               <td>v{{ assignment.rental.version }}</td>
               <td>{{ assignment.start_at|date:"d.m.Y H:i" }}</td>
-              <td>{{ assignment.end_at|date:"d.m.Y H:i"|default:"—" }}</td>
+              <td>{{ assignment.end_at|display_end_date }}</td>
               <td>
                 {% if assignment.end_at %}
                 <span class="badge badge-closed">Завершена</span>

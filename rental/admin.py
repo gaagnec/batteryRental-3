@@ -3590,6 +3590,7 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                     'contract_code': target_rental.contract_code,
                     'version': target_rental.version,
                     'is_active': target_rental.status == Rental.Status.ACTIVE,
+                    'start_at': target_rental.start_at.isoformat(),
                     'group_start_at': group_start_at,
                 },
                 'assignments': out,
@@ -3636,7 +3637,7 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                 now_local = timezone.localtime(timezone.now(), tz_val)
                 today_start = timezone.make_aware(datetime.combine(now_local.date(), time(0, 0)), tz_val)
                 tomorrow_start = today_start + timedelta(days=1)
-                rental_start_date = timezone.localtime(rental.start_at, tz_val).date()
+                rental_start_date = timezone.localtime(rental.start_at, tz_val).date()  # current version start
 
                 # Preload assignments for validation
                 assignments_by_id = {
@@ -3654,8 +3655,8 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                         # Validate date range
                         if end_at.date() < rental_start_date:
                             raise ValidationError(f"Дата завершения не может быть раньше начала договора ({rental_start_date.strftime('%d.%m.%Y')})")
-                        if end_at > today_start:
-                            raise ValidationError("Дата завершения не может быть в будущем")
+                        if end_at > tomorrow_start:
+                            raise ValidationError("Дата завершения не может быть позже завтрашнего дня")
                         # Validate end >= assignment start
                         assignment = assignments_by_id.get(aid)
                         if assignment:
@@ -3680,8 +3681,8 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                         # Validate date range
                         if replace_date.date() < rental_start_date:
                             raise ValidationError(f"Дата замены не может быть раньше начала договора ({rental_start_date.strftime('%d.%m.%Y')})")
-                        if replace_date > today_start:
-                            raise ValidationError("Дата замены не может быть в будущем")
+                        if replace_date > tomorrow_start:
+                            raise ValidationError("Дата замены не может быть позже завтрашнего дня")
                         # Validate replace >= assignment start
                         assignment = assignments_by_id.get(aid)
                         if assignment:
@@ -3719,8 +3720,8 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                         # Validate date range
                         if start_at.date() < rental_start_date:
                             raise ValidationError(f"Дата добавления не может быть раньше начала договора ({rental_start_date.strftime('%d.%m.%Y')})")
-                        if start_at > today_start:
-                            raise ValidationError("Дата добавления не может быть в будущем")
+                        if start_at > tomorrow_start:
+                            raise ValidationError("Дата добавления не может быть позже завтрашнего дня")
                         bat = Battery.objects.filter(pk=battery_id).first()
                         if not bat:
                             raise ValidationError("Батарея не найдена")
@@ -4073,7 +4074,11 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                 root = rental.root or rental
                 
                 # Получаем все версии договора
-                all_versions = list(Rental.objects.filter(root=root).order_by('version'))
+                all_versions = list(
+                    Rental.objects.filter(root=root)
+                    .prefetch_related('assignments__battery')
+                    .order_by('version')
+                )
                 
                 # Находим предыдущую и следующую версию
                 current_idx = None
@@ -4085,7 +4090,42 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                 if current_idx is not None:
                     extra_context['prev_version'] = all_versions[current_idx - 1] if current_idx > 0 else None
                     extra_context['next_version'] = all_versions[current_idx + 1] if current_idx < len(all_versions) - 1 else None
-                
+
+                # Determine version change type for icons
+                for i, v in enumerate(all_versions):
+                    if v.weekly_rate == 0 and v.end_at:
+                        v.change_type = 'pause'
+                    elif i > 0:
+                        prev = all_versions[i - 1]
+                        prev_batteries = set(
+                            a.battery_id for a in prev.assignments.all()
+                        )
+                        cur_batteries = set(
+                            a.battery_id for a in v.assignments.all()
+                        )
+                        added = cur_batteries - prev_batteries
+                        removed = prev_batteries - cur_batteries
+                        if added and removed and len(added) == len(removed):
+                            v.change_type = 'swap'
+                            v.change_detail = str(len(added))
+                        elif added and not removed:
+                            v.change_type = 'add'
+                            v.change_detail = str(len(added))
+                        elif removed and not added:
+                            v.change_type = 'remove'
+                            v.change_detail = str(len(removed))
+                        elif added and removed:
+                            v.change_type = 'mixed'
+                            v.change_detail = f"+{len(added)}/−{len(removed)}"
+                        elif v.weekly_rate != prev.weekly_rate:
+                            v.change_type = 'tariff'
+                        else:
+                            v.change_type = ''
+                    else:
+                        v.change_type = ''
+
+                extra_context['all_versions'] = all_versions
+
                 # Получаем все назначения батарей по всем версиям договора
                 all_assignments = RentalBatteryAssignment.objects.filter(
                     rental__root=root

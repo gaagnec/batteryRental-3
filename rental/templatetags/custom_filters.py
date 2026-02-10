@@ -1,4 +1,6 @@
 from django import template
+from django.utils import timezone
+from datetime import timedelta
 from rental.admin_utils import is_moderator
 
 register = template.Library()
@@ -40,6 +42,26 @@ def abs_value(value):
         return abs(float(value))
     except (ValueError, TypeError):
         return value
+
+
+@register.filter
+def display_end_date(value):
+    """Display end_at as previous day 23:59 for UI clarity.
+    If end_at is exactly at midnight (00:00:00), show day-1 23:59.
+    Otherwise show as-is. Returns formatted string or '—'.
+    """
+    if not value:
+        return '—'
+    try:
+        tz = timezone.get_current_timezone()
+        dt = timezone.localtime(value, tz)
+        if dt.hour == 0 and dt.minute == 0 and dt.second == 0 and dt.microsecond == 0:
+            display_dt = dt - timedelta(minutes=1)  # previous day 23:59
+        else:
+            display_dt = dt
+        return display_dt.strftime('%d.%m.%Y %H:%M')
+    except (ValueError, TypeError, AttributeError):
+        return '—'
 
 
 @register.simple_tag
