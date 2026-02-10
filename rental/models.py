@@ -142,7 +142,12 @@ class Rental(TimeStampedModel):
         return (self.weekly_rate or Decimal(0)) / Decimal(7)
 
     def billable_days(self, until: timezone.datetime | None = None) -> int:
-        """Calculate billable days as inclusive calendar days (e.g. Mon–Fri = 5 days), regardless of time."""
+        """Calculate billable days using half-open interval [start, end).
+        If end is exactly at midnight (00:00:00), it is treated as an exclusive boundary
+        (the day of end is NOT counted). Otherwise the day of end IS counted.
+        This matches the logic in charges_until().
+        """
+        from datetime import timedelta as td
         tz = timezone.get_current_timezone()
         start = timezone.localtime(self.start_at, tz)
         end = timezone.localtime(until or self.end_at or timezone.now(), tz)
@@ -150,6 +155,9 @@ class Rental(TimeStampedModel):
             return 0
         start_date = start.date()
         end_date = end.date()
+        # Half-open: if end is exactly midnight, exclude that calendar day
+        if end.hour == 0 and end.minute == 0 and end.second == 0 and end.microsecond == 0:
+            end_date = end_date - td(days=1)
         days = (end_date - start_date).days + 1
         return max(days, 0)
 

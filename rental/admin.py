@@ -3621,7 +3621,7 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
 
         try:
             with transaction.atomic():
-                end_actions = {}   # assignment_id -> (end_date_dt, reason)
+                end_actions = {}   # assignment_id -> (end_at_exclusive, reason)
                 replace_actions = {}  # assignment_id -> (new_battery_id, replace_date_dt, reason)
                 add_actions = []  # (battery_id, start_date_dt)
                 all_dates = []
@@ -3634,8 +3634,10 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                         end_at = parse_date_to_start_of_day(act.get("end_at"))
                         if not end_at:
                             end_at = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-                        end_actions[aid] = (end_at, (act.get("reason") or "")[:255])
-                        all_dates.append(end_at)
+                        # Inclusive end: user date is last billed day → store next day 00:00 (exclusive boundary)
+                        end_at_exclusive = end_at + timedelta(days=1)
+                        end_actions[aid] = (end_at_exclusive, (act.get("reason") or "")[:255])
+                        all_dates.append(end_at_exclusive)
                     elif act.get("type") == "replace":
                         aid = act.get("assignment_id")
                         new_battery_id = act.get("new_battery_id")
@@ -3725,6 +3727,18 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                 # Переносим в новую версию: продолжения (не end, не replace) с cut_date_dt; replace — новая батарея с replace_date (00:00)
                 for a in active_at_cut:
                     if a.id in end_actions:
+                        end_at_db, reason = end_actions[a.id]
+                        if end_at_db > cut_date_dt:
+                            # End date extends beyond version boundary (mixed case) — carry remainder to new version
+                            RentalBatteryAssignment.objects.create(
+                                rental=new_rental,
+                                battery=a.battery,
+                                start_at=cut_date_dt,
+                                end_at=end_at_db,
+                                end_reason=reason,
+                                created_by=request.user,
+                                updated_by=request.user,
+                            )
                         continue
                     if a.id in replace_actions:
                         new_bid, rep_dt, _ = replace_actions[a.id]
@@ -3786,14 +3800,19 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
             if not self.has_change_permission(request, rental):
                 return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
             
-            # Получаем дату закрытия
+            # Получаем дату закрытия (inclusive: user date = last billed day → store next day 00:00)
             close_date_str = request.POST.get('close_date')
+            tz = timezone.get_current_timezone()
             if close_date_str:
-                close_date = timezone.datetime.fromisoformat(close_date_str.replace('T', ' '))
-                if timezone.is_naive(close_date):
-                    close_date = timezone.make_aware(close_date, timezone.get_current_timezone())
+                d = date_type.fromisoformat(close_date_str[:10])
+                close_date = timezone.make_aware(
+                    datetime.combine(d + timedelta(days=1), time(0, 0)), tz
+                )
             else:
-                close_date = timezone.now()
+                now_local = timezone.localtime(timezone.now(), tz)
+                close_date = timezone.make_aware(
+                    datetime.combine(now_local.date() + timedelta(days=1), time(0, 0)), tz
+                )
             
             # Закрываем договор
             root = rental.root or rental

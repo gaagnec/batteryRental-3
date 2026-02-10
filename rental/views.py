@@ -50,11 +50,21 @@ def calculate_balances_for_rentals(rentals, tz, now_dt):
     paid_by_root = {row['rental__root_id']: (row['total'] or Decimal(0)) for row in paid_rows}
     
     def billable_days_interval(start, end):
+        """Count billable calendar days for half-open interval [start, end).
+        If end is exactly at midnight (00:00:00), it is treated as an exclusive boundary
+        (the day of end is NOT counted). Otherwise the day of end IS counted.
+        This matches the logic in Rental.charges_until().
+        """
         start = timezone.localtime(start, tz)
         end = timezone.localtime(end, tz)
         if end <= start:
             return 0
-        return (end.date() - start.date()).days + 1
+        s_date = start.date()
+        e_date = end.date()
+        # Half-open: if end is exactly midnight, exclude that calendar day
+        if end.hour == 0 and end.minute == 0 and end.second == 0 and end.microsecond == 0:
+            e_date = e_date - timedelta(days=1)
+        return max((e_date - s_date).days + 1, 0)
 
     # Посчитаем charges для каждого root без посуточных циклов
     charges_by_root = {}

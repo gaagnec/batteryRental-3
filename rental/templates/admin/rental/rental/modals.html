@@ -15,9 +15,9 @@
         <form id="closeRentalForm">
           {% csrf_token %}
           <div class="mb-3">
-            <label for="close_date" class="form-label">Дата и время закрытия</label>
-            <input type="datetime-local" class="form-control" id="close_date" name="close_date" required>
-            <div class="form-text" style="color: #9fa6bc;">По умолчанию установлены текущие дата и время</div>
+            <label for="close_date" class="form-label">Дата закрытия (последний день аренды)</label>
+            <input type="date" class="form-control" id="close_date" name="close_date" required>
+            <div class="form-text" style="color: #9fa6bc;">Указанный день будет последним оплачиваемым днём аренды</div>
           </div>
           <div class="alert alert-info" style="background-color: rgba(102, 126, 234, 0.1); border-color: #667eea; color: #e9ecef;">
             <i class="bi bi-info-circle me-2"></i>
@@ -299,7 +299,7 @@
     const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
     
-    document.getElementById('close_date').value = localDateTime;
+    document.getElementById('close_date').value = localDate;
     document.getElementById('tariff_start_date').value = localDateTime;
     document.getElementById('payment_date').value = localDate;
   });
