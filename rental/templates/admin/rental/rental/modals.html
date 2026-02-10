@@ -178,8 +178,8 @@
   </div>
 </div>
 
-<!-- Change Batteries Modal -->
-<div class="modal fade" id="changeBatteriesModal" tabindex="-1" aria-labelledby="changeBatteriesModalLabel" aria-hidden="true" data-bs-backdrop="static">
+<!-- Change Batteries Modal – Phoenix dark, responsive -->
+<div class="modal fade phoenix-modal" id="changeBatteriesModal" tabindex="-1" aria-labelledby="changeBatteriesModalLabel" aria-hidden="true" data-bs-backdrop="static">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
@@ -195,10 +195,10 @@
           <p class="mt-2 mb-0">Загрузка...</p>
         </div>
         <div id="changeBatteriesContent" style="display: none;">
-          <p class="small text-secondary mb-3">Договор: <strong id="changeBatteriesContractCode"></strong></p>
-          <h6 class="mb-2" style="color: #e9ecef;">Текущие назначения</h6>
-          <div class="table-responsive mb-4">
-            <table class="table table-dark table-sm phoenix-table">
+          <p class="cb-contract">Договор: <strong id="changeBatteriesContractCode"></strong></p>
+          <h6 class="cb-section-title">Текущие назначения</h6>
+          <div class="cb-table-wrap">
+            <table class="table table-sm phoenix-table">
               <thead>
                 <tr>
                   <th>Батарея</th>
@@ -211,17 +211,16 @@
               </tbody>
             </table>
           </div>
-          <div class="mb-3">
-            <h6 class="mb-2" style="color: #e9ecef;">Добавить батарею</h6>
-            <div class="d-flex flex-wrap gap-2 align-items-end">
-              <div>
-                <label class="form-label small mb-0" style="color: #9fa6bc;">Батарея</label>
-                <input type="text" class="form-control form-control-sm" id="changeBatteriesAddSearch" placeholder="Поиск батареи..." style="min-width: 140px;" autocomplete="off">
-                <select class="form-select form-select-sm mt-1" id="changeBatteriesAddSelect" style="min-width: 140px;" size="5">
-                </select>
+          <div class="cb-form-block">
+            <h6 class="cb-section-title">Добавить батарею</h6>
+            <div class="cb-actions-row">
+              <div class="cb-field">
+                <label class="form-label small mb-0">Батарея</label>
+                <input type="text" class="form-control form-control-sm" id="changeBatteriesAddSearch" placeholder="Поиск..." autocomplete="off">
+                <select class="form-select form-select-sm mt-1" id="changeBatteriesAddSelect" size="5"></select>
               </div>
-              <div>
-                <label class="form-label small mb-0" style="color: #9fa6bc;">С даты</label>
+              <div class="cb-field">
+                <label class="form-label small mb-0">С даты</label>
                 <input type="date" class="form-control form-control-sm" id="changeBatteriesAddStart">
               </div>
               <button type="button" class="btn btn-sm btn-success" id="changeBatteriesAddBtn">
@@ -229,44 +228,44 @@
               </button>
             </div>
           </div>
-          <div id="changeBatteriesEndForm" class="mb-3 p-3 rounded" style="display: none; background: #0e1018; border: 1px solid #2a2e41;">
-            <p class="mb-2 small" style="color: #e9ecef;">Завершить назначение батареи <strong id="endBatteryCode"></strong></p>
-            <div class="d-flex flex-wrap gap-2 align-items-end">
-              <div>
-                <label class="form-label small mb-0" style="color: #9fa6bc;">Дата окончания</label>
+          <div id="changeBatteriesEndForm" class="cb-form-block" style="display: none;">
+            <p class="mb-2 small">Завершить назначение батареи <strong id="endBatteryCode"></strong></p>
+            <div class="cb-actions-row">
+              <div class="cb-field">
+                <label class="form-label small mb-0">Дата окончания</label>
                 <input type="date" class="form-control form-control-sm" id="endAssignmentDate">
               </div>
-              <div>
-                <label class="form-label small mb-0" style="color: #9fa6bc;">Причина</label>
-                <input type="text" class="form-control form-control-sm" id="endAssignmentReason" placeholder="Необязательно" style="min-width: 160px;">
+              <div class="cb-field">
+                <label class="form-label small mb-0">Причина</label>
+                <input type="text" class="form-control form-control-sm" id="endAssignmentReason" placeholder="Необязательно">
               </div>
               <button type="button" class="btn btn-sm btn-warning" id="endApplyBtn">Применить</button>
               <button type="button" class="btn btn-sm btn-secondary" id="endCancelBtn">Отмена</button>
             </div>
           </div>
-          <div id="changeBatteriesReplaceForm" class="mb-3 p-3 rounded" style="display: none; background: #0e1018; border: 1px solid #2a2e41;">
-            <p class="mb-2 small" style="color: #e9ecef;">Заменить батарею <strong id="replaceOldCode"></strong> на:</p>
-            <div class="d-flex flex-wrap gap-2 align-items-end">
-              <div>
-                <label class="form-label small mb-0" style="color: #9fa6bc;">Новая батарея</label>
-                <input type="text" class="form-control form-control-sm" id="replaceNewBatterySearch" placeholder="Поиск батареи..." style="min-width: 140px;" autocomplete="off">
-                <select class="form-select form-select-sm mt-1" id="replaceNewBatterySelect" style="min-width: 140px;" size="5"></select>
+          <div id="changeBatteriesReplaceForm" class="cb-form-block" style="display: none;">
+            <p class="mb-2 small">Заменить батарею <strong id="replaceOldCode"></strong> на:</p>
+            <div class="cb-actions-row">
+              <div class="cb-field">
+                <label class="form-label small mb-0">Новая батарея</label>
+                <input type="text" class="form-control form-control-sm" id="replaceNewBatterySearch" placeholder="Поиск..." autocomplete="off">
+                <select class="form-select form-select-sm mt-1" id="replaceNewBatterySelect" size="5"></select>
               </div>
-              <div>
-                <label class="form-label small mb-0" style="color: #9fa6bc;">С даты</label>
+              <div class="cb-field">
+                <label class="form-label small mb-0">С даты</label>
                 <input type="date" class="form-control form-control-sm" id="replaceDate">
               </div>
-              <div>
-                <label class="form-label small mb-0" style="color: #9fa6bc;">Причина</label>
-                <input type="text" class="form-control form-control-sm" id="replaceReason" placeholder="Замена батареи" style="min-width: 160px;">
+              <div class="cb-field">
+                <label class="form-label small mb-0">Причина</label>
+                <input type="text" class="form-control form-control-sm" id="replaceReason" placeholder="Замена батареи">
               </div>
               <button type="button" class="btn btn-sm btn-info" id="replaceApplyBtn">Применить замену</button>
               <button type="button" class="btn btn-sm btn-secondary" id="replaceCancelBtn">Отмена</button>
             </div>
           </div>
           <div id="changeBatteriesPendingBlock" style="display: none;">
-            <h6 class="mb-2" style="color: #e9ecef;">Запланированные изменения</h6>
-            <ul id="changeBatteriesPendingList" class="list-group list-group-flush mb-3" style="background: transparent; color: #e9ecef;"></ul>
+            <h6 class="cb-section-title">Запланированные изменения</h6>
+            <ul id="changeBatteriesPendingList" class="list-group list-group-flush mb-3"></ul>
             <button type="button" class="btn btn-primary" id="changeBatteriesSubmitBtn">
               <i class="bi bi-check-circle me-1"></i> Сохранить изменения
             </button>
