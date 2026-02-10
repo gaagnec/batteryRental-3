@@ -4125,9 +4125,10 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                     else:
                         v.change_type = ''
                     # Battery codes for this version (all assignments in this version)
-                    v.battery_codes = ', '.join(
+                    v.battery_codes_list = [
                         a.battery.short_code for a in v.assignments.all()
-                    ) or '—'
+                    ]
+                    v.battery_codes = ', '.join(v.battery_codes_list) or '—'
                     # Who made changes (updated_by, updated_at)
                     if getattr(v, 'updated_by', None):
                         v.updated_by_name = (v.updated_by.get_full_name() or v.updated_by.username or str(v.updated_by)) if v.updated_by else '—'
