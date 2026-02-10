@@ -3521,15 +3521,17 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
             if not city_id:
                 return JsonResponse({'batteries': []})
             now = timezone.now()
-            # Батареи в активных назначениях (других договоров или текущего) — исключаем
+            # Батареи в активных назначениях других активных договоров — исключаем
             busy_battery_ids = set(
                 RentalBatteryAssignment.objects.filter(
                     end_at__isnull=True,
+                    rental__status=Rental.Status.ACTIVE,
                 ).exclude(rental_id=pk).values_list('battery_id', flat=True)
             )
             busy_battery_ids |= set(
                 RentalBatteryAssignment.objects.filter(
                     end_at__gt=now,
+                    rental__status=Rental.Status.ACTIVE,
                 ).exclude(rental_id=pk).values_list('battery_id', flat=True)
             )
             qs = Battery.objects.filter(
@@ -3652,6 +3654,7 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                             raise ValidationError(f"Батарея {new_battery.short_code} недоступна (статус не AVAILABLE)")
                         overlap = RentalBatteryAssignment.objects.filter(
                             battery_id=new_battery_id,
+                            rental__status=Rental.Status.ACTIVE,
                         ).filter(
                             Q(end_at__isnull=True) | Q(end_at__gt=replace_date),
                         ).filter(start_at__lte=replace_date).exclude(rental=rental).exists()
@@ -3673,7 +3676,10 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                             raise ValidationError(f"Батарея {bat.short_code} из другого города")
                         if bat.status != Battery.Status.AVAILABLE:
                             raise ValidationError(f"Батарея {bat.short_code} недоступна (статус не AVAILABLE)")
-                        overlap = RentalBatteryAssignment.objects.filter(battery_id=battery_id).filter(
+                        overlap = RentalBatteryAssignment.objects.filter(
+                            battery_id=battery_id,
+                            rental__status=Rental.Status.ACTIVE,
+                        ).filter(
                             Q(end_at__isnull=True) | Q(end_at__gt=start_at),
                         ).filter(start_at__lte=start_at).exclude(rental=rental).exists()
                         if overlap:
