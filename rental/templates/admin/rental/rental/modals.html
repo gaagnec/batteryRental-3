@@ -553,7 +553,19 @@
       const rental = assignmentsResp.rental || {};
       const batteries = availableResp.batteries || [];
 
-      changeBatteriesData = { assignments, availableBatteries: batteries };
+      const now = new Date();
+      const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+
+      changeBatteriesData = { assignments, availableBatteries: batteries, rental };
+
+      // Date boundaries for inputs: min = group start date, max = today
+      const groupStartAt = rental.group_start_at ? rental.group_start_at.slice(0, 10) : '';
+      const maxDate = localDate;
+      ['endAssignmentDate', 'replaceDate', 'changeBatteriesAddStart'].forEach(id => {
+        const el = document.getElementById(id);
+        if (groupStartAt) el.setAttribute('min', groupStartAt);
+        el.setAttribute('max', maxDate);
+      });
 
       document.getElementById('changeBatteriesContractCode').textContent = (rental.contract_code || '') + ' v' + (rental.version || '');
 
@@ -577,9 +589,6 @@
       // #10: search for Add
       populateBatterySelect(document.getElementById('changeBatteriesAddSelect'), '');
       document.getElementById('changeBatteriesAddSearch').value = '';
-
-      const now = new Date();
-      const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
       document.getElementById('changeBatteriesAddStart').value = localDate;
 
       document.getElementById('changeBatteriesLoading').style.display = 'none';
@@ -594,7 +603,11 @@
           endAssignmentId = aid;
           endBatteryCodeVal = this.getAttribute('data-code') || '';
           document.getElementById('endBatteryCode').textContent = endBatteryCodeVal;
-          document.getElementById('endAssignmentDate').value = localDate;
+          const endDateEl = document.getElementById('endAssignmentDate');
+          endDateEl.value = localDate;
+          // Set min to battery assignment start date
+          const asg = assignments.find(a => a.id === aid);
+          if (asg && asg.start_at) endDateEl.setAttribute('min', asg.start_at.slice(0, 10));
           document.getElementById('endAssignmentReason').value = '';
           document.getElementById('changeBatteriesEndForm').style.display = 'block';
         });
@@ -611,7 +624,11 @@
           // #10: search for Replace
           populateBatterySelect(document.getElementById('replaceNewBatterySelect'), '');
           document.getElementById('replaceNewBatterySearch').value = '';
-          document.getElementById('replaceDate').value = localDate;
+          const repDateEl = document.getElementById('replaceDate');
+          repDateEl.value = localDate;
+          // Set min to battery assignment start date
+          const asg = assignments.find(a => a.id === aid);
+          if (asg && asg.start_at) repDateEl.setAttribute('min', asg.start_at.slice(0, 10));
           document.getElementById('replaceReason').value = 'Замена батареи';
           document.getElementById('changeBatteriesReplaceForm').style.display = 'block';
         });

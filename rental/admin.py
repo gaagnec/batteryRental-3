@@ -3579,6 +3579,10 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                     'end_reason': (a.end_reason or '')[:255],
                     'is_active': is_active,
                 })
+            # Find earliest start_at across all versions in the group (for date validation on frontend)
+            root_rental = target_rental.root or target_rental
+            group_start_at = root_rental.start_at.isoformat()
+
             return JsonResponse({
                 'rental': {
                     'id': target_rental.id,
@@ -3586,6 +3590,7 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                     'contract_code': target_rental.contract_code,
                     'version': target_rental.version,
                     'is_active': target_rental.status == Rental.Status.ACTIVE,
+                    'group_start_at': group_start_at,
                 },
                 'assignments': out,
             })
@@ -3624,7 +3629,19 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                 end_actions = {}   # assignment_id -> (end_at_exclusive, reason)
                 replace_actions = {}  # assignment_id -> (new_battery_id, replace_date_dt, reason)
                 add_actions = []  # (battery_id, start_date_dt)
-                all_dates = []
+                all_user_dates = []  # original user dates (before +1 for end) for cut_date
+
+                # Date boundaries for validation
+                tz_val = timezone.get_current_timezone()
+                now_local = timezone.localtime(timezone.now(), tz_val)
+                today_start = timezone.make_aware(datetime.combine(now_local.date(), time(0, 0)), tz_val)
+                tomorrow_start = today_start + timedelta(days=1)
+                rental_start_date = timezone.localtime(rental.start_at, tz_val).date()
+
+                # Preload assignments for validation
+                assignments_by_id = {
+                    a.id: a for a in rental.assignments.select_related("battery").all()
+                }
 
                 for act in actions:
                     if act.get("type") == "end":
@@ -3633,11 +3650,25 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                             raise ValidationError("end: assignment_id обязателен")
                         end_at = parse_date_to_start_of_day(act.get("end_at"))
                         if not end_at:
-                            end_at = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                            end_at = today_start
+                        # Validate date range
+                        if end_at.date() < rental_start_date:
+                            raise ValidationError(f"Дата завершения не может быть раньше начала договора ({rental_start_date.strftime('%d.%m.%Y')})")
+                        if end_at > today_start:
+                            raise ValidationError("Дата завершения не может быть в будущем")
+                        # Validate end >= assignment start
+                        assignment = assignments_by_id.get(aid)
+                        if assignment:
+                            a_start_date = timezone.localtime(assignment.start_at, tz_val).date()
+                            if end_at.date() < a_start_date:
+                                raise ValidationError(
+                                    f"Дата завершения ({end_at.date().strftime('%d.%m.%Y')}) раньше даты подключения батареи "
+                                    f"{assignment.battery.short_code} ({a_start_date.strftime('%d.%m.%Y')})"
+                                )
                         # Inclusive end: user date is last billed day → store next day 00:00 (exclusive boundary)
                         end_at_exclusive = end_at + timedelta(days=1)
                         end_actions[aid] = (end_at_exclusive, (act.get("reason") or "")[:255])
-                        all_dates.append(end_at_exclusive)
+                        all_user_dates.append(end_at)
                     elif act.get("type") == "replace":
                         aid = act.get("assignment_id")
                         new_battery_id = act.get("new_battery_id")
@@ -3645,7 +3676,21 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                             raise ValidationError("replace: assignment_id и new_battery_id обязательны")
                         replace_date = parse_date_to_start_of_day(act.get("date"))
                         if not replace_date:
-                            replace_date = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                            replace_date = today_start
+                        # Validate date range
+                        if replace_date.date() < rental_start_date:
+                            raise ValidationError(f"Дата замены не может быть раньше начала договора ({rental_start_date.strftime('%d.%m.%Y')})")
+                        if replace_date > today_start:
+                            raise ValidationError("Дата замены не может быть в будущем")
+                        # Validate replace >= assignment start
+                        assignment = assignments_by_id.get(aid)
+                        if assignment:
+                            a_start_date = timezone.localtime(assignment.start_at, tz_val).date()
+                            if replace_date.date() < a_start_date:
+                                raise ValidationError(
+                                    f"Дата замены ({replace_date.date().strftime('%d.%m.%Y')}) раньше даты подключения батареи "
+                                    f"{assignment.battery.short_code} ({a_start_date.strftime('%d.%m.%Y')})"
+                                )
                         reason = (act.get("reason") or "Замена батареи")[:255]
                         new_battery = Battery.objects.filter(pk=new_battery_id).first()
                         if not new_battery:
@@ -3663,14 +3708,19 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                         if overlap:
                             raise ValidationError(f"Батарея {new_battery.short_code} уже занята в другом договоре")
                         replace_actions[aid] = (new_battery_id, replace_date, reason)
-                        all_dates.append(replace_date)
+                        all_user_dates.append(replace_date)
                     elif act.get("type") == "add":
                         battery_id = act.get("battery_id")
                         start_at = parse_date_to_start_of_day(act.get("start_at"))
                         if not battery_id:
                             raise ValidationError("add: battery_id обязателен")
                         if not start_at:
-                            start_at = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                            start_at = today_start
+                        # Validate date range
+                        if start_at.date() < rental_start_date:
+                            raise ValidationError(f"Дата добавления не может быть раньше начала договора ({rental_start_date.strftime('%d.%m.%Y')})")
+                        if start_at > today_start:
+                            raise ValidationError("Дата добавления не может быть в будущем")
                         bat = Battery.objects.filter(pk=battery_id).first()
                         if not bat:
                             raise ValidationError("Батарея не найдена")
@@ -3687,9 +3737,9 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                         if overlap:
                             raise ValidationError(f"Батарея {bat.short_code} уже занята в другом договоре")
                         add_actions.append((battery_id, start_at))
-                        all_dates.append(start_at)
+                        all_user_dates.append(start_at)
 
-                if not all_dates:
+                if not all_user_dates:
                     raise ValidationError("Нет действий для применения")
 
                 # #5: Validate no conflict: same assignment_id in both end and replace
@@ -3697,7 +3747,7 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                 if conflict_ids:
                     raise ValidationError("Нельзя одновременно завершить и заменить одну и ту же батарею")
 
-                cut_date_dt = min(all_dates)
+                cut_date_dt = min(all_user_dates)
 
                 # Активные на cut_date назначения до закрытия (для переноса в новую версию)
                 active_at_cut = list(
