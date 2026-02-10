@@ -508,9 +508,16 @@
       font-weight: 400;
     }
     .versions-table-rate-suffix {
-      font-size: 0.75rem;
+      font-size: 0.65rem;
       color: #6c757d;
       font-weight: 500;
+    }
+    .versions-table-date-cell {
+      font-size: 0.9em; /* 10% smaller than row */
+    }
+    .phoenix-versions-table-wrapper .phoenix-table th:nth-child(5),
+    .phoenix-versions-table-wrapper .phoenix-table td:nth-child(5) {
+      min-width: 130px;
     }
     .versions-table-batteries {
       display: inline-flex;
@@ -1321,8 +1328,8 @@
           <thead>
             <tr>
               <th>Версия</th>
-              <th>Начало</th>
-              <th>Окончание</th>
+              <th class="versions-table-date-cell">Начало</th>
+              <th class="versions-table-date-cell">Окончание</th>
               <th>Ставка</th>
               <th>Батареи</th>
               <th>Статус</th>
@@ -1335,8 +1342,8 @@
               <td>
                 <a href="{% url 'admin:rental_rental_change' v.pk %}" class="versions-table-link">v{{ v.version }}</a>
               </td>
-              <td>{{ v.start_at|date:"d.m.Y" }}</td>
-              <td>{{ v.end_at|display_end_date }}</td>
+              <td class="versions-table-date-cell">{{ v.start_at|date:"d.m.Y" }}</td>
+              <td class="versions-table-date-cell">{{ v.end_at|display_end_date }}</td>
               <td>{{ v.weekly_rate }}<span class="versions-table-rate-suffix"> PLN/нед</span></td>
               <td><span class="versions-table-batteries">{% for code in v.battery_codes_list %}<span class="versions-table-battery-pill">{{ code }}</span>{% empty %}—{% endfor %}</span></td>
               <td>
@@ -1361,7 +1368,7 @@
               </td>
               <td class="versions-table-changes-cell">
                 {% if v.updated_by_name and v.updated_by_name != '—' %}
-                  {{ v.updated_by_name }}{% if v.updated_at_dt %} <span class="versions-table-changes-date">({{ v.updated_at_dt|date:"d.m.Y H:i" }})</span>{% endif %}
+                  {{ v.updated_by_name }}{% if v.updated_at_dt %} <span class="versions-table-changes-date">({{ v.updated_at_dt|date:"d.m.Y" }})</span>{% endif %}
                 {% else %}
                   <span class="versions-table-changes-date">—</span>
                 {% endif %}
