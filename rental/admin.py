@@ -3872,7 +3872,7 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
             pause_end = pause_start + timezone.timedelta(days=pause_days)
             with transaction.atomic():
                 pause_version = self._create_next_version(rental, request.user, pause_start, weekly_rate=Decimal(0), end_at=pause_end)
-                next_rental = self._create_next_version(pause_version, request.user, pause_end)
+                next_rental = self._create_next_version(pause_version, request.user, pause_end, weekly_rate=rental.weekly_rate)
                 self._carry_over_batteries(rental, next_rental, request.user, pause_start)
             
             return JsonResponse({'success': True, 'message': f'Пауза на {pause_days} дней создана'})
