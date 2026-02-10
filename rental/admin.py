@@ -3862,14 +3862,17 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                 return JsonResponse({'success': False, 'error': 'Укажите количество дней'}, status=400)
             
             pause_start_str = request.POST.get('pause_start_date')
+            tz = timezone.get_current_timezone()
             if pause_start_str:
-                pause_start = timezone.datetime.fromisoformat(pause_start_str.replace('T', ' '))
-                if timezone.is_naive(pause_start):
-                    pause_start = timezone.make_aware(pause_start, timezone.get_current_timezone())
+                d = date_type.fromisoformat(pause_start_str[:10])
+                pause_start = timezone.make_aware(datetime.combine(d, time(0, 0)), tz)
             else:
-                pause_start = timezone.now()
+                now_local = timezone.localtime(timezone.now(), tz)
+                pause_start = timezone.make_aware(
+                    datetime.combine(now_local.date(), time(0, 0)), tz
+                )
             
-            pause_end = pause_start + timezone.timedelta(days=pause_days)
+            pause_end = pause_start + timedelta(days=pause_days)
             with transaction.atomic():
                 pause_version = self._create_next_version(rental, request.user, pause_start, weekly_rate=Decimal(0), end_at=pause_end)
                 next_rental = self._create_next_version(pause_version, request.user, pause_end, weekly_rate=rental.weekly_rate)
@@ -3900,12 +3903,15 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                 return JsonResponse({'success': False, 'error': 'Укажите корректную ставку'}, status=400)
             
             tariff_start_str = request.POST.get('tariff_start_date')
+            tz = timezone.get_current_timezone()
             if tariff_start_str:
-                tariff_start = timezone.datetime.fromisoformat(tariff_start_str.replace('T', ' '))
-                if timezone.is_naive(tariff_start):
-                    tariff_start = timezone.make_aware(tariff_start, timezone.get_current_timezone())
+                d = date_type.fromisoformat(tariff_start_str[:10])
+                tariff_start = timezone.make_aware(datetime.combine(d, time(0, 0)), tz)
             else:
-                tariff_start = timezone.now()
+                now_local = timezone.localtime(timezone.now(), tz)
+                tariff_start = timezone.make_aware(
+                    datetime.combine(now_local.date(), time(0, 0)), tz
+                )
             
             with transaction.atomic():
                 new_rental = self._create_next_version(rental, request.user, tariff_start, weekly_rate=new_weekly_rate)

@@ -56,8 +56,8 @@
             <div class="form-text" style="color: #9fa6bc;">Укажите количество бесплатных дней</div>
           </div>
           <div class="mb-3">
-            <label for="pause_start_date" class="form-label">Дата начала паузы (опционально)</label>
-            <input type="datetime-local" class="form-control" id="pause_start_date" name="pause_start_date">
+            <label for="pause_start_date" class="form-label">Дата начала паузы (первый бесплатный день)</label>
+            <input type="date" class="form-control" id="pause_start_date" name="pause_start_date">
             <div class="form-text" style="color: #9fa6bc;">Оставьте пустым для начала с текущего момента</div>
           </div>
           <div class="alert alert-info" style="background-color: rgba(102, 126, 234, 0.1); border-color: #667eea; color: #e9ecef;">
@@ -98,7 +98,7 @@
           </div>
           <div class="mb-3">
             <label for="tariff_start_date" class="form-label">Дата начала нового тарифа</label>
-            <input type="datetime-local" class="form-control" id="tariff_start_date" name="tariff_start_date" required>
+            <input type="date" class="form-control" id="tariff_start_date" name="tariff_start_date" required>
             <div class="form-text" style="color: #9fa6bc;">По умолчанию установлена текущая дата</div>
           </div>
           <div class="alert alert-info" style="background-color: rgba(102, 126, 234, 0.1); border-color: #667eea; color: #e9ecef;">
@@ -300,7 +300,7 @@
     const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
     
     document.getElementById('close_date').value = localDate;
-    document.getElementById('tariff_start_date').value = localDateTime;
+    document.getElementById('tariff_start_date').value = localDate;
     document.getElementById('payment_date').value = localDate;
   });
 
