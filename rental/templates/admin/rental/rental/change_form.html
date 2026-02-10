@@ -439,6 +439,80 @@
       color: #ffc107;
     }
     
+    /* Versions table – harmonized with site theme */
+    .phoenix-versions-table-wrapper {
+      padding: 0;
+      border-radius: 0 0 0.375rem 0.375rem;
+      overflow: hidden;
+    }
+    .phoenix-versions-table-wrapper .phoenix-table {
+      background-color: #1c1e2d;
+    }
+    .phoenix-versions-table-wrapper .phoenix-table thead th {
+      background-color: #0e1018;
+      color: #9fa6bc;
+      font-size: 0.75rem;
+      padding: 0.625rem 1rem;
+      border-bottom: 1px solid #2a2e41;
+    }
+    .phoenix-versions-table-wrapper .phoenix-table tbody td {
+      padding: 0.75rem 1rem;
+      font-size: 0.875rem;
+      color: #e9ecef;
+      border-bottom: 1px solid #2a2e41;
+      vertical-align: middle;
+    }
+    .phoenix-versions-table-wrapper .phoenix-table tbody tr:hover td {
+      background-color: #252840;
+    }
+    .phoenix-versions-table-wrapper .phoenix-table tbody tr.versions-table-current td {
+      background-color: rgba(102, 126, 234, 0.12);
+      border-left: 3px solid #667eea;
+    }
+    .phoenix-versions-table-wrapper .phoenix-table tbody tr.versions-table-current:hover td {
+      background-color: rgba(102, 126, 234, 0.18);
+    }
+    .versions-table-link {
+      color: #667eea;
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.2s;
+    }
+    .versions-table-link:hover {
+      color: #8fa3f0;
+    }
+    .versions-table-status-cell {
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.375rem;
+    }
+    .versions-table-status-cell .badge {
+      margin-right: 0;
+    }
+    .versions-table-change-icon {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.8125rem;
+    }
+    .versions-table-change-icon--add { color: #28a745; }
+    .versions-table-change-icon--remove { color: #dc3545; }
+    .versions-table-change-icon--swap { color: #9fa6bc; }
+    .versions-table-change-icon--tariff { color: #ffc107; }
+    .versions-table-changes-cell {
+      font-size: 0.875rem;
+      color: #e9ecef;
+    }
+    .versions-table-changes-date {
+      font-size: 0.8125rem;
+      color: #9fa6bc;
+      font-weight: 400;
+    }
+    .versions-table-batteries {
+      font-size: 0.8125rem;
+      color: #b8bcc8;
+    }
+    
     @media (max-width: 768px) {
       .info-compact-grid {
         grid-template-columns: 1fr;
@@ -1040,7 +1114,7 @@
         <i class="bi bi-layers"></i>
         <span>Все версии договора</span>
       </div>
-      <div class="phoenix-card-body" style="padding: 0;">
+      <div class="phoenix-card-body phoenix-versions-table-wrapper">
         {% if all_versions %}
         <table class="phoenix-table">
           <thead>
@@ -1056,39 +1130,39 @@
           </thead>
           <tbody>
             {% for v in all_versions %}
-            <tr{% if v.pk == original.pk %} style="background: rgba(102, 126, 234, 0.1);"{% endif %}>
+            <tr{% if v.pk == original.pk %} class="versions-table-current"{% endif %}>
               <td>
-                <a href="{% url 'admin:rental_rental_change' v.pk %}" style="color: #667eea;">
-                  v{{ v.version }}
-                </a>
+                <a href="{% url 'admin:rental_rental_change' v.pk %}" class="versions-table-link">v{{ v.version }}</a>
               </td>
               <td>{{ v.start_at|date:"d.m.Y" }}</td>
               <td>{{ v.end_at|display_end_date }}</td>
               <td>{{ v.weekly_rate }} PLN/нед</td>
-              <td>{{ v.battery_codes }}</td>
+              <td><span class="versions-table-batteries">{{ v.battery_codes }}</span></td>
               <td>
-                <span class="badge {% if v.status == 'active' %}badge-active{% elif v.status == 'closed' %}badge-closed{% else %}badge-modified{% endif %}">
-                  {{ v.get_status_display }}
+                <span class="versions-table-status-cell">
+                  <span class="badge {% if v.status == 'active' %}badge-active{% elif v.status == 'closed' %}badge-closed{% else %}badge-modified{% endif %}">
+                    {{ v.get_status_display }}
+                  </span>
+                  {% if v.change_type == 'pause' %}
+                    <span class="versions-table-change-icon" title="Пауза">⏸</span>
+                  {% elif v.change_type == 'add' %}
+                    <span class="versions-table-change-icon versions-table-change-icon--add" title="Добавлены батареи">+{{ v.change_detail }}</span>
+                  {% elif v.change_type == 'remove' %}
+                    <span class="versions-table-change-icon versions-table-change-icon--remove" title="Убраны батареи">−{{ v.change_detail }}</span>
+                  {% elif v.change_type == 'swap' %}
+                    <span class="versions-table-change-icon versions-table-change-icon--swap" title="Замена батарей">🔄{{ v.change_detail }}</span>
+                  {% elif v.change_type == 'mixed' %}
+                    <span class="versions-table-change-icon versions-table-change-icon--swap" title="Изменение батарей">🔄{{ v.change_detail }}</span>
+                  {% elif v.change_type == 'tariff' %}
+                    <span class="versions-table-change-icon versions-table-change-icon--tariff" title="Смена тарифа">💰</span>
+                  {% endif %}
                 </span>
-                {% if v.change_type == 'pause' %}
-                  <span title="Пауза" style="margin-left: 4px;">⏸</span>
-                {% elif v.change_type == 'add' %}
-                  <span title="Добавлены батареи" style="margin-left: 4px; color: #28a745;">+{{ v.change_detail }}</span>
-                {% elif v.change_type == 'remove' %}
-                  <span title="Убраны батареи" style="margin-left: 4px; color: #dc3545;">−{{ v.change_detail }}</span>
-                {% elif v.change_type == 'swap' %}
-                  <span title="Замена батарей" style="margin-left: 4px;">🔄{{ v.change_detail }}</span>
-                {% elif v.change_type == 'mixed' %}
-                  <span title="Изменение батарей" style="margin-left: 4px;">🔄{{ v.change_detail }}</span>
-                {% elif v.change_type == 'tariff' %}
-                  <span title="Смена тарифа" style="margin-left: 4px;">💰</span>
-                {% endif %}
               </td>
-              <td>
+              <td class="versions-table-changes-cell">
                 {% if v.updated_by_name and v.updated_by_name != '—' %}
-                  {{ v.updated_by_name }}{% if v.updated_at_dt %} <span style="font-size: 0.85em; color: #9fa6bc;">({{ v.updated_at_dt|date:"d.m.Y H:i" }})</span>{% endif %}
+                  {{ v.updated_by_name }}{% if v.updated_at_dt %} <span class="versions-table-changes-date">({{ v.updated_at_dt|date:"d.m.Y H:i" }})</span>{% endif %}
                 {% else %}
-                  —
+                  <span class="versions-table-changes-date">—</span>
                 {% endif %}
               </td>
             </tr>
