@@ -808,6 +808,19 @@
         <span class="status-badge {% if original.status == 'active' %}active{% elif original.status == 'closed' %}closed{% else %}modified{% endif %}" style="margin-left: auto;">
           {{ original.get_status_display }}
         </span>
+        {% if original_change_type == 'pause' %}
+          <span title="Пауза" style="margin-left: 6px;">⏸</span>
+        {% elif original_change_type == 'add' %}
+          <span title="Добавлены батареи" style="margin-left: 6px; color: #28a745;">+{{ original_change_detail }}</span>
+        {% elif original_change_type == 'remove' %}
+          <span title="Убраны батареи" style="margin-left: 6px; color: #dc3545;">−{{ original_change_detail }}</span>
+        {% elif original_change_type == 'swap' %}
+          <span title="Замена батарей" style="margin-left: 6px;">🔄{{ original_change_detail }}</span>
+        {% elif original_change_type == 'mixed' %}
+          <span title="Изменение батарей" style="margin-left: 6px;">🔄{{ original_change_detail }}</span>
+        {% elif original_change_type == 'tariff' %}
+          <span title="Смена тарифа" style="margin-left: 6px;">💰</span>
+        {% endif %}
       </div>
       <div class="phoenix-card-body" style="padding: 1rem 1.5rem;">
         <!-- Compact 3-column layout -->
@@ -1036,7 +1049,9 @@
               <th>Начало</th>
               <th>Окончание</th>
               <th>Ставка</th>
+              <th>Батареи</th>
               <th>Статус</th>
+              <th>Изменения</th>
             </tr>
           </thead>
           <tbody>
@@ -1050,6 +1065,7 @@
               <td>{{ v.start_at|date:"d.m.Y" }}</td>
               <td>{{ v.end_at|display_end_date }}</td>
               <td>{{ v.weekly_rate }} PLN/нед</td>
+              <td>{{ v.battery_codes }}</td>
               <td>
                 <span class="badge {% if v.status == 'active' %}badge-active{% elif v.status == 'closed' %}badge-closed{% else %}badge-modified{% endif %}">
                   {{ v.get_status_display }}
@@ -1066,6 +1082,13 @@
                   <span title="Изменение батарей" style="margin-left: 4px;">🔄{{ v.change_detail }}</span>
                 {% elif v.change_type == 'tariff' %}
                   <span title="Смена тарифа" style="margin-left: 4px;">💰</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if v.updated_by_name and v.updated_by_name != '—' %}
+                  {{ v.updated_by_name }}{% if v.updated_at_dt %} <span style="font-size: 0.85em; color: #9fa6bc;">({{ v.updated_at_dt|date:"d.m.Y H:i" }})</span>{% endif %}
+                {% else %}
+                  —
                 {% endif %}
               </td>
             </tr>

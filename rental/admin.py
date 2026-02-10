@@ -4076,6 +4076,7 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                 # Получаем все версии договора
                 all_versions = list(
                     Rental.objects.filter(root=root)
+                    .select_related('updated_by')
                     .prefetch_related('assignments__battery')
                     .order_by('version')
                 )
@@ -4123,13 +4124,32 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                             v.change_type = ''
                     else:
                         v.change_type = ''
+                    # Battery codes for this version (all assignments in this version)
+                    v.battery_codes = ', '.join(
+                        a.battery.short_code for a in v.assignments.all()
+                    ) or '—'
+                    # Who made changes (updated_by, updated_at)
+                    if getattr(v, 'updated_by', None):
+                        v.updated_by_name = (v.updated_by.get_full_name() or v.updated_by.username or str(v.updated_by)) if v.updated_by else '—'
+                    else:
+                        v.updated_by_name = '—'
+                    v.updated_at_dt = getattr(v, 'updated_at', None)
 
                 extra_context['all_versions'] = all_versions
+                # Change type for current version (to show icon next to status in main info)
+                for v in all_versions:
+                    if v.pk == rental.pk:
+                        extra_context['original_change_type'] = getattr(v, 'change_type', '')
+                        extra_context['original_change_detail'] = getattr(v, 'change_detail', '')
+                        break
+                else:
+                    extra_context['original_change_type'] = ''
+                    extra_context['original_change_detail'] = ''
 
                 # Получаем все назначения батарей по всем версиям договора
                 all_assignments = RentalBatteryAssignment.objects.filter(
                     rental__root=root
-                ).select_related('battery', 'rental').order_by('-start_at')
+                ).select_related('battery', 'rental').order_by('start_at', 'id')
                 extra_context['all_assignments'] = all_assignments
                 
                 # Получаем все платежи по всем версиям договора
