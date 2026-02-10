@@ -184,21 +184,17 @@ def dashboard(request):
             'weekly_rate': weekly_rate,
         })
 
-    # Статистика по батареям
+    # Статистика по батареям — только по статусу (available, rented, service)
     batteries_qs = Battery.objects.all()
     if filter_city:
         batteries_qs = batteries_qs.filter(city=filter_city)
     elif filter_cities:
         batteries_qs = batteries_qs.filter(city__in=filter_cities)
-    total_batteries = batteries_qs.count()
-    rented_now = assignments.values('battery_id').distinct().count()
-    repairs_qs = Repair.objects.filter(end_at__isnull=True)
-    if filter_city:
-        repairs_qs = repairs_qs.filter(battery__city=filter_city)
-    elif filter_cities:
-        repairs_qs = repairs_qs.filter(battery__city__in=filter_cities)
-    in_service = repairs_qs.count()
-    available = max(total_batteries - rented_now - in_service, 0)
+    main_statuses = [Battery.Status.AVAILABLE, Battery.Status.RENTED, Battery.Status.SERVICE]
+    rented_now = batteries_qs.filter(status=Battery.Status.RENTED).count()
+    in_service = batteries_qs.filter(status=Battery.Status.SERVICE).count()
+    available = batteries_qs.filter(status=Battery.Status.AVAILABLE).count()
+    total_batteries = batteries_qs.filter(status__in=main_statuses).count()
     battery_stats = {
         'total': total_batteries,
         'rented': rented_now,
@@ -510,16 +506,11 @@ def dashboard(request):
         last_30_days = today - timedelta(days=30)
         
         for city in cities:
-            # Батареи по городу
+            # Батареи по городу — только по статусу (available, rented, service)
             city_batteries = Battery.objects.filter(city=city)
-            city_batteries_total = city_batteries.count()
-            city_batteries_rented = Battery.objects.filter(
-                city=city,
-                assignments__rental__status=Rental.Status.ACTIVE,
-                assignments__start_at__lte=timezone.now()
-            ).filter(
-                Q(assignments__end_at__isnull=True) | Q(assignments__end_at__gt=timezone.now())
-            ).distinct().count()
+            main_statuses = [Battery.Status.AVAILABLE, Battery.Status.RENTED, Battery.Status.SERVICE]
+            city_batteries_total = city_batteries.filter(status__in=main_statuses).count()
+            city_batteries_rented = city_batteries.filter(status=Battery.Status.RENTED).count()
             city_batteries_available = city_batteries.filter(status=Battery.Status.AVAILABLE).count()
             
             # Активные клиенты по городу
@@ -720,16 +711,16 @@ def city_analytics(request):
             type__in=[Payment.PaymentType.RENT, Payment.PaymentType.SOLD]
         ).aggregate(total=Sum('amount'))['total'] or Decimal(0)
         
-        # Статистика по батареям
-        batteries_total = Battery.objects.filter(city=city).count()
+        # Статистика по батареям — только по статусу (available, rented, service)
+        main_statuses = [Battery.Status.AVAILABLE, Battery.Status.RENTED, Battery.Status.SERVICE]
+        batteries_total = Battery.objects.filter(
+            city=city,
+            status__in=main_statuses
+        ).count()
         batteries_rented = Battery.objects.filter(
             city=city,
-            assignments__rental__status=Rental.Status.ACTIVE,
-            assignments__start_at__lte=timezone.now()
-        ).filter(
-            Q(assignments__end_at__isnull=True) | Q(assignments__end_at__gt=timezone.now())
-        ).distinct().count()
-        
+            status=Battery.Status.RENTED
+        ).count()
         batteries_available = Battery.objects.filter(
             city=city,
             status=Battery.Status.AVAILABLE
