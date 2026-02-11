@@ -910,9 +910,9 @@
 var PARTNER_DATA = {
     {% for partner in partner_choices %}
     '{{ partner.id }}': {
-        name: '{{ partner.name }}',
-        role: '{{ partner.role }}',
-        commission_percent: {{ partner.commission_percent }}
+        name: '{{ partner.name|escapejs }}',
+        role: '{{ partner.role|escapejs }}',
+        commission_percent: {{ partner.commission_percent|default:0 }}
     }{% if not forloop.last %},{% endif %}
     {% endfor %}
 };
@@ -984,7 +984,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Transfer form
+// Transfer form (expose globally for onclick handlers)
 function openTransferForm(fromId, toId, amount, purpose, useCollected) {
     document.getElementById('transfer-form-container').style.display = 'flex';
     
@@ -1090,10 +1090,15 @@ async function submitTransfer(event) {
 }
 
 // Close modal on outside click
-document.getElementById('transfer-form-container').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeTransferForm();
-    }
+var transferFormEl = document.getElementById('transfer-form-container');
+if (transferFormEl) transferFormEl.addEventListener('click', function(e) {
+    if (e.target === this) closeTransferForm();
 });
+
+// Expose to global scope for inline onclick (e.g. when content is loaded via HTMX or in other contexts)
+window.openTransferForm = openTransferForm;
+window.openOwnerTransferForm = openOwnerTransferForm;
+window.closeTransferForm = closeTransferForm;
+window.showTab = showTab;
 </script>
 {% endblock %}
