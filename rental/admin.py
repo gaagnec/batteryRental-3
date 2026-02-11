@@ -2003,7 +2003,35 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
         base_ctx = self.admin_site.each_context(request)
         context = {**base_ctx, **context}
         
-        return TemplateResponse(request, self.change_list_template, context)
+        # #region agent log
+        try:
+            pc = context.get('partner_choices') or []
+            first_keys = list(pc[0].keys()) if pc else []
+            with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "id": "log_finance_v2_render",
+                    "timestamp": timezone.now().timestamp() * 1000,
+                    "location": "admin.py:FinanceOverviewAdmin2.changelist_view:before_render",
+                    "message": "finance_v2 changelist rendering",
+                    "data": {
+                        "template": self.change_list_template,
+                        "partner_choices_len": len(pc),
+                        "first_partner_keys": first_keys,
+                        "has_commission_percent_in_context": "commission_percent" in first_keys,
+                        "template_version": "2.1_commission_ui",
+                    },
+                    "runId": "finance_v2",
+                    "hypothesisId": "H1,H2,H3",
+                }) + "\n")
+        except Exception:
+            pass
+        # #endregion
+        
+        response = TemplateResponse(request, self.change_list_template, context)
+        # Prevent CDN/proxy from caching this page so production always gets fresh HTML
+        response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response['Pragma'] = 'no-cache'
+        return response
 
 
 from .models import FinanceOverviewProxy2
