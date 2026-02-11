@@ -192,7 +192,7 @@ class CityAdmin(ModeratorRestrictedMixin, SimpleHistoryAdmin):
 
 @admin.register(FinancePartner)
 class FinancePartnerAdmin(ModeratorRestrictedMixin, SimpleHistoryAdmin):
-    list_display = ("id", "user", "role", "city", "cities_display", "share_percent", "active")
+    list_display = ("id", "user", "role", "city", "cities_display", "share_percent", "commission_percent", "active")
     list_filter = ("role", "active", "city")
     search_fields = ("user__username", "user__first_name", "user__last_name")
     autocomplete_fields = ["city"]
@@ -1398,6 +1398,7 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             purpose = request.POST.get("purpose") or MoneyTransfer.Purpose.OTHER
             use_collected = (request.POST.get("use_collected") == "true")
             add_to_deposits = (request.POST.get("add_to_deposits") == "true")
+            apply_commission = (request.POST.get("apply_commission") == "true")
             date_str = request.POST.get("date") or ""
             note = request.POST.get("note") or ""
             
@@ -1419,8 +1420,24 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             if from_id == to_id:
                 return JsonResponse({"ok": False, "error": "Нельзя перевести самому себе"})
             
+            from_partner = FinancePartner.objects.get(id=from_id)
+            to_partner = FinancePartner.objects.get(id=to_id)
+            
+            # ---- Защита от дублей (30 секунд) ----
+            from datetime import timedelta as _td
+            recent_cutoff = timezone.now() - _td(seconds=30)
+            duplicate = MoneyTransfer.objects.filter(
+                from_partner_id=from_id,
+                to_partner_id=to_id,
+                amount=amount,
+                purpose=purpose,
+                created_at__gte=recent_cutoff,
+            ).exists()
+            if duplicate:
+                return JsonResponse({"ok": False, "error": "Такой перевод уже был создан менее 30 секунд назад. Проверьте историю."})
+            
             # Создание перевода
-            MoneyTransfer.objects.create(
+            transfer = MoneyTransfer.objects.create(
                 from_partner_id=from_id,
                 to_partner_id=to_id,
                 amount=amount,
@@ -1430,11 +1447,42 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
                 note=note,
             )
             
+            response_message = "Перевод создан успешно"
+            commission_amount = 0
+            
+            # ---- Комиссия модератора ----
+            if (apply_commission
+                    and purpose == MoneyTransfer.Purpose.MODERATOR_TO_OWNER
+                    and use_collected
+                    and from_partner.commission_percent > 0):
+                percent = from_partner.commission_percent
+                # Формула: amount / (1 - percent/100) - amount, округление до целых
+                base = amount / (Decimal(1) - percent / Decimal(100))
+                commission_amount = int((base - amount).to_integral_value())
+                
+                if commission_amount > 0:
+                    # Получаем/создаём категорию "Бонус модераторам"
+                    bonus_category, _ = ExpenseCategory.objects.get_or_create(name="Бонус модераторам")
+                    
+                    Expense.objects.create(
+                        amount=commission_amount,
+                        date=date_val,
+                        category=bonus_category,
+                        description=(
+                            f"Комиссия {percent}% модератору {from_partner.user.username} "
+                            f"за перевод {amount} PLN владельцу {to_partner.user.username}"
+                        ),
+                        payment_type=Expense.PaymentType.PURCHASE,
+                        paid_by_partner=to_partner,
+                        related_transfer=transfer,
+                    )
+                    response_message = (
+                        f"Перевод создан. Комиссия модератору: {commission_amount} PLN "
+                        f"({percent}%), списано с долга: {amount + commission_amount} PLN"
+                    )
+            
             # Если галочка "Добавить в взносы" активна
             if add_to_deposits and purpose == MoneyTransfer.Purpose.OWNER_TO_OWNER:
-                from_partner = FinancePartner.objects.get(id=from_id)
-                to_partner = FinancePartner.objects.get(id=to_id)
-                
                 # Создаём расход типа DEPOSIT для отправителя
                 Expense.objects.create(
                     paid_by_partner_id=from_id,
@@ -1442,9 +1490,14 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
                     amount=amount,
                     date=date_val,
                     description=f"Взнос через перевод владельцу {to_partner.user.username}",
+                    related_transfer=transfer,
                 )
             
-            return JsonResponse({"ok": True, "message": "Перевод создан успешно"})
+            return JsonResponse({
+                "ok": True,
+                "message": response_message,
+                "commission": commission_amount,
+            })
             
         except ValueError as e:
             return JsonResponse({"ok": False, "error": f"Ошибка данных: {str(e)}"})
@@ -1590,6 +1643,25 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
         # 2. ДОЛГИ МОДЕРАТОРОВ
         # ========================================
         
+        # Бонусы (комиссии), начисленные модераторам через расходы
+        # Расход привязан к переводу (related_transfer), от модератора (from_partner)
+        bonus_category_obj = ExpenseCategory.objects.filter(name="Бонус модераторам").first()
+        moderator_bonuses = {}
+        if bonus_category_obj:
+            # Суммируем бонусы по модератору (from_partner перевода)
+            bonus_rows = (
+                Expense.objects
+                .filter(
+                    date__gte=cutoff,
+                    category=bonus_category_obj,
+                    related_transfer__isnull=False,
+                )
+                .values('related_transfer__from_partner_id')
+                .annotate(total=Sum('amount'))
+            )
+            for row in bonus_rows:
+                moderator_bonuses[row['related_transfer__from_partner_id']] = Decimal(row['total'] or 0)
+        
         moderator_debts = []
         for mod in moderators:
             uid = mod.user_id
@@ -1597,12 +1669,15 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             
             collected = Decimal(payments_by_user.get(uid, 0))
             transferred = Decimal(outgoing_from_mods.get(pid, 0))
-            debt = collected - transferred
+            bonuses = Decimal(moderator_bonuses.get(pid, 0))
+            # Долг = собранное - переведённое - бонусы (комиссии)
+            debt = collected - transferred - bonuses
             
             moderator_debts.append({
                 'partner': mod,
                 'collected': collected,
                 'transferred': transferred,
+                'bonuses': bonuses,
                 'debt': debt,
             })
         
@@ -1913,7 +1988,15 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             'cities': City.objects.filter(active=True) if request.user.is_superuser else [],
             
             # Для форм
-            'partner_choices': [{'id': p.id, 'name': p.user.username, 'role': p.role} for p in partners],
+            'partner_choices': [
+                {
+                    'id': p.id,
+                    'name': p.user.username,
+                    'role': p.role,
+                    'commission_percent': float(p.commission_percent),
+                }
+                for p in partners
+            ],
             'today': timezone.localdate(),
         }
         

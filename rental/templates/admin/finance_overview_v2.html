@@ -429,6 +429,7 @@
                         <th>Модератор</th>
                         <th>Собрал</th>
                         <th>Перевёл владельцам</th>
+                        <th>Бонусы (комиссия)</th>
                         <th>Долг</th>
                         <th>Действие</th>
                     </tr>
@@ -436,15 +437,21 @@
                 <tbody>
                     {% for debt in moderator_debts %}
                     <tr>
-                        <td>{{ debt.partner.user.username }}</td>
+                        <td>
+                            {{ debt.partner.user.username }}
+                            {% if debt.partner.commission_percent > 0 %}
+                                <span class="badge badge-gray" title="Процент комиссии модератора">{{ debt.partner.commission_percent|floatformat:0 }}%</span>
+                            {% endif %}
+                        </td>
                         <td class="amount">{{ debt.collected|floatformat:0 }} PLN</td>
                         <td class="amount">{{ debt.transferred|floatformat:0 }} PLN</td>
+                        <td class="amount">{{ debt.bonuses|floatformat:0 }} PLN</td>
                         <td class="amount {% if debt.debt > 0 %}amount-negative{% elif debt.debt < 0 %}amount-positive{% endif %}">
                             {{ debt.debt|floatformat:0 }} PLN
                             {% if debt.debt > 0 %}
                                 <span class="badge badge-red">Должен</span>
                             {% elif debt.debt < 0 %}
-                                <span class="badge badge-green">Переплатил</span>
+                                <span class="badge badge-green" title="Мы должны модератору">К выплате</span>
                             {% else %}
                                 <span class="badge badge-gray">✓ Погашено</span>
                             {% endif %}
@@ -848,6 +855,34 @@
                     </label>
                 </div>
                 
+                <!-- Чекбокс комиссии модератора -->
+                <div class="form-group" id="commission-group" style="margin-bottom:15px; display:none;">
+                    <label>
+                        <input type="checkbox" name="apply_commission" id="apply-commission" value="true">
+                        Начислить бонус модератору
+                        <span id="commission-percent-label" style="color:#666; font-size:0.9em;"></span>
+                    </label>
+                </div>
+                
+                <!-- Live-расчёт комиссии -->
+                <div id="commission-preview" style="display:none; background:#f0f8ff; border:1px solid #b3d9ff; border-radius:6px; padding:12px; margin-bottom:15px; font-size:14px;">
+                    <div style="font-weight:600; margin-bottom:8px; color:#0066cc;">Расчёт комиссии:</div>
+                    <table style="width:100%; border-collapse:collapse;">
+                        <tr>
+                            <td style="padding:3px 0;">Сумма перевода:</td>
+                            <td style="padding:3px 0; text-align:right; font-weight:600;" id="calc-transfer">0 PLN</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:3px 0;">Комиссия (<span id="calc-percent">0</span>%):</td>
+                            <td style="padding:3px 0; text-align:right; font-weight:600; color:#e67700;" id="calc-commission">0 PLN</td>
+                        </tr>
+                        <tr style="border-top:1px solid #b3d9ff;">
+                            <td style="padding:6px 0 3px; font-weight:600;">Итого списание с долга:</td>
+                            <td style="padding:6px 0 3px; text-align:right; font-weight:700; color:#cc0000;" id="calc-total">0 PLN</td>
+                        </tr>
+                    </table>
+                </div>
+                
                 <div class="form-group" style="margin-bottom:15px">
                     <label>Дата</label>
                     <input type="date" name="date" id="date" value="{{ today|date:'Y-m-d' }}">
@@ -871,6 +906,17 @@
 </div>
 
 <script>
+// ---- Данные о партнёрах для live-расчёта комиссии ----
+var PARTNER_DATA = {
+    {% for partner in partner_choices %}
+    '{{ partner.id }}': {
+        name: '{{ partner.name }}',
+        role: '{{ partner.role }}',
+        commission_percent: {{ partner.commission_percent }}
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+};
+
 // Tab switching
 function showTab(tabName) {
     // Hide all tabs
@@ -881,6 +927,62 @@ function showTab(tabName) {
     document.getElementById('tab-' + tabName).classList.add('active');
     event.target.classList.add('active');
 }
+
+// ---- Логика комиссии ----
+function updateCommissionUI() {
+    var fromId = document.getElementById('from-partner').value;
+    var purpose = document.getElementById('purpose').value;
+    var useCollected = document.getElementById('use-collected').checked;
+    var amount = parseFloat(document.getElementById('amount').value) || 0;
+    var applyCommission = document.getElementById('apply-commission').checked;
+    
+    var commGroup = document.getElementById('commission-group');
+    var commPreview = document.getElementById('commission-preview');
+    var partner = fromId ? PARTNER_DATA[fromId] : null;
+    
+    var showCommission = (partner && partner.role === 'moderator'
+                          && partner.commission_percent > 0
+                          && purpose === 'moderator_to_owner'
+                          && useCollected);
+    
+    // Показать/скрыть чекбокс комиссии
+    commGroup.style.display = showCommission ? 'block' : 'none';
+    if (!showCommission) {
+        document.getElementById('apply-commission').checked = false;
+        commPreview.style.display = 'none';
+        return;
+    }
+    
+    // Подпись процента
+    document.getElementById('commission-percent-label').textContent = '(' + partner.commission_percent + '%)';
+    
+    // Live-расчёт
+    if (applyCommission && amount > 0) {
+        var pct = partner.commission_percent;
+        var base = amount / (1 - pct / 100);
+        var commission = Math.round(base - amount);
+        var total = amount + commission;
+        
+        document.getElementById('calc-transfer').textContent = amount + ' PLN';
+        document.getElementById('calc-percent').textContent = pct;
+        document.getElementById('calc-commission').textContent = commission + ' PLN';
+        document.getElementById('calc-total').textContent = total + ' PLN';
+        commPreview.style.display = 'block';
+    } else {
+        commPreview.style.display = 'none';
+    }
+}
+
+// Привязка событий для live-расчёта
+document.addEventListener('DOMContentLoaded', function() {
+    ['from-partner', 'purpose', 'amount', 'use-collected', 'apply-commission'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', updateCommissionUI);
+            el.addEventListener('input', updateCommissionUI);
+        }
+    });
+});
 
 // Transfer form
 function openTransferForm(fromId, toId, amount, purpose, useCollected) {
@@ -896,8 +998,20 @@ function openTransferForm(fromId, toId, amount, purpose, useCollected) {
     // По умолчанию галочка "Добавить в взносы" выключена
     document.getElementById('add-to-deposits').checked = false;
     
+    // Автовключение чекбокса комиссии, если модератор→владелец и процент > 0
+    var partner = fromId ? PARTNER_DATA[fromId] : null;
+    if (partner && partner.role === 'moderator' && partner.commission_percent > 0
+        && purpose === 'moderator_to_owner' && useCollected) {
+        document.getElementById('apply-commission').checked = true;
+    } else {
+        document.getElementById('apply-commission').checked = false;
+    }
+    
     // Clear message
     document.getElementById('form-message').innerHTML = '';
+    
+    // Обновить UI комиссии
+    updateCommissionUI();
 }
 
 // Open form for owner-to-owner transfer (manual input)
@@ -913,17 +1027,23 @@ function openOwnerTransferForm() {
     // Uncheck use_collected, check add_to_deposits
     document.getElementById('use-collected').checked = false;
     document.getElementById('add-to-deposits').checked = true;
+    document.getElementById('apply-commission').checked = false;
     
     // Set today's date
     document.getElementById('date').value = '{{ today|date:"Y-m-d" }}';
     
     // Clear message
     document.getElementById('form-message').innerHTML = '';
+    
+    // Обновить UI комиссии
+    updateCommissionUI();
 }
 
 function closeTransferForm() {
     document.getElementById('transfer-form-container').style.display = 'none';
     document.getElementById('transfer-form').reset();
+    document.getElementById('commission-preview').style.display = 'none';
+    document.getElementById('commission-group').style.display = 'none';
 }
 
 async function submitTransfer(event) {

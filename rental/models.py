@@ -527,6 +527,12 @@ class Expense(TimeStampedModel):
         DEPOSIT = "deposit", "Внесение личных средств"
     payment_type = models.CharField(max_length=16, choices=PaymentType.choices, default=PaymentType.PURCHASE)
     paid_by_partner = models.ForeignKey('FinancePartner', null=True, blank=True, on_delete=models.SET_NULL, related_name='expenses_paid')
+    related_transfer = models.ForeignKey(
+        'MoneyTransfer', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='commission_expenses',
+        verbose_name="Связанный перевод",
+        help_text="Перевод, по которому начислена комиссия модератору",
+    )
     note = models.TextField(blank=True)
     history = HistoricalRecords()
 
@@ -759,6 +765,11 @@ class FinancePartner(TimeStampedModel):
     city = models.ForeignKey('City', on_delete=models.PROTECT, null=True, blank=True, related_name='finance_partners')
     cities = models.ManyToManyField('City', blank=True, related_name='finance_partners_multi', verbose_name="Города (для владельцев)")
     share_percent = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("50.00"))
+    commission_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal("0.00"),
+        help_text="Процент комиссии модератора (например, 10.00 = 10%)",
+        verbose_name="Комиссия %",
+    )
     active = models.BooleanField(default=True)
     note = models.TextField(blank=True)
     history = HistoricalRecords()
