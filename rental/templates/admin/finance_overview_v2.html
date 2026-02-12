@@ -1,5 +1,5 @@
 {% extends "admin/base_site.html" %}
-{% load i18n static custom_filters %}
+{% load i18n static custom_filters l10n %}
 
 {% block extrahead %}
 <script src="https://unpkg.com/htmx.org@1.9.10"></script>
@@ -379,7 +379,7 @@
 <div id="debug-banner" style="background:#b2dfff;border:2px solid #2196f3;padding:8px 16px;margin-bottom:12px;border-radius:6px;font-size:13px;font-family:monospace;">
     <strong>DEBUG v2.2 [APP_DIRS]</strong> |
     Partners: {{ partner_choices|length }} |
-    Commission data: {% for p in partner_choices %}{{ p.name }}={{ p.commission_percent }}% {% endfor %} |
+    Commission data: {% for p in partner_choices %}{{ p.name }}={% localize off %}{{ p.commission_percent }}{% endlocalize %}% {% endfor %} |
     Moderators: {{ moderator_debts|length }}
 </div>
 <!-- #endregion -->
@@ -916,6 +916,7 @@
 
 <script>
 // ---- Данные о партнёрах для live-расчёта комиссии ----
+{% localize off %}
 var PARTNER_DATA = {
     {% for partner in partner_choices %}
     '{{ partner.id }}': {
@@ -925,6 +926,7 @@ var PARTNER_DATA = {
     }{% if not forloop.last %},{% endif %}
     {% endfor %}
 };
+{% endlocalize %}
 
 // #region agent log
 console.log('[DEBUG v2.2 APP_DIRS] PARTNER_DATA:', JSON.stringify(PARTNER_DATA));
