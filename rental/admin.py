@@ -1602,15 +1602,37 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             .values_list('from_partner_id', 'total')
         )
         
+        # Комиссии (бонусы модераторам), сгруппированные по владельцу (paid_by_partner)
+        # Эти суммы списываются с долга модератора и должны учитываться
+        # как "полученные от модераторов" в балансе владельца
+        bonus_cat_for_owners = ExpenseCategory.objects.filter(name="Бонус модераторам").first()
+        commission_by_owner = {}
+        if bonus_cat_for_owners:
+            comm_qs = (
+                Expense.objects
+                .filter(
+                    date__gte=cutoff,
+                    category=bonus_cat_for_owners,
+                    related_transfer__isnull=False,
+                    paid_by_partner__isnull=False,
+                )
+                .values('paid_by_partner_id')
+                .annotate(total=Sum('amount'))
+            )
+            for row in comm_qs:
+                commission_by_owner[row['paid_by_partner_id']] = Decimal(row['total'] or 0)
+        
         # Расчёт балансов владельцев (доходы)
         owner_balances = {}
         for owner in owners:
             pid = owner.id
             uid = owner.user_id
             
-            # Вариант B: Получил = Payments + От модераторов + От других владельцев
             received_payments = Decimal(payments_by_user.get(uid, 0))
-            received_from_mods = Decimal(incoming_from_mods.get(pid, 0))
+            # Получил от модераторов = переводы + комиссии (бонусы), оплаченные этим владельцем
+            received_from_mods_transfers = Decimal(incoming_from_mods.get(pid, 0))
+            received_from_mods_commissions = Decimal(commission_by_owner.get(pid, 0))
+            received_from_mods = received_from_mods_transfers + received_from_mods_commissions
             received_from_owners = Decimal(incoming_from_owners.get(pid, 0))
             
             sent_to_owners = Decimal(outgoing_to_owners.get(pid, 0))
