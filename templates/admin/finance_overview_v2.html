@@ -434,7 +434,7 @@
                         <th>Собрал</th>
                         <th>Перевёл владельцам</th>
                         <th>Бонусы (комиссия)</th>
-                        <th>Долг</th>
+                        <th>Баланс</th>
                         <th>Действие</th>
                     </tr>
                 </thead>
@@ -775,12 +775,7 @@
                         <td>{{ transfer.date|date:"d.m.Y" }}</td>
                         <td>{{ transfer.from_partner.user.username }}</td>
                         <td>{{ transfer.to_partner.user.username }}</td>
-                        <td class="amount">
-                            {{ transfer.amount|floatformat:0 }} PLN
-                            {% for ce in transfer.commission_expenses.all %}
-                                <br><span style="color:#e67700; font-size:0.85em;">+ {{ ce.amount|floatformat:0 }} PLN комиссия модератору</span>
-                            {% endfor %}
-                        </td>
+                        <td class="amount">{{ transfer.amount|floatformat:0 }} PLN</td>
                         <td>
                             {% if transfer.purpose == "moderator_to_owner" %}
                                 <span class="badge badge-red">Mod → Owner</span>
@@ -790,7 +785,12 @@
                                 <span class="badge badge-gray">{{ transfer.get_purpose_display }}</span>
                             {% endif %}
                         </td>
-                        <td>{{ transfer.note|default:"-" }}</td>
+                        <td>
+                            {% for ce in transfer.commission_expenses.all %}
+                                <span style="color:#e67700; font-size:0.85em;">+ {{ ce.amount|floatformat:0 }} PLN комиссия, списано с баланса {{ transfer.amount|add:ce.amount|floatformat:0 }} PLN</span><br>
+                            {% endfor %}
+                            {{ transfer.note|default:"-" }}
+                        </td>
                     </tr>
                     {% empty %}
                     <tr>
