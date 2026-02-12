@@ -2007,6 +2007,19 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
         try:
             pc = context.get('partner_choices') or []
             first_keys = list(pc[0].keys()) if pc else []
+            # Collect commission data for all partners
+            commission_data = [
+                {"id": p.get("id"), "name": p.get("name"), "role": p.get("role"), "cp": p.get("commission_percent")}
+                for p in pc
+            ]
+            # Check which template file Django will actually resolve
+            from django.template.loader import get_template
+            try:
+                tpl = get_template(self.change_list_template)
+                resolved_template_path = str(tpl.origin)
+            except Exception as te:
+                resolved_template_path = f"ERROR: {te}"
+            
             with open(str(get_debug_log_path()), 'a', encoding='utf-8') as f:
                 f.write(json.dumps({
                     "id": "log_finance_v2_render",
@@ -2014,14 +2027,19 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
                     "location": "admin.py:FinanceOverviewAdmin2.changelist_view:before_render",
                     "message": "finance_v2 changelist rendering",
                     "data": {
-                        "template": self.change_list_template,
+                        "request_path": request.path,
+                        "template_name": self.change_list_template,
+                        "resolved_template_path": resolved_template_path,
                         "partner_choices_len": len(pc),
                         "first_partner_keys": first_keys,
                         "has_commission_percent_in_context": "commission_percent" in first_keys,
-                        "template_version": "2.1_commission_ui",
+                        "commission_data": commission_data,
+                        "moderator_debts_count": len(context.get('moderator_debts', [])),
+                        "template_version": "2.2_debug",
+                        "DEBUG_setting": getattr(__import__('django.conf', fromlist=['settings']).settings, 'DEBUG', 'unknown'),
                     },
-                    "runId": "finance_v2",
-                    "hypothesisId": "H1,H2,H3",
+                    "runId": "finance_v2_debug",
+                    "hypothesisId": "H1,H2,H3,H4,H5",
                 }) + "\n")
         except Exception:
             pass

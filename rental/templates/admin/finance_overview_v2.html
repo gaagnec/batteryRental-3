@@ -374,6 +374,15 @@
 {% endblock %}
 
 {% block content %}
+<!-- TEMPLATE_VERSION: 2.2_commission_debug | SOURCE: rental/templates/admin (APP_DIRS) -->
+<!-- #region agent log -->
+<div id="debug-banner" style="background:#b2dfff;border:2px solid #2196f3;padding:8px 16px;margin-bottom:12px;border-radius:6px;font-size:13px;font-family:monospace;">
+    <strong>DEBUG v2.2 [APP_DIRS]</strong> |
+    Partners: {{ partner_choices|length }} |
+    Commission data: {% for p in partner_choices %}{{ p.name }}={{ p.commission_percent }}% {% endfor %} |
+    Moderators: {{ moderator_debts|length }}
+</div>
+<!-- #endregion -->
 <div class="finance-v2-container">
     <h1>💰 {{ title }}</h1>
     <p class="subtitle">Бухгалтерский учёт с {{ cutoff_date|date:"d.m.Y" }}</p>
@@ -916,6 +925,12 @@ var PARTNER_DATA = {
     }{% if not forloop.last %},{% endif %}
     {% endfor %}
 };
+
+// #region agent log
+console.log('[DEBUG v2.2 APP_DIRS] PARTNER_DATA:', JSON.stringify(PARTNER_DATA));
+console.log('[DEBUG v2.2 APP_DIRS] Moderators with commission > 0:', Object.values(PARTNER_DATA).filter(function(p){return p.role==='moderator' && p.commission_percent > 0;}));
+console.log('[DEBUG v2.2 APP_DIRS] Current URL:', window.location.pathname);
+// #endregion
 
 // Tab switching
 function showTab(tabName) {
