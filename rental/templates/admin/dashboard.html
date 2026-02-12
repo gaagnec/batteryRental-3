@@ -405,6 +405,9 @@
                       <td class="text-end" style="padding: 0.75rem 1rem; border: none;">
                         <span style="font-weight: 500; color: #e3e6ed;">{{ transfer.amount|floatformat:0 }}</span>
                         <span style="color: #6e7891; font-size: 0.85em;"> PLN</span>
+                        {% for ce in transfer.commission_expenses.all %}
+                          <br><span style="color: #e67700; font-size: 0.75em;">+ {{ ce.amount|floatformat:0 }} PLN комиссия</span>
+                        {% endfor %}
                       </td>
                       <td style="padding: 0.75rem 1rem; color: #6e7891; font-style: italic; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: none;">
                         {{ transfer.note|default:"—" }}

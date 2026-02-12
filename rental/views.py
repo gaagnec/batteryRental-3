@@ -12,7 +12,7 @@ import os
 
 from decimal import Decimal
 
-from .models import Client, Rental, Battery, Payment, Repair, RentalBatteryAssignment, FinancePartner, MoneyTransfer, City
+from .models import Client, Rental, Battery, Payment, Repair, RentalBatteryAssignment, FinancePartner, MoneyTransfer, City, ExpenseCategory, Expense
 from .admin_utils import get_user_city, get_debug_log_path
 
 
@@ -465,6 +465,23 @@ def dashboard(request):
         .values_list('created_by_id', 'total')
     )
     
+    # Бонусы (комиссии), начисленные модераторам
+    bonus_category_obj = ExpenseCategory.objects.filter(name="Бонус модераторам").first()
+    moderator_bonuses = {}
+    if bonus_category_obj:
+        bonus_rows = (
+            Expense.objects
+            .filter(
+                date__gte=cutoff,
+                category=bonus_category_obj,
+                related_transfer__isnull=False,
+            )
+            .values('related_transfer__from_partner_id')
+            .annotate(total=Sum('amount'))
+        )
+        for row in bonus_rows:
+            moderator_bonuses[row['related_transfer__from_partner_id']] = Decimal(row['total'] or 0)
+    
     moderator_debts = []
     for mod in moderators:
         uid = mod.user_id
@@ -472,7 +489,8 @@ def dashboard(request):
         
         collected = Decimal(payments_by_user.get(uid, 0))
         transferred = Decimal(outgoing_from_mods.get(pid, 0))
-        debt = collected - transferred
+        bonuses = Decimal(moderator_bonuses.get(pid, 0))
+        debt = collected - transferred - bonuses
         
         # Сумма поступлений за последнюю неделю (без вычета переводов)
         collected_last_week = Decimal(payments_last_week_by_user.get(uid, 0))
@@ -481,6 +499,7 @@ def dashboard(request):
             'partner': mod,
             'collected': collected,
             'transferred': transferred,
+            'bonuses': bonuses,
             'debt': debt,
             'collected_last_week': collected_last_week,
         })
@@ -490,6 +509,7 @@ def dashboard(request):
         MoneyTransfer.objects
         .filter(date__gte=cutoff, purpose=MoneyTransfer.Purpose.MODERATOR_TO_OWNER)
         .select_related('from_partner__user', 'to_partner__user')
+        .prefetch_related('commission_expenses')
     )
     if filter_city:
         moderator_transfers_recent = moderator_transfers_recent.filter(from_partner__city=filter_city)
