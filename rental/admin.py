@@ -1894,6 +1894,7 @@ class FinanceOverviewAdmin2(admin.ModelAdmin):
             MoneyTransfer.objects
             .filter(date__gte=cutoff)
             .select_related('from_partner__user', 'to_partner__user')
+            .prefetch_related('commission_expenses')
             .order_by('-date', '-id')[:50]
         )
         

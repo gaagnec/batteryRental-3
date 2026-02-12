@@ -788,7 +788,12 @@
                         <td>{{ transfer.date|date:"d.m.Y" }}</td>
                         <td>{{ transfer.from_partner.user.username }}</td>
                         <td>{{ transfer.to_partner.user.username }}</td>
-                        <td class="amount">{{ transfer.amount|floatformat:0 }} PLN</td>
+                        <td class="amount">
+                            {{ transfer.amount|floatformat:0 }} PLN
+                            {% for ce in transfer.commission_expenses.all %}
+                                <br><span style="color:#e67700; font-size:0.85em;">+ {{ ce.amount|floatformat:0 }} PLN комиссия модератору</span>
+                            {% endfor %}
+                        </td>
                         <td>
                             {% if transfer.purpose == "moderator_to_owner" %}
                                 <span class="badge badge-red">Mod → Owner</span>
