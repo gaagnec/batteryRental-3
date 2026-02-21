@@ -3416,6 +3416,10 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                 inst.updated_by = request.user
             inst.save()
         formset.save_m2m()
+        # Явно удаляем назначения, помеченные на удаление (post_delete обновит статус батареи)
+        if formset.model == RentalBatteryAssignment:
+            for obj in formset.deleted_objects:
+                obj.delete()
 
     def make_new_version(self, request, queryset):
         count = 0
@@ -3923,10 +3927,18 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                     else:
                         a.end_reason = ""
                     a.save(update_fields=["end_at", "end_reason", "updated_by"])
-                    if a.id in end_actions or a.id in replace_actions:
+                    # Статус AVAILABLE: для replace — всегда (старая батарея освобождается);
+                    # для end — только если не создаём remainder (иначе батарея ещё в новой версии до end_at_db)
+                    if a.id in replace_actions:
                         a.battery.status = Battery.Status.AVAILABLE
                         a.battery.save(update_fields=["status"])
+                    elif a.id in end_actions:
+                        end_at_db, _ = end_actions[a.id]
+                        if end_at_db <= cut_date_dt:
+                            a.battery.status = Battery.Status.AVAILABLE
+                            a.battery.save(update_fields=["status"])
 
+                now = timezone.now()
                 # Переносим в новую версию: продолжения (не end, не replace) с cut_date_dt; replace — новая батарея с replace_date (00:00)
                 for a in active_at_cut:
                     if a.id in end_actions:
@@ -3942,6 +3954,9 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                                 created_by=request.user,
                                 updated_by=request.user,
                             )
+                            # Если remainder уже в прошлом — батарея свободна
+                            if end_at_db <= now:
+                                Battery.objects.filter(pk=a.battery_id).update(status=Battery.Status.AVAILABLE)
                         continue
                     if a.id in replace_actions:
                         new_bid, rep_dt, _ = replace_actions[a.id]
@@ -3975,7 +3990,6 @@ class RentalAdmin(ModeratorReadOnlyRelatedMixin, CityFilteredAdminMixin, SimpleH
                     )
                     Battery.objects.filter(pk=battery_id).update(status=Battery.Status.RENTED)
 
-                now = timezone.now()
                 active_count = new_rental.assignments.filter(
                     start_at__lte=now,
                 ).filter(Q(end_at__isnull=True) | Q(end_at__gt=now)).count()

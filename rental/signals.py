@@ -6,7 +6,15 @@ from django.dispatch import receiver
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 
-from .models import RentalBatteryAssignment, Repair, BatteryStatusLog, Expense, OwnerContribution, FinancePartner
+from .models import (
+    RentalBatteryAssignment,
+    Repair,
+    BatteryStatusLog,
+    Battery,
+    Expense,
+    OwnerContribution,
+    FinancePartner,
+)
 
 
 @receiver(post_migrate)
@@ -46,6 +54,10 @@ def assignment_to_statuslog(sender, instance: RentalBatteryAssignment, created, 
     if changed:
         log.save(update_fields=['end_at'])
 
+    # Синхронизация Battery.status при добавлении/сохранении назначения
+    if instance.battery_id:
+        Battery.objects.filter(pk=instance.battery_id).update(status=Battery.Status.RENTED)
+
 
 @receiver(post_delete, sender=RentalBatteryAssignment)
 def assignment_delete_statuslog(sender, instance: RentalBatteryAssignment, **kwargs):
@@ -55,6 +67,9 @@ def assignment_delete_statuslog(sender, instance: RentalBatteryAssignment, **kwa
         rental=instance.rental,
         start_at=instance.start_at,
     ).delete()
+    # Освобождаем батарею при удалении назначения
+    if instance.battery_id:
+        Battery.objects.filter(pk=instance.battery_id).update(status=Battery.Status.AVAILABLE)
 
 # --- Auto create OwnerContribution for "внесение денег" ---
 @receiver(post_save, sender=Expense)
