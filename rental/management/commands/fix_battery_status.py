@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from django.db.models import Q, Exists, OuterRef
 
-from rental.models import Battery, RentalBatteryAssignment
+from rental.models import Battery, RentalBatteryAssignment, Rental
 
 
 class Command(BaseCommand):
@@ -22,9 +22,10 @@ class Command(BaseCommand):
         dry_run = options['dry_run']
         now = timezone.now()
 
-        # Активное назначение: start_at <= now и (end_at is null или end_at > now)
+        # Активное назначение: только по активному договору (ACTIVE), start_at <= now, end_at не закрыт
         active_assignment = RentalBatteryAssignment.objects.filter(
             battery_id=OuterRef('pk'),
+            rental__status=Rental.Status.ACTIVE,
             start_at__lte=now,
         ).filter(Q(end_at__isnull=True) | Q(end_at__gt=now))
 
